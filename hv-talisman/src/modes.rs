@@ -75,13 +75,15 @@ pub struct ModeStack {
 }
 
 impl ModeStack {
-    fn do_op(&mut self, ctx: &mut LevelContext, op: Transition) -> Result<()> {
+    fn do_op(&mut self, ctx: &mut LevelContext, op: Transition) -> Result<bool> {
         match op {
-            Transition::Noop => Ok(()),
+            Transition::Noop => return Ok(false),
             Transition::Pop => self.pop(ctx),
             Transition::Push(transition) => self.push(ctx, transition),
             Transition::To(transition) => self.to(ctx, transition),
-        }
+        }?;
+
+        Ok(true)
     }
 
     pub fn new() -> Self {
@@ -137,7 +139,11 @@ impl ModeStack {
             .split_last_mut()
             .map(|(last, rest)| last.show(ctx, rest))
             .unwrap_or(Ok(Transition::Noop))?;
-        self.do_op(ctx, op)
+        if self.do_op(ctx, op)? {
+            self.show(ctx)
+        } else {
+            Ok(())
+        }
     }
 
     pub fn update(&mut self, ctx: &mut LevelContext) -> Result<()> {
@@ -147,7 +153,11 @@ impl ModeStack {
             .split_last_mut()
             .map(|(last, rest)| last.update(ctx, rest))
             .unwrap_or(Ok(Transition::Noop))?;
-        self.do_op(ctx, op)
+        if self.do_op(ctx, op)? {
+            self.update(ctx)
+        } else {
+            Ok(())
+        }
     }
 
     pub fn draw(&mut self, ctx: &mut LevelContext) -> Result<()> {
@@ -165,7 +175,11 @@ impl ModeStack {
             .split_last_mut()
             .map(|(last, rest)| last.event(ctx, rest, event))
             .unwrap_or(Ok(Transition::Noop))?;
-        self.do_op(ctx, op)
+        if self.do_op(ctx, op)? {
+            self.event(ctx, event)
+        } else {
+            Ok(())
+        }
     }
 }
 
@@ -184,7 +198,7 @@ impl LevelEditorMode for ContextMenuSubMode {
         let egui_ctx = (*ctx.egui.borrow()).clone();
         let response = egui::Window::new("pan mode right click menu")
             .fixed_pos(self.position)
-            .auto_sized()
+            .resizable(false)
             .title_bar(false)
             .show(&egui_ctx, |ui| {
                 if ui.button("New object").clicked() {
@@ -268,6 +282,8 @@ impl LevelEditorMode for ContextMenuSubMode {
             } else if response.response.clicked_elsewhere() {
                 return Ok(Transition::Pop);
             }
+        } else {
+            return Ok(Transition::Pop);
         }
 
         Ok(Transition::Noop)
@@ -344,23 +360,9 @@ impl LevelEditorMode for MoveObjectSubMode {
 const POSITION_INTERACTION_RADIUS: f32 = 8.;
 
 #[derive(Default)]
-pub struct NormalMode {
-    stack: ModeStack,
-    right_click_menu_position: Option<egui::Pos2>,
-}
+pub struct BaseSubMode;
 
-impl LevelEditorMode for NormalMode {
-    fn enter(
-        &mut self,
-        _ctx: &mut LevelContext,
-        _prev: &mut [Box<dyn LevelEditorMode>],
-    ) -> Result<()> {
-        self.stack.clear();
-        self.right_click_menu_position = None;
-
-        Ok(())
-    }
-
+impl LevelEditorMode for BaseSubMode {
     fn update(
         &mut self,
         ctx: &mut LevelContext,
@@ -375,21 +377,7 @@ impl LevelEditorMode for NormalMode {
                 log::trace!("closest: {:?}", closest);
             }
 
-            if response.dragged() {
-                log::trace!("dragged");
-
-                if let Some(closest) = closest {
-                    if !ctx.selected_objects.contains(&closest) {
-                        ctx.selected_objects.clear();
-                        ctx.selected_objects.insert(closest);
-                    }
-
-                    self.stack
-                        .push(ctx, Box::new(MoveObjectSubMode::default()))?;
-                } else {
-                    self.stack.push(ctx, Box::new(PanSubMode::default()))?;
-                }
-            } else if response.clicked_by(egui::PointerButton::Primary) {
+            if response.clicked_by(egui::PointerButton::Primary) {
                 log::trace!("clicked (primary)");
 
                 if !response.ctx.input().modifiers.shift {
@@ -405,17 +393,53 @@ impl LevelEditorMode for NormalMode {
                 log::trace!("clicked (secondary)");
 
                 if let Some(position) = response.interact_pointer_pos() {
-                    self.stack.push(
-                        ctx,
-                        Box::new(ContextMenuSubMode {
-                            position,
-                            object: closest,
-                        }),
-                    )?;
+                    return Ok(Transition::Push(Box::new(ContextMenuSubMode {
+                        position,
+                        object: closest,
+                    })));
+                }
+            } else if response.dragged() {
+                log::trace!("dragged");
+
+                if let Some(closest) = closest {
+                    if !ctx.selected_objects.contains(&closest) {
+                        ctx.selected_objects.clear();
+                        ctx.selected_objects.insert(closest);
+                    }
+
+                    return Ok(Transition::Push(Box::new(MoveObjectSubMode::default())));
+                } else {
+                    return Ok(Transition::Push(Box::new(PanSubMode::default())));
                 }
             }
         }
 
+        Ok(Transition::Noop)
+    }
+}
+
+#[derive(Default)]
+pub struct NormalMode {
+    stack: ModeStack,
+}
+
+impl LevelEditorMode for NormalMode {
+    fn enter(
+        &mut self,
+        ctx: &mut LevelContext,
+        _prev: &mut [Box<dyn LevelEditorMode>],
+    ) -> Result<()> {
+        self.stack.clear();
+        self.stack.push(ctx, Box::new(BaseSubMode::default()))?;
+
+        Ok(())
+    }
+
+    fn update(
+        &mut self,
+        ctx: &mut LevelContext,
+        _prev: &mut [Box<dyn LevelEditorMode>],
+    ) -> Result<Transition> {
         self.stack.update(ctx)?;
 
         Ok(Transition::Noop)

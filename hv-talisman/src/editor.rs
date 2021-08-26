@@ -4,7 +4,6 @@ use std::{
 };
 
 use bincode::Options;
-use hv_mymachine::Console;
 use hv_core::{
     engine::{Engine, EngineRef, LuaResource, Resource, WeakResourceCache},
     hecs::{Bundle, EntityBuilder},
@@ -25,6 +24,7 @@ use hv_friends::{
     scene::{EngineEvent, Scene, SceneStack},
     Position,
 };
+use hv_mymachine::Console;
 use thunderdome::{Arena, Index};
 
 use crate::{
@@ -364,6 +364,16 @@ impl LevelEditor {
             despawn_queue: Vec::new(),
         };
 
+        let mut modes = crate::modes::modes();
+        let current_mode = crate::modes::default_mode();
+
+        if let Some(default_mode) = current_mode.as_ref() {
+            modes
+                .get_mut(default_mode)
+                .unwrap()
+                .enter(&mut mode_ctx, &mut [])?;
+        }
+
         Ok(Self {
             path: None,
 
@@ -378,8 +388,8 @@ impl LevelEditor {
             editor_space,
 
             mode_ctx,
-            modes: crate::modes::modes(),
-            current_mode: crate::modes::default_mode(),
+            modes,
+            current_mode,
         })
     }
 
