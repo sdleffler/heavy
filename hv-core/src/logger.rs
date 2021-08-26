@@ -1,0 +1,34 @@
+use anyhow::Result;
+use mlua::prelude::*;
+
+use crate::{
+    engine::Engine,
+    plugins::{ModuleWrapper, Plugin},
+};
+
+struct LoggerModule;
+
+impl Plugin for LoggerModule {
+    fn name(&self) -> &'static str {
+        "logger"
+    }
+
+    fn open<'lua>(&self, lua: &'lua mlua::Lua, _engine: &Engine) -> Result<LuaTable<'lua>> {
+        let log_info = lua.create_function(|_, (target, formatted): (LuaString, LuaString)| {
+            let target = target.to_string_lossy();
+            let formatted = formatted.to_string_lossy();
+            log::info!(target: &*target, "{}", formatted);
+            Ok(())
+        })?;
+
+        Ok(lua
+            .load(mlua::chunk! {
+                {
+                    info = $log_info
+                }
+            })
+            .eval()?)
+    }
+}
+
+inventory::submit!(ModuleWrapper::new(LoggerModule));

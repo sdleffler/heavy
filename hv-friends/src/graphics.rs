@@ -1,0 +1,802 @@
+use anyhow::*;
+use std::{
+    mem,
+    ptr::NonNull,
+    sync::{MutexGuard, RwLockWriteGuard},
+};
+
+use hv_core::{
+    components::DynamicComponentConstructor,
+    engine::{Engine, EngineRef, LuaExt, LuaResource, Resource},
+    mlua,
+    mq::{self, PassAction},
+    util::RwLockExt,
+};
+use mlua::prelude::*;
+use serde::*;
+
+use crate::{
+    graphics::{
+        bindings::Bindings,
+        pipeline::{Pipeline, PipelineRegistry, ShaderRegistry},
+        render_pass::RenderPassRegistry,
+        sprite::{CachedSpriteSheet, SpriteAnimationState, SpriteSheetCache},
+        texture::TextureCache,
+    },
+    math::*,
+};
+
+pub mod basic;
+pub mod bindings;
+pub mod buffer;
+pub mod canvas;
+mod color;
+pub mod mesh;
+pub mod pipeline;
+pub mod render_pass;
+pub mod sprite;
+pub mod text;
+pub mod texture;
+mod transform_stack;
+
+pub use basic::{InstanceProperties, Uniforms, Vertex};
+pub use buffer::{Buffer, BufferElement, BufferFormat, BufferType, OwnedBuffer};
+pub use canvas::Canvas;
+pub use color::{Color, LinearColor};
+pub use mesh::{DrawMode, Mesh, MeshBuilder};
+pub use render_pass::{OwnedRenderPass, RenderPass};
+pub use sprite::{Sprite, SpriteBatch, SpriteId};
+pub use texture::{CachedTexture, OwnedTexture, SharedTexture};
+pub use transform_stack::TransformStack;
+
+fn quad_vertices() -> [Vertex; 4] {
+    [
+        Vertex {
+            pos: Vector3::new(0., 0., 0.),
+            uv: Vector2::new(0., 0.),
+            color: Color::WHITE.into(),
+        },
+        Vertex {
+            pos: Vector3::new(1., 0., 0.),
+            uv: Vector2::new(1., 0.),
+            color: Color::WHITE.into(),
+        },
+        Vertex {
+            pos: Vector3::new(1., 1., 0.),
+            uv: Vector2::new(1., 1.),
+            color: Color::WHITE.into(),
+        },
+        Vertex {
+            pos: Vector3::new(0., 1., 0.),
+            uv: Vector2::new(0., 1.),
+            color: Color::WHITE.into(),
+        },
+    ]
+}
+
+fn quad_indices() -> [u16; 6] {
+    [0, 1, 2, 0, 2, 3]
+}
+
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+pub struct Instance {
+    pub src: Box2<f32>,
+    pub tx: Transform3<f32>,
+    pub color: Color,
+}
+
+impl Default for Instance {
+    fn default() -> Self {
+        Self {
+            src: Box2::new(0., 0., 1., 1.),
+            tx: Transform3::identity(),
+            color: Color::WHITE,
+        }
+    }
+}
+
+impl Instance {
+    #[inline]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    #[inline]
+    pub fn src(self, src: Box2<f32>) -> Self {
+        Self { src, ..self }
+    }
+
+    #[inline]
+    pub fn color(self, color: Color) -> Self {
+        Self { color, ..self }
+    }
+
+    #[inline]
+    pub fn rotate2(self, angle: f32) -> Self {
+        Self {
+            tx: self.tx
+                * Transform3::from_matrix_unchecked(homogeneous_mat3_to_mat4(
+                    &Rotation2::new(angle).to_homogeneous(),
+                )),
+            ..self
+        }
+    }
+
+    #[inline]
+    pub fn translate2(self, v: Vector2<f32>) -> Self {
+        Self {
+            tx: self.tx * Translation3::new(v.x, v.y, 0.),
+            ..self
+        }
+    }
+
+    #[inline]
+    pub fn scale2(self, v: Vector2<f32>) -> Self {
+        Self {
+            tx: self.tx
+                * Transform3::from_matrix_unchecked(Matrix4::from_diagonal(&v.push(1.).push(1.))),
+            ..self
+        }
+    }
+
+    #[inline]
+    pub fn translate3(self, v: Vector3<f32>) -> Self {
+        Self {
+            tx: self.tx * Translation3::from(v),
+            ..self
+        }
+    }
+
+    #[inline]
+    pub fn transform3(self, tx: &Transform3<f32>) -> Self {
+        Self {
+            tx: self.tx * tx,
+            ..self
+        }
+    }
+
+    #[inline]
+    pub fn to_instance_properties(&self) -> InstanceProperties {
+        let mins = self.src.mins;
+        let extents = self.src.extents();
+        InstanceProperties {
+            src: Vector4::new(mins.x, mins.y, extents.x, extents.y),
+            tx: *self.tx.matrix(),
+            color: LinearColor::from(self.color),
+        }
+    }
+
+    #[inline]
+    pub fn transform_aabb(&self, aabb: &Box2<f32>) -> Box2<f32> {
+        aabb.transformed_by(self.tx.matrix())
+    }
+}
+
+impl LuaUserData for Instance {
+    fn add_methods<'lua, M: LuaUserDataMethods<'lua, Self>>(methods: &mut M) {
+        methods.add_method_mut("reset", |_, this, ()| {
+            *this = Instance::new();
+            Ok(())
+        });
+
+        methods.add_method_mut("src", |_, this, (x, y, w, h)| {
+            *this = this.src(Box2::new(x, y, w, h));
+            Ok(())
+        });
+
+        methods.add_method_mut("rotate2", |_, this, angle: f32| {
+            *this = this.rotate2(angle);
+            Ok(())
+        });
+
+        methods.add_method_mut("scale2", |_, this, (x, y)| {
+            *this = this.scale2(Vector2::new(x, y));
+            Ok(())
+        });
+
+        methods.add_method_mut("translate2", |_, this, (x, y): (f32, f32)| {
+            *this = this.translate2(Vector2::new(x, y));
+            Ok(())
+        });
+
+        methods.add_method_mut("isometry2", |_, this, hv_iso: HvIsometry2<f32>| {
+            *this = this.transform3(&Transform3::from_matrix_unchecked(hv_iso.to_matrix4()));
+            Ok(())
+        });
+
+        methods.add_method_mut("color", |_, this, color| {
+            *this = this.color(color);
+            Ok(())
+        });
+    }
+}
+
+pub trait DrawableMut {
+    fn draw_mut(&mut self, ctx: &mut Graphics, instance: Instance);
+}
+
+pub trait Drawable: DrawableMut {
+    fn draw(&self, ctx: &mut Graphics, instance: Instance);
+}
+
+impl DrawableMut for () {
+    fn draw_mut(&mut self, _ctx: &mut Graphics, _instance: Instance) {}
+}
+
+impl Drawable for () {
+    fn draw(&self, _ctx: &mut Graphics, _instance: Instance) {}
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub enum FilterMode {
+    Nearest,
+    Linear,
+}
+
+impl<'lua> ToLua<'lua> for FilterMode {
+    fn to_lua(self, lua: &'lua Lua) -> LuaResult<LuaValue<'lua>> {
+        lua.to_value(&self)
+    }
+}
+
+impl<'lua> FromLua<'lua> for FilterMode {
+    fn from_lua(lua_value: LuaValue<'lua>, lua: &'lua Lua) -> LuaResult<Self> {
+        lua.from_value(lua_value)
+    }
+}
+
+/// `BlendEquation` represents the different types of equations that can be
+/// used to blend colors
+#[derive(Debug, Clone, Copy)]
+pub enum BlendEquation {
+    Add,
+    Sub,
+    ReverseSub,
+}
+
+impl From<BlendEquation> for mq::Equation {
+    fn from(beq: BlendEquation) -> Self {
+        match beq {
+            BlendEquation::Add => mq::Equation::Add,
+            BlendEquation::Sub => mq::Equation::Subtract,
+            BlendEquation::ReverseSub => mq::Equation::ReverseSubtract,
+        }
+    }
+}
+
+/// `BlendFactor` represents the different factors that can be used when
+/// blending two colors
+#[derive(Debug, Clone, Copy)]
+pub enum BlendFactor {
+    Zero,
+    One,
+    SourceColor,
+    SourceAlpha,
+    DestinationColor,
+    DestinationAlpha,
+    OneMinusSourceColor,
+    OneMinusSourceAlpha,
+    OneMinusDestinationColor,
+    OneMinusDestinationAlpha,
+    SourceAlphaSaturate,
+}
+
+impl From<BlendFactor> for mq::BlendFactor {
+    fn from(bf: BlendFactor) -> Self {
+        use {
+            mq::{BlendFactor as MqBf, BlendValue as MqBv},
+            BlendFactor::*,
+        };
+
+        match bf {
+            Zero => MqBf::Zero,
+            One => MqBf::One,
+            SourceColor => MqBf::Value(MqBv::SourceColor),
+            SourceAlpha => MqBf::Value(MqBv::SourceAlpha),
+            DestinationColor => MqBf::Value(MqBv::DestinationColor),
+            DestinationAlpha => MqBf::Value(MqBv::DestinationAlpha),
+            OneMinusSourceColor => MqBf::OneMinusValue(MqBv::SourceColor),
+            OneMinusSourceAlpha => MqBf::OneMinusValue(MqBv::SourceAlpha),
+            OneMinusDestinationColor => MqBf::OneMinusValue(MqBv::DestinationColor),
+            OneMinusDestinationAlpha => MqBf::OneMinusValue(MqBv::DestinationAlpha),
+            SourceAlphaSaturate => MqBf::SourceAlphaSaturate,
+        }
+    }
+}
+
+/// `BlendMode` represents a struct that encapsulates all of the different
+/// fields required to blend two colors
+#[derive(Debug, Copy, Clone)]
+pub struct BlendMode {
+    eq: BlendEquation,
+    src: BlendFactor,
+    dst: BlendFactor,
+}
+
+impl Default for BlendMode {
+    fn default() -> Self {
+        Self::new(
+            BlendEquation::Add,
+            BlendFactor::SourceAlpha,
+            BlendFactor::OneMinusSourceAlpha,
+        )
+    }
+}
+
+impl BlendMode {
+    pub fn new(eq: BlendEquation, src: BlendFactor, dst: BlendFactor) -> Self {
+        Self { eq, src, dst }
+    }
+}
+
+impl From<BlendMode> for mq::BlendState {
+    fn from(bm: BlendMode) -> Self {
+        mq::BlendState::new(bm.eq.into(), bm.src.into(), bm.dst.into())
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct ClearOptions {
+    pub color: Option<Color>,
+    pub depth: Option<f32>,
+    pub stencil: Option<i32>,
+}
+
+impl Default for ClearOptions {
+    fn default() -> Self {
+        Self {
+            color: Some(Color::ZEROS),
+            depth: Some(1.),
+            stencil: None,
+        }
+    }
+}
+
+impl LuaUserData for ClearOptions {
+    fn add_fields<'lua, F: LuaUserDataFields<'lua, Self>>(fields: &mut F) {
+        fields.add_field_method_get("color", |_lua, this| Ok(this.color));
+        fields.add_field_method_get("depth", |_lua, this| Ok(this.depth));
+        fields.add_field_method_get("stencil", |_lua, this| Ok(this.stencil));
+
+        fields.add_field_method_set("color", |_lua, this, color| {
+            this.color = color;
+            Ok(())
+        });
+
+        fields.add_field_method_set("depth", |_lua, this, depth| {
+            this.depth = depth;
+            Ok(())
+        });
+
+        fields.add_field_method_set("stencil", |_lua, this, stencil| {
+            this.stencil = stencil;
+            Ok(())
+        });
+    }
+}
+
+pub struct GraphicsState {
+    default_pipeline: mq::Pipeline,
+    pub null_texture: CachedTexture,
+    projection: Matrix4<f32>,
+    modelview: TransformStack,
+    quad_bindings: mq::Bindings,
+    render_passes: RenderPassRegistry,
+    shaders: ShaderRegistry,
+    pipelines: PipelineRegistry,
+    pipeline_stack: Vec<Option<Pipeline>>,
+}
+
+impl GraphicsState {
+    fn new(mq: &mut mq::Context) -> Result<Self> {
+        let shader = mq::Shader::new(
+            mq,
+            basic::BASIC_VERTEX,
+            basic::BASIC_FRAGMENT,
+            basic::meta(),
+        )?;
+
+        let pipeline = mq::Pipeline::with_params(
+            mq,
+            &[
+                mq::BufferLayout::default(),
+                mq::BufferLayout {
+                    step_func: mq::VertexStep::PerInstance,
+                    ..mq::BufferLayout::default()
+                },
+            ],
+            &[
+                mq::VertexAttribute::with_buffer("a_Pos", mq::VertexFormat::Float3, 0),
+                mq::VertexAttribute::with_buffer("a_Uv", mq::VertexFormat::Float2, 0),
+                mq::VertexAttribute::with_buffer("a_VertColor", mq::VertexFormat::Float4, 0),
+                mq::VertexAttribute::with_buffer("a_Src", mq::VertexFormat::Float4, 1),
+                mq::VertexAttribute::with_buffer("a_Tx", mq::VertexFormat::Mat4, 1),
+                mq::VertexAttribute::with_buffer("a_Color", mq::VertexFormat::Float4, 1),
+            ],
+            shader,
+            mq::PipelineParams {
+                color_blend: Some(BlendMode::default().into()),
+                depth_test: mq::Comparison::LessOrEqual,
+                depth_write: true,
+                ..mq::PipelineParams::default()
+            },
+        );
+
+        let mut null_texture =
+            CachedTexture::from(mq::Texture::from_rgba8(mq, 1, 1, &[0xFF, 0xFF, 0xFF, 0xFF]));
+
+        let quad_vertices =
+            mq::Buffer::immutable(mq, mq::BufferType::VertexBuffer, &quad_vertices());
+        let quad_indices = mq::Buffer::immutable(mq, mq::BufferType::IndexBuffer, &quad_indices());
+
+        let instances = mq::Buffer::stream(
+            mq,
+            mq::BufferType::VertexBuffer,
+            mem::size_of::<InstanceProperties>(),
+        );
+
+        let quad_bindings = mq::Bindings {
+            vertex_buffers: vec![quad_vertices, instances],
+            index_buffer: quad_indices,
+            images: vec![null_texture.get_cached().handle],
+        };
+
+        Ok(Self {
+            default_pipeline: pipeline,
+            null_texture,
+            projection: Matrix4::identity(),
+            modelview: TransformStack::new(),
+            quad_bindings,
+            render_passes: RenderPassRegistry::new(),
+            shaders: ShaderRegistry::new(),
+            pipelines: PipelineRegistry::new(),
+            pipeline_stack: Vec::new(),
+        })
+    }
+}
+
+pub struct GraphicsLock {
+    engine_ref: EngineRef,
+    state: GraphicsState,
+}
+
+impl GraphicsLock {
+    pub fn new(engine: &Engine) -> Result<Resource<Self>> {
+        let engine_ref = engine.downgrade();
+        let this = Self {
+            engine_ref,
+            state: GraphicsState::new(&mut engine.mq())?,
+        };
+        Ok(engine.insert(this))
+    }
+}
+
+impl LuaUserData for GraphicsLock {}
+
+impl LuaResource for GraphicsLock {
+    const REGISTRY_KEY: &'static str = "HV_FRIENDS_GRAPHICS_LOCK";
+}
+
+pub trait GraphicsLockExt {
+    fn lock(&self) -> Graphics;
+}
+
+impl GraphicsLockExt for Resource<GraphicsLock> {
+    fn lock(&self) -> Graphics {
+        // First, we lock the resource, and then extract its dereferenced location into a pointer.
+        let mut write_guard = self.borrow_mut();
+        let mut write_nonnull =
+            unsafe { NonNull::new_unchecked(&mut *write_guard as *mut GraphicsLock) };
+
+        // Second, we convert the pointer into a mutable borrow which allows the write guard to be
+        // moved, rather than a mutable borrow which is still borrowing the write guard. We give
+        // this borrow the same lifetime as the returned guard/the immutable borrow of the resource
+        // itself.
+        let write_borrow_mut = unsafe { write_nonnull.as_mut() };
+
+        // Third, borrow the `GraphicsCtx` behind the write guard once and then immediately release
+        // it after upgrading the engine reference. We *cannot* hold this borrow without violating
+        // Rust's aliasing rules, as because in step four...
+        let strong_owner = write_borrow_mut.engine_ref.upgrade();
+        let guard = unsafe {
+            std::mem::transmute::<MutexGuard<mq::Context>, MutexGuard<mq::Context>>(
+                strong_owner.mq(),
+            )
+        };
+
+        // Fourth, last but not least, we return the mutex guard we extract from the engine ref,
+        // lengthen its lifetime to be the same as the rest of the lock, and then once again mutably
+        // borrow the data behind the write guard; this is the only active borrow in existence to
+        // that data, therefore not violating Rust's aliasing rules.
+        //
+        // The guard struct's field ordering ensures that the guards inside are dropped in the
+        // correct order, as well; first the mutable borrow of the `GraphicsState` is released, then
+        // the mutex guard on the `mq` object, then the strong reference to the engine object, and
+        // finally the write guard of the original resource. The original resource's strong
+        // reference is still guaranteed to be around because the lock's original construction takes
+        // out an immutable borrow on it.
+        Graphics {
+            state: &mut write_borrow_mut.state,
+            mq: guard,
+            _strong_owner: strong_owner,
+            _write_guard: write_guard,
+        }
+    }
+}
+
+// Note that the field ordering of this struct is VERY IMPORTANT! These fields MUST be dropped in
+// order or else we risk UB!
+pub struct Graphics<'a> {
+    pub state: &'a mut GraphicsState,
+    pub mq: MutexGuard<'a, mq::Context>,
+    _write_guard: RwLockWriteGuard<'a, GraphicsLock>,
+    _strong_owner: Engine<'a>,
+}
+
+impl<'a> Graphics<'a> {
+    #[inline]
+    pub fn mq(&self) -> &mq::Context {
+        &*self.mq
+    }
+
+    #[inline]
+    pub fn mq_mut(&mut self) -> &mut mq::Context {
+        &mut *self.mq
+    }
+
+    #[inline]
+    pub fn transforms(&mut self) -> &mut TransformStack {
+        &mut self.state.modelview
+    }
+
+    #[inline]
+    pub fn mul_transform(&mut self, tx: &Matrix4<f32>) {
+        let top_mut = self.state.modelview.top_mut();
+        *top_mut *= tx;
+    }
+
+    #[inline]
+    pub fn push_multiplied_transform(&mut self, tx: Matrix4<f32>) {
+        let mult = self.state.modelview.top() * tx;
+        self.state.modelview.push(mult);
+    }
+
+    #[inline]
+    pub fn apply_transforms(&mut self) {
+        let mvp = self.state.projection * self.state.modelview.top();
+        self.mq.apply_uniforms(&basic::Uniforms { mvp });
+    }
+
+    #[inline]
+    pub fn push_transform(&mut self, tx: impl Into<Option<Matrix4<f32>>>) {
+        self.state.modelview.push(tx);
+    }
+
+    #[inline]
+    pub fn pop_transform(&mut self) {
+        self.state.modelview.pop();
+    }
+
+    #[inline]
+    pub fn set_projection<M>(&mut self, projection: M)
+    where
+        M: Into<Matrix4<f32>>,
+    {
+        self.state.projection = projection.into();
+    }
+
+    #[inline]
+    pub fn push_pipeline(&mut self) {
+        let top = self.state.pipeline_stack.last().and_then(|x| x.clone());
+        self.state.pipeline_stack.push(top);
+    }
+
+    #[inline]
+    pub fn apply_default_pipeline(&mut self) {
+        self.mq.apply_pipeline(&self.state.default_pipeline);
+    }
+
+    #[inline]
+    pub fn apply_pipeline(&mut self, pipeline: &Pipeline) {
+        self.mq.apply_pipeline(&pipeline.handle);
+    }
+
+    #[inline]
+    pub fn pop_pipeline(&mut self) {
+        let top = self.state.pipeline_stack.pop().and_then(|x| x);
+
+        match top {
+            Some(pipeline) => self.apply_pipeline(&pipeline),
+            None => self.apply_default_pipeline(),
+        }
+    }
+
+    #[inline]
+    pub fn apply_bindings(&mut self, bindings: &mut Bindings) {
+        self.mq.apply_bindings(bindings.update());
+    }
+
+    #[inline]
+    pub fn begin_render_pass(
+        &mut self,
+        pass: Option<&RenderPass>,
+        clear_options: Option<ClearOptions>,
+    ) {
+        self.mq.begin_pass(
+            pass.map(|rp| rp.handle),
+            match clear_options {
+                None => PassAction::Nothing,
+                Some(options) => PassAction::Clear {
+                    color: options.color.map(|c| (c.r, c.g, c.b, c.a)),
+                    depth: options.depth,
+                    stencil: options.stencil,
+                },
+            },
+        );
+    }
+
+    #[inline]
+    pub fn end_render_pass(&mut self) {
+        self.mq.end_render_pass();
+    }
+
+    #[inline]
+    pub fn draw(&mut self, drawable: &impl Drawable, params: impl Into<Option<Instance>>) {
+        drawable.draw(self, params.into().unwrap_or_default());
+    }
+}
+
+pub(crate) fn open<'lua>(lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lua>> {
+    let gfx_lock = GraphicsLock::new(engine)?;
+    lua.register(gfx_lock.clone())?;
+
+    let texture_cache = engine.insert(TextureCache::new(engine, &gfx_lock));
+    lua.register(texture_cache.clone())?;
+
+    let clone = texture_cache.clone();
+    let load_texture_from_filesystem = lua.create_function(move |_, path: LuaString| {
+        let cache = &mut clone.borrow_mut();
+        cache.get_or_load(path.to_str()?).to_lua_err()
+    })?;
+
+    let sprite_sheet_cache = engine.insert(SpriteSheetCache::new(engine));
+    lua.register(sprite_sheet_cache.clone())?;
+
+    let clone = sprite_sheet_cache.clone();
+    let load_sprite_sheet_from_filesystem = lua.create_function(move |_, path: LuaString| {
+        let cache = &mut clone.borrow_mut();
+        cache.get_or_load(path.to_str()?).to_lua_err()
+    })?;
+
+    let reload_textures =
+        lua.create_function(move |_, ()| texture_cache.borrow_mut().reload_all().to_lua_err())?;
+
+    let reload_sprite_sheets = lua
+        .create_function(move |_, ()| sprite_sheet_cache.borrow_mut().reload_all().to_lua_err())?;
+
+    let create_instance_object = lua.create_function(move |_, ()| Ok(Instance::new()))?;
+
+    let gfx = gfx_lock.clone();
+    let create_sprite_batch_object = lua.create_function(
+        move |_, (texture, maybe_capacity): (CachedTexture, Option<usize>)| match maybe_capacity {
+            Some(capacity) => Ok(SpriteBatch::with_capacity(
+                &mut gfx.lock(),
+                texture,
+                capacity,
+            )),
+            None => Ok(SpriteBatch::new(&mut gfx.lock(), texture)),
+        },
+    )?;
+
+    let sprite_animation_state =
+        |_, (mut sprite_sheet, tag, should_loop): (CachedSpriteSheet, LuaString, Option<bool>)| {
+            let sheet = sprite_sheet.get_cached();
+            let tag_id = sheet
+                .get_tag(tag.to_str()?)
+                .ok_or_else(|| anyhow!("no such tag"))
+                .to_lua_err()?;
+            let (frame, tag) = sheet.at_tag(tag_id, should_loop.unwrap_or(true));
+
+            Ok(SpriteAnimationState {
+                sheet: sprite_sheet,
+                frame,
+                tag,
+            })
+        };
+
+    let create_sprite_animation_state_object = lua.create_function(sprite_animation_state)?;
+    let create_sprite_animation_state_component_constructor =
+        lua.create_function(move |lua, (sprite_sheet, tag, should_loop)| {
+            Ok(DynamicComponentConstructor::clone(sprite_animation_state(
+                lua,
+                (sprite_sheet, tag, should_loop),
+            )?))
+        })?;
+
+    let gfx = gfx_lock.clone();
+    let apply_transforms = lua.create_function(move |_, ()| {
+        gfx.lock().apply_transforms();
+        Ok(())
+    })?;
+
+    let gfx = gfx_lock.clone();
+    let apply_default_pipeline = lua.create_function(move |_, ()| {
+        gfx.lock().apply_default_pipeline();
+        Ok(())
+    })?;
+
+    let gfx = gfx_lock.clone();
+    let apply_pipeline = lua.create_function(move |_, pipeline: Pipeline| {
+        gfx.lock().apply_pipeline(&pipeline);
+        Ok(())
+    })?;
+
+    let gfx = gfx_lock.clone();
+    let begin_render_pass = lua.create_function(
+        move |_, (pass, clear_options): (Option<RenderPass>, Option<ClearOptions>)| {
+            gfx.lock().begin_render_pass(pass.as_ref(), clear_options);
+            Ok(())
+        },
+    )?;
+
+    let gfx = gfx_lock.clone();
+    let end_render_pass = lua.create_function(move |_, ()| {
+        gfx.lock().end_render_pass();
+        Ok(())
+    })?;
+
+    let gfx = gfx_lock.clone();
+    let push_transform = lua.create_function(move |_, tx: Option<HvMatrix4<f32>>| {
+        gfx.lock().push_transform(tx.map(|tx| tx.0));
+        Ok(())
+    })?;
+
+    let gfx = gfx_lock.clone();
+    let push_multiplied_transform =
+        lua.create_function(move |_, HvMatrix4(tx): HvMatrix4<f32>| {
+            gfx.lock().push_multiplied_transform(tx);
+            Ok(())
+        })?;
+
+    let gfx = gfx_lock.clone();
+    let pop_transform = lua.create_function(move |_, ()| {
+        gfx.lock().pop_transform();
+        Ok(())
+    })?;
+
+    let bindings = crate::graphics::bindings::open(lua, &gfx_lock)?;
+    let buffer = crate::graphics::buffer::open(lua, &gfx_lock)?;
+    let pipeline = crate::graphics::pipeline::open(lua, &gfx_lock)?;
+
+    Ok(lua
+        .load(mlua::chunk! {
+            {
+                load_sprite_sheet_from_filesystem = $load_sprite_sheet_from_filesystem,
+                load_texture_from_filesystem = $load_texture_from_filesystem,
+                reload_textures = $reload_textures,
+                reload_sprite_sheets = $reload_sprite_sheets,
+
+                create_instance_object = $create_instance_object,
+                create_sprite_batch_object = $create_sprite_batch_object,
+                create_sprite_animation_state_object = $create_sprite_animation_state_object,
+                create_sprite_animation_state_component_constructor = $create_sprite_animation_state_component_constructor,
+
+                apply_transforms = $apply_transforms,
+                push_transform = $push_transform,
+                push_multiplied_transform = $push_multiplied_transform,
+                pop_transform = $pop_transform,
+
+                apply_default_pipeline = $apply_default_pipeline,
+                apply_pipeline = $apply_pipeline,
+                begin_render_pass = $begin_render_pass,
+                end_render_pass = $end_render_pass,
+
+                bindings = $bindings,
+                buffer = $buffer,
+                pipeline = $pipeline,
+
+                nil
+            }
+        })
+        .eval()?)
+}

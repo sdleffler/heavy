@@ -1,0 +1,27 @@
+[package]
+name = "hv-rain"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+hv-friends = { path = "../hv-friends" }
+hv-core = { path = "../hv-core" }
+hecs = "0.6.0"
+num-traits = "0.2.14"
+smallbox = "0.8.0"
+thunderdome = "0.4.1"
+anyhow = "1.0.42"
+mlua = "0.6.2"
+log = "0.4.14"
+smallvec = { version = "1.6.1", features = ["union", "const_generics"] }
+dyn-clone = "1.0.4"
+hibitset = "0.6.3"
+
+[build-dependencies]
+walkdir = "2.3.2"
+zip = "0.5.13"
+
+[dev-dependencies]
+simple_logger = "1.13.0"

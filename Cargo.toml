@@ -1,0 +1,18 @@
+[workspace]
+members = [
+    "belltower", 
+    "hv-core",
+    "hv-egui",
+    "hv-fmod-sys",
+    "hv-fmod",
+    "hv-friends",
+    "hv-mymachine",
+    "hv-rain",
+    "hv-talisman",
+]
+
+[profile.dev]
+codegen-units = 1
+
+[profile.release]
+codegen-units = 1
