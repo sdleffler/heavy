@@ -358,7 +358,8 @@ impl EventHandler for SceneStack<EngineRef, EngineEvent> {
         keymods: KeyMods,
         repeat: bool,
     ) {
-        self.event(
+        // FIXME(sleffy): error handling
+        let _ = self.event(
             &mut engine.downgrade(),
             EngineEvent::KeyDown {
                 keycode,
@@ -369,14 +370,16 @@ impl EventHandler for SceneStack<EngineRef, EngineEvent> {
     }
 
     fn key_up_event(&mut self, engine: &Engine, keycode: KeyCode, keymods: KeyMods) {
-        self.event(
+        // FIXME(sleffy): error handling
+        let _ = self.event(
             &mut engine.downgrade(),
             EngineEvent::KeyUp { keycode, keymods },
         );
     }
 
     fn char_event(&mut self, engine: &Engine, character: char, keymods: KeyMods, repeat: bool) {
-        self.event(
+        // FIXME(sleffy): error handling
+        let _ = self.event(
             &mut engine.downgrade(),
             EngineEvent::Char {
                 character,
@@ -387,22 +390,26 @@ impl EventHandler for SceneStack<EngineRef, EngineEvent> {
     }
 
     fn mouse_motion_event(&mut self, engine: &Engine, x: f32, y: f32) {
-        self.event(&mut engine.downgrade(), EngineEvent::MouseMotion { x, y });
+        // FIXME(sleffy): error handling
+        let _ = self.event(&mut engine.downgrade(), EngineEvent::MouseMotion { x, y });
     }
 
     fn mouse_wheel_event(&mut self, engine: &Engine, x: f32, y: f32) {
-        self.event(&mut engine.downgrade(), EngineEvent::MouseWheel { x, y });
+        // FIXME(sleffy): error handling
+        let _ = self.event(&mut engine.downgrade(), EngineEvent::MouseWheel { x, y });
     }
 
     fn mouse_button_down_event(&mut self, engine: &Engine, button: MouseButton, x: f32, y: f32) {
-        self.event(
+        // FIXME(sleffy): error handling
+        let _ = self.event(
             &mut engine.downgrade(),
             EngineEvent::MouseButtonDown { button, x, y },
         );
     }
 
     fn mouse_button_up_event(&mut self, engine: &Engine, button: MouseButton, x: f32, y: f32) {
-        self.event(
+        // FIXME(sleffy): error handling
+        let _ = self.event(
             &mut engine.downgrade(),
             EngineEvent::MouseButtonUp { button, x, y },
         );
