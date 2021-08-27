@@ -84,6 +84,7 @@ impl Drawable for OwnedTexture {
         );
         ctx.state.quad_bindings.images[0] = self.handle;
         ctx.mq.apply_bindings(&ctx.state.quad_bindings);
+        ctx.apply_modelview();
         ctx.mq.draw(0, 6, 1);
     }
 }

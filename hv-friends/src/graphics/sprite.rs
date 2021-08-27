@@ -255,13 +255,15 @@ impl DrawableMut for SpriteBatch {
     fn draw_mut(&mut self, ctx: &mut Graphics, instance: Instance) {
         self.flush(ctx);
 
-        ctx.push_multiplied_transform(instance.tx.to_homogeneous());
+        ctx.modelview_mut().push(None);
+        ctx.modelview_mut()
+            .apply_transform(instance.tx.to_homogeneous());
         ctx.mq.apply_bindings(&self.bindings);
-        ctx.apply_transforms();
+        ctx.apply_modelview();
         // 6 here because a quad is 6 vertices
         ctx.mq.draw(0, 6, self.instances.len() as i32);
-        ctx.pop_transform();
-        ctx.apply_transforms();
+        ctx.modelview_mut().pop();
+        ctx.apply_modelview();
     }
 }
 

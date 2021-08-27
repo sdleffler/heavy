@@ -226,11 +226,11 @@ impl Game {
 
             gfx.apply_default_pipeline();
 
-            gfx.push_multiplied_transform(homogeneous_mat3_to_mat4(
+            gfx.modelview_mut().push(homogeneous_mat3_to_mat4(
                 &self.camera.world_to_screen_tx().to_homogeneous(),
             ));
 
-            gfx.apply_transforms();
+            gfx.apply_modelview();
 
             for (_, (pos,)) in self.space.borrow_mut().query_mut::<(&Position,)>() {
                 self.mesh.draw(
@@ -268,12 +268,12 @@ impl Game {
                 );
             }
 
-            gfx.pop_transform();
+            gfx.modelview_mut().pop();
             gfx.end_render_pass();
 
             gfx.begin_render_pass(None, Some(ClearOptions::default()));
             gfx.apply_default_pipeline();
-            gfx.apply_transforms();
+            gfx.apply_modelview();
 
             gfx.draw(&self.world_canvas, None);
             // gfx.draw(&self.static_canvas, None);

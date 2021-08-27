@@ -167,7 +167,7 @@ impl Game {
                 }),
             );
             gfx.apply_default_pipeline();
-            gfx.apply_transforms();
+            gfx.apply_modelview();
 
             for (_, (pos,)) in self.space.borrow_mut().query_mut::<(&Position,)>() {
                 self.mesh.draw(
@@ -205,7 +205,7 @@ impl Game {
             gfx.end_render_pass();
             gfx.begin_render_pass(None, Some(ClearOptions::default()));
             gfx.apply_default_pipeline();
-            gfx.apply_transforms();
+            gfx.apply_modelview();
 
             gfx.draw(&self.canvas, None);
 

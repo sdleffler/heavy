@@ -2,7 +2,7 @@ use anyhow::*;
 use std::{
     mem,
     ptr::NonNull,
-    sync::{MutexGuard, RwLockWriteGuard},
+    sync::{Arc, Mutex, MutexGuard, RwLock, RwLockWriteGuard},
 };
 
 use hv_core::{
@@ -18,6 +18,7 @@ use serde::*;
 use crate::{
     graphics::{
         bindings::Bindings,
+        lua::LuaGraphicsState,
         pipeline::{Pipeline, PipelineRegistry, ShaderRegistry},
         render_pass::RenderPassRegistry,
         sprite::{CachedSpriteSheet, SpriteAnimationState, SpriteSheetCache},
@@ -31,6 +32,7 @@ pub mod bindings;
 pub mod buffer;
 pub mod canvas;
 mod color;
+mod lua;
 pub mod mesh;
 pub mod pipeline;
 pub mod render_pass;
@@ -227,6 +229,45 @@ impl Drawable for () {
     fn draw(&self, _ctx: &mut Graphics, _instance: Instance) {}
 }
 
+impl<T: Drawable + ?Sized> DrawableMut for Arc<T> {
+    fn draw_mut(&mut self, ctx: &mut Graphics, instance: Instance) {
+        match Arc::get_mut(self) {
+            Some(this) => this.draw_mut(ctx, instance),
+            None => T::draw(self, ctx, instance),
+        }
+    }
+}
+
+impl<T: Drawable + ?Sized> Drawable for Arc<T> {
+    fn draw(&self, ctx: &mut Graphics, instance: Instance) {
+        T::draw(self, ctx, instance)
+    }
+}
+
+impl<T: DrawableMut + ?Sized> DrawableMut for Mutex<T> {
+    fn draw_mut(&mut self, ctx: &mut Graphics, instance: Instance) {
+        self.get_mut().unwrap().draw_mut(ctx, instance)
+    }
+}
+
+impl<T: DrawableMut + ?Sized> Drawable for Mutex<T> {
+    fn draw(&self, ctx: &mut Graphics, instance: Instance) {
+        self.lock().unwrap().draw_mut(ctx, instance)
+    }
+}
+
+impl<T: DrawableMut + ?Sized> DrawableMut for RwLock<T> {
+    fn draw_mut(&mut self, ctx: &mut Graphics, instance: Instance) {
+        self.get_mut().unwrap().draw_mut(ctx, instance)
+    }
+}
+
+impl<T: DrawableMut + ?Sized> Drawable for RwLock<T> {
+    fn draw(&self, ctx: &mut Graphics, instance: Instance) {
+        self.borrow_mut().draw_mut(ctx, instance)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum FilterMode {
     Nearest,
@@ -380,6 +421,7 @@ pub struct GraphicsState {
     pub null_texture: CachedTexture,
     projection: Matrix4<f32>,
     modelview: TransformStack,
+    modelview_dirty: bool,
     quad_bindings: mq::Bindings,
     render_passes: RenderPassRegistry,
     shaders: ShaderRegistry,
@@ -446,6 +488,7 @@ impl GraphicsState {
             null_texture,
             projection: Matrix4::identity(),
             modelview: TransformStack::new(),
+            modelview_dirty: true,
             quad_bindings,
             render_passes: RenderPassRegistry::new(),
             shaders: ShaderRegistry::new(),
@@ -543,38 +586,25 @@ impl<'a> Graphics<'a> {
     pub fn mq_mut(&mut self) -> &mut mq::Context {
         &mut *self.mq
     }
+    
+    #[inline]
+    pub fn modelview(&self) -> &TransformStack {
+        &self.state.modelview
+    } 
 
     #[inline]
-    pub fn transforms(&mut self) -> &mut TransformStack {
+    pub fn modelview_mut(&mut self) -> &mut TransformStack {
+        self.state.modelview_dirty = true;
         &mut self.state.modelview
     }
 
     #[inline]
-    pub fn mul_transform(&mut self, tx: &Matrix4<f32>) {
-        let top_mut = self.state.modelview.top_mut();
-        *top_mut *= tx;
-    }
-
-    #[inline]
-    pub fn push_multiplied_transform(&mut self, tx: Matrix4<f32>) {
-        let mult = self.state.modelview.top() * tx;
-        self.state.modelview.push(mult);
-    }
-
-    #[inline]
-    pub fn apply_transforms(&mut self) {
-        let mvp = self.state.projection * self.state.modelview.top();
-        self.mq.apply_uniforms(&basic::Uniforms { mvp });
-    }
-
-    #[inline]
-    pub fn push_transform(&mut self, tx: impl Into<Option<Matrix4<f32>>>) {
-        self.state.modelview.push(tx);
-    }
-
-    #[inline]
-    pub fn pop_transform(&mut self) {
-        self.state.modelview.pop();
+    pub fn apply_modelview(&mut self) {
+        if self.state.modelview_dirty {
+            let mvp = self.state.projection * self.state.modelview.top();
+            self.mq.apply_uniforms(&basic::Uniforms { mvp });
+            self.state.modelview_dirty = false;
+        }
     }
 
     #[inline]
@@ -638,6 +668,20 @@ impl<'a> Graphics<'a> {
     #[inline]
     pub fn end_render_pass(&mut self) {
         self.mq.end_render_pass();
+    }
+
+    #[inline]
+    pub fn commit_frame(&mut self) {
+        self.mq.commit_frame();
+    }
+
+    #[inline]
+    pub fn clear(&mut self, options: ClearOptions) {
+        self.mq.clear(
+            options.color.map(|c| (c.r, c.g, c.b, c.a)),
+            options.depth,
+            options.stencil,
+        );
     }
 
     #[inline]
@@ -714,8 +758,8 @@ pub(crate) fn open<'lua>(lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lu
         })?;
 
     let gfx = gfx_lock.clone();
-    let apply_transforms = lua.create_function(move |_, ()| {
-        gfx.lock().apply_transforms();
+    let apply_modelview = lua.create_function(move |_, ()| {
+        gfx.lock().apply_modelview();
         Ok(())
     })?;
 
@@ -745,28 +789,31 @@ pub(crate) fn open<'lua>(lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lu
         Ok(())
     })?;
 
-    let gfx = gfx_lock.clone();
-    let push_transform = lua.create_function(move |_, tx: Option<HvMatrix4<f32>>| {
-        gfx.lock().push_transform(tx.map(|tx| tx.0));
-        Ok(())
-    })?;
-
-    let gfx = gfx_lock.clone();
-    let push_multiplied_transform =
-        lua.create_function(move |_, HvMatrix4(tx): HvMatrix4<f32>| {
-            gfx.lock().push_multiplied_transform(tx);
-            Ok(())
-        })?;
-
-    let gfx = gfx_lock.clone();
-    let pop_transform = lua.create_function(move |_, ()| {
-        gfx.lock().pop_transform();
-        Ok(())
-    })?;
-
     let bindings = crate::graphics::bindings::open(lua, &gfx_lock)?;
     let buffer = crate::graphics::buffer::open(lua, &gfx_lock)?;
     let pipeline = crate::graphics::pipeline::open(lua, &gfx_lock)?;
+
+    let lgs = LuaGraphicsState::new(&mut gfx_lock.lock());
+
+    let circle = lua.create_function(self::lua::circle(lgs.clone(), gfx_lock.clone()))?;
+    let line = lua.create_function(self::lua::line(lgs.clone(), gfx_lock.clone()))?;
+    let points = lua.create_function(self::lua::points(lgs.clone(), gfx_lock.clone()))?;
+    let polygon = lua.create_function(self::lua::polygon(lgs.clone(), gfx_lock.clone()))?;
+    
+    let clear = lua.create_function(self::lua::clear(lgs, gfx_lock.clone()))?;
+    let present = lua.create_function(self::lua::present(gfx_lock.clone()))?;
+    
+    let apply_transform = lua.create_function(self::lua::apply_transform(gfx_lock.clone()))?;
+    let inverse_transform_point = lua.create_function(self::lua::inverse_transform_point(gfx_lock.clone()))?;
+    let origin = lua.create_function(self::lua::origin(gfx_lock.clone()))?;
+    let pop = lua.create_function(self::lua::pop(gfx_lock.clone()))?;
+    let push = lua.create_function(self::lua::push(gfx_lock.clone()))?;
+    let replace_transform = lua.create_function(self::lua::replace_transform(gfx_lock.clone()))?;
+    let rotate = lua.create_function(self::lua::rotate(gfx_lock.clone()))?;
+    let scale = lua.create_function(self::lua::scale(gfx_lock.clone()))?;
+    let shear = lua.create_function(self::lua::shear(gfx_lock.clone()))?;
+    let transform_point = lua.create_function(self::lua::transform_point(gfx_lock.clone()))?;
+    let translate = lua.create_function(self::lua::translate(gfx_lock))?;
 
     Ok(lua
         .load(mlua::chunk! {
@@ -781,10 +828,7 @@ pub(crate) fn open<'lua>(lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lu
                 create_sprite_animation_state_object = $create_sprite_animation_state_object,
                 create_sprite_animation_state_component_constructor = $create_sprite_animation_state_component_constructor,
 
-                apply_transforms = $apply_transforms,
-                push_transform = $push_transform,
-                push_multiplied_transform = $push_multiplied_transform,
-                pop_transform = $pop_transform,
+                apply_modelview = $apply_modelview,
 
                 apply_default_pipeline = $apply_default_pipeline,
                 apply_pipeline = $apply_pipeline,
@@ -794,8 +838,26 @@ pub(crate) fn open<'lua>(lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lu
                 bindings = $bindings,
                 buffer = $buffer,
                 pipeline = $pipeline,
+                
+                circle = $circle,
+                line = $line,
+                points = $points,
+                polygon = $polygon,
 
-                nil
+                clear = $clear,
+                present = $present,
+
+                apply_transform = $apply_transform,
+                inverse_transform_point = $inverse_transform_point,
+                origin = $origin,
+                pop = $pop,
+                push = $push,
+                replace_transform = $replace_transform,
+                rotate = $rotate,
+                scale = $scale,
+                shear = $shear,
+                transform_point = $transform_point,
+                translate = $translate,
             }
         })
         .eval()?)

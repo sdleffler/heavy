@@ -1,0 +1,431 @@
+use std::sync::{Arc, RwLock};
+
+use hv_core::{
+    engine::{Resource, WeakResourceCache},
+    prelude::*,
+};
+
+use crate::{
+    graphics::{
+        CachedTexture, ClearOptions, Color, DrawMode, DrawableMut, Graphics, GraphicsLock,
+        GraphicsLockExt, Instance, Mesh, MeshBuilder, Vertex,
+    },
+    math::*,
+};
+
+macro_rules! lua_fn {
+    (Fn<$lua:lifetime>($args:ty) -> $ret:ty) => { impl 'static + for<$lua> Fn(&$lua Lua, $args) -> LuaResult<$ret> };
+    (FnMut<$lua:lifetime>($args:ty) -> $ret:ty) => { impl 'static + for<$lua> FnMut(&$lua Lua, $args) -> LuaResult<$ret> };
+    (Fn<$lua:lifetime>($this:ty, $args:ty) -> $ret:ty) => { impl 'static + for<$lua> Fn(&$lua Lua, $this, $args) -> LuaResult<$ret> };
+    (FnMut<$lua:lifetime>($this:ty, $args:ty) -> $ret:ty) => { impl 'static + for<$lua> FnMut(&$lua Lua, $this, $args) -> LuaResult<$ret> }
+}
+
+impl LuaUserData for DrawMode {}
+
+#[derive(Debug, Clone)]
+pub struct PointBuffer(pub Arc<Vec<Point2<f32>>>);
+
+impl LuaUserData for PointBuffer {
+    fn add_methods<'lua, M: LuaUserDataMethods<'lua, Self>>(methods: &mut M) {
+        crate::lua::simple_mut(methods, "push", |this, (x, y)| {
+            Arc::make_mut(&mut this.0).push(Point2::new(x, y))
+        });
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct VertexBuffer(pub Arc<Vec<Vertex>>);
+
+impl LuaUserData for VertexBuffer {}
+
+#[derive(Debug, Clone)]
+pub struct IndexBuffer(pub Arc<Vec<u16>>);
+
+impl LuaUserData for IndexBuffer {}
+
+impl LuaUserData for MeshBuilder {
+    fn add_methods<'lua, M: LuaUserDataMethods<'lua, Self>>(methods: &mut M) {
+        methods.add_method_mut(
+            "line",
+            |_, this, (points, width, color): (PointBuffer, f32, Color)| {
+                this.line(&points.0, width, color).to_lua_err()?;
+                Ok(())
+            },
+        );
+
+        methods.add_method_mut(
+            "polyline",
+            |_, this, (draw_mode, points, color): (DrawMode, PointBuffer, Color)| {
+                this.polyline(draw_mode, &points.0, color).to_lua_err()?;
+                Ok(())
+            },
+        );
+
+        methods.add_method_mut(
+            "circle",
+            |_, this, (draw_mode, x, y, radius, tolerance, color)| {
+                this.circle(draw_mode, Point2::new(x, y), radius, tolerance, color);
+                Ok(())
+            },
+        );
+
+        methods.add_method_mut(
+            "polygon",
+            |_, this, (draw_mode, points, color): (DrawMode, PointBuffer, Color)| {
+                this.polygon(draw_mode, &points.0, color).to_lua_err()?;
+                Ok(())
+            },
+        );
+
+        methods.add_method_mut("rectangle", |_, this, (draw_mode, x, y, w, h, color)| {
+            this.rectangle(draw_mode, Box2::new(x, y, w, h), color);
+            Ok(())
+        });
+
+        methods.add_method_mut(
+            "raw",
+            |_, this, (vertices, indices, texture): (VertexBuffer, IndexBuffer, Option<CachedTexture>)| {
+                this.raw(&vertices.0, &indices.0, texture);
+                Ok(())
+            },
+        );
+
+        let mut weak_resource_cache = WeakResourceCache::<GraphicsLock>::new();
+        methods.add_method_mut("build", move |lua, this, ()| {
+            let gfx_lock = weak_resource_cache.get(|| lua.resource::<GraphicsLock>())?;
+            let mesh = this.build(&mut gfx_lock.lock());
+            Ok(mesh)
+        });
+    }
+}
+
+impl LuaUserData for Mesh {
+    fn add_methods<'lua, M: LuaUserDataMethods<'lua, Self>>(methods: &mut M) {
+        crate::lua::add_drawable_methods(methods);
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum LuaDrawMode {
+    Fill,
+    Line,
+}
+
+impl<'lua> ToLua<'lua> for LuaDrawMode {
+    #[allow(clippy::zero_ptr)]
+    fn to_lua(self, lua: &'lua Lua) -> LuaResult<LuaValue<'lua>> {
+        match self {
+            Self::Fill => LuaLightUserData(0 as *mut _).to_lua(lua),
+            Self::Line => LuaLightUserData(1 as *mut _).to_lua(lua),
+        }
+    }
+}
+
+impl<'lua> FromLua<'lua> for LuaDrawMode {
+    fn from_lua(lua_value: LuaValue<'lua>, lua: &'lua Lua) -> LuaResult<Self> {
+        let i = LuaLightUserData::from_lua(lua_value, lua)?.0 as u64;
+        match i {
+            0 => Ok(Self::Fill),
+            1 => Ok(Self::Line),
+            _ => Err(anyhow!("invalid draw mode!")).to_lua_err(),
+        }
+    }
+}
+
+pub(crate) struct LuaGraphicsState {
+    line_width: f32,
+    point_size: f32,
+    color: Color,
+    bg_color: Color,
+    mesh_builder: MeshBuilder,
+    mesh: Option<Mesh>,
+}
+
+impl LuaGraphicsState {
+    pub fn new(gfx: &mut Graphics) -> Arc<RwLock<Self>> {
+        Arc::new(RwLock::new(Self {
+            line_width: 1.,
+            point_size: 1.,
+            color: Color::WHITE,
+            bg_color: Color::ZEROS,
+            mesh_builder: MeshBuilder::new(gfx.state.null_texture.clone()),
+            mesh: None,
+        }))
+    }
+
+    pub fn circle(
+        &mut self,
+        gfx: &mut Graphics,
+        lua_draw_mode: LuaDrawMode,
+        point: Point2<f32>,
+        radius: f32,
+    ) -> Result<()> {
+        let mode = match lua_draw_mode {
+            LuaDrawMode::Fill => DrawMode::fill(),
+            LuaDrawMode::Line => DrawMode::stroke(self.line_width),
+        };
+
+        self.mesh_builder
+            .circle(mode, point, radius, 0.1, self.color);
+
+        let mesh = match &mut self.mesh {
+            Some(mesh) => {
+                self.mesh_builder.update(gfx, mesh);
+                mesh
+            }
+            None => self.mesh.insert(self.mesh_builder.build(gfx)),
+        };
+
+        self.mesh_builder.clear();
+        mesh.draw_mut(gfx, Instance::new());
+
+        Ok(())
+    }
+
+    pub fn line(&mut self, gfx: &mut Graphics, points: &[Point2<f32>]) -> Result<()> {
+        self.mesh_builder
+            .line(points, self.line_width, self.color)?;
+
+        let mesh = match &mut self.mesh {
+            Some(mesh) => {
+                self.mesh_builder.update(gfx, mesh);
+                mesh
+            }
+            None => self.mesh.insert(self.mesh_builder.build(gfx)),
+        };
+
+        self.mesh_builder.clear();
+        mesh.draw_mut(gfx, Instance::new());
+
+        Ok(())
+    }
+
+    pub fn points(&mut self, gfx: &mut Graphics, points: &[Point2<f32>]) -> Result<()> {
+        for point in points {
+            self.mesh_builder.rectangle(
+                DrawMode::fill(),
+                Box2::from_half_extents(*point, Vector2::repeat(self.point_size / 2.)),
+                self.color,
+            );
+        }
+
+        let mesh = match &mut self.mesh {
+            Some(mesh) => {
+                self.mesh_builder.update(gfx, mesh);
+                mesh
+            }
+            None => self.mesh.insert(self.mesh_builder.build(gfx)),
+        };
+
+        self.mesh_builder.clear();
+        mesh.draw_mut(gfx, Instance::new());
+
+        Ok(())
+    }
+
+    pub fn polygon(
+        &mut self,
+        gfx: &mut Graphics,
+        lua_draw_mode: LuaDrawMode,
+        points: &[Point2<f32>],
+    ) -> Result<()> {
+        let mode = match lua_draw_mode {
+            LuaDrawMode::Fill => DrawMode::fill(),
+            LuaDrawMode::Line => DrawMode::stroke(self.line_width),
+        };
+
+        self.mesh_builder.polygon(mode, points, self.color)?;
+
+        let mesh = match &mut self.mesh {
+            Some(mesh) => {
+                self.mesh_builder.update(gfx, mesh);
+                mesh
+            }
+            None => self.mesh.insert(self.mesh_builder.build(gfx)),
+        };
+
+        self.mesh_builder.clear();
+        mesh.draw_mut(gfx, Instance::new());
+
+        Ok(())
+    }
+}
+
+pub(crate) fn circle(
+    lgs: Arc<RwLock<LuaGraphicsState>>,
+    gfx_lock: Resource<GraphicsLock>,
+) -> lua_fn!(Fn<'lua>((LuaDrawMode, f32, f32, f32)) -> ()) {
+    move |_, (mode, x, y, radius)| {
+        lgs.borrow_mut()
+            .circle(&mut gfx_lock.lock(), mode, Point2::new(x, y), radius)
+            .to_lua_err()
+    }
+}
+
+pub(crate) fn line(
+    lgs: Arc<RwLock<LuaGraphicsState>>,
+    gfx_lock: Resource<GraphicsLock>,
+) -> lua_fn!(Fn<'lua>(PointBuffer) -> ()) {
+    move |_, point_buffer| {
+        lgs.borrow_mut()
+            .line(&mut gfx_lock.lock(), &point_buffer.0)
+            .to_lua_err()
+    }
+}
+
+pub(crate) fn points(
+    lgs: Arc<RwLock<LuaGraphicsState>>,
+    gfx_lock: Resource<GraphicsLock>,
+) -> lua_fn!(Fn<'lua>(PointBuffer) -> ()) {
+    move |_, point_buffer| {
+        lgs.borrow_mut()
+            .points(&mut gfx_lock.lock(), &point_buffer.0)
+            .to_lua_err()
+    }
+}
+
+pub(crate) fn polygon(
+    lgs: Arc<RwLock<LuaGraphicsState>>,
+    gfx_lock: Resource<GraphicsLock>,
+) -> lua_fn!(Fn<'lua>((LuaDrawMode, PointBuffer)) -> ()) {
+    move |_, (mode, point_buffer)| {
+        lgs.borrow_mut()
+            .polygon(&mut gfx_lock.lock(), mode, &point_buffer.0)
+            .to_lua_err()
+    }
+}
+
+pub(crate) fn clear(
+    lgs: Arc<RwLock<LuaGraphicsState>>,
+    gfx_lock: Resource<GraphicsLock>,
+) -> lua_fn!(Fn<'lua>(LuaMultiValue<'lua>) -> ()) {
+    move |lua, values: LuaMultiValue| {
+        if values.is_empty() {
+            gfx_lock.lock().clear(ClearOptions {
+                color: Some(lgs.borrow().bg_color),
+                depth: Some(1.),
+                stencil: None,
+            });
+        } else {
+            let (r, g, b, maybe_a, maybe_stencil, maybe_depth): (_, _, _, Option<f32>, _, _) =
+                FromLuaMulti::from_lua_multi(values, lua)?;
+            gfx_lock.lock().clear(ClearOptions {
+                color: Some(Color::new(r, g, b, maybe_a.unwrap_or(1.))),
+                depth: maybe_depth,
+                stencil: maybe_stencil,
+            });
+        }
+
+        Ok(())
+    }
+}
+
+pub(crate) fn present(gfx_lock: Resource<GraphicsLock>) -> lua_fn!(Fn<'lua>(()) -> ()) {
+    move |_, ()| {
+        gfx_lock.lock().commit_frame();
+        Ok(())
+    }
+}
+
+pub(crate) fn apply_transform(
+    gfx_lock: Resource<GraphicsLock>,
+) -> lua_fn!(Fn<'lua>(HvMatrix4<f32>) -> ()) {
+    move |_, HvMatrix4(mat)| {
+        gfx_lock.lock().state.modelview.apply_transform(mat);
+        Ok(())
+    }
+}
+
+pub(crate) fn inverse_transform_point(
+    gfx_lock: Resource<GraphicsLock>,
+) -> lua_fn!(Fn<'lua>((f32, f32)) -> (f32, f32)) {
+    move |_, (x, y)| {
+        let out = gfx_lock
+            .lock()
+            .state
+            .modelview
+            .inverse_transform_point2(Point2::new(x, y));
+        Ok((out.x, out.y))
+    }
+}
+
+pub(crate) fn origin(gfx_lock: Resource<GraphicsLock>) -> lua_fn!(Fn<'lua>(()) -> ()) {
+    move |_, ()| {
+        gfx_lock.lock().state.modelview.origin();
+        Ok(())
+    }
+}
+
+pub(crate) fn pop(gfx_lock: Resource<GraphicsLock>) -> lua_fn!(Fn<'lua>(()) -> ()) {
+    move |_, ()| {
+        gfx_lock.lock().state.modelview.pop();
+        Ok(())
+    }
+}
+
+pub(crate) fn push(gfx_lock: Resource<GraphicsLock>) -> lua_fn!(Fn<'lua>(()) -> ()) {
+    move |_, ()| {
+        gfx_lock.lock().state.modelview.push(None);
+        Ok(())
+    }
+}
+
+pub(crate) fn replace_transform(
+    gfx_lock: Resource<GraphicsLock>,
+) -> lua_fn!(Fn<'lua>(HvMatrix4<f32>) -> ()) {
+    move |_, HvMatrix4(mat)| {
+        gfx_lock.lock().state.modelview.replace_transform(mat);
+        Ok(())
+    }
+}
+
+pub(crate) fn rotate(gfx_lock: Resource<GraphicsLock>) -> lua_fn!(Fn<'lua>(f32) -> ()) {
+    move |_, angle| {
+        gfx_lock.lock().state.modelview.rotate2(angle);
+        Ok(())
+    }
+}
+
+pub(crate) fn scale(
+    gfx_lock: Resource<GraphicsLock>,
+) -> lua_fn!(Fn<'lua>((f32, Option<f32>)) -> ()) {
+    move |_, (x, maybe_y)| {
+        gfx_lock
+            .lock()
+            .state
+            .modelview
+            .scale2(Vector2::new(x, maybe_y.unwrap_or(x)));
+        Ok(())
+    }
+}
+
+pub(crate) fn shear(gfx_lock: Resource<GraphicsLock>) -> lua_fn!(Fn<'lua>((f32, f32)) -> ()) {
+    move |_, (x, y)| {
+        gfx_lock.lock().state.modelview.shear2(Vector2::new(x, y));
+        Ok(())
+    }
+}
+
+pub(crate) fn transform_point(
+    gfx_lock: Resource<GraphicsLock>,
+) -> lua_fn!(Fn<'lua>((f32, f32)) -> (f32, f32)) {
+    move |_, (x, y)| {
+        let out = gfx_lock
+            .lock()
+            .state
+            .modelview
+            .transform_point2(Point2::new(x, y));
+        Ok((out.x, out.y))
+    }
+}
+
+pub(crate) fn translate(gfx_lock: Resource<GraphicsLock>) -> lua_fn!(Fn<'lua>((f32, f32)) -> ()) {
+    move |_, (x, y)| {
+        gfx_lock
+            .lock()
+            .state
+            .modelview
+            .translate2(Vector2::new(x, y));
+        Ok(())
+    }
+}

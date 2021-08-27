@@ -105,6 +105,11 @@ impl MeshBuilder {
         }
     }
 
+    pub fn clear(&mut self) {
+        self.buffer.vertices.clear();
+        self.buffer.indices.clear();
+    }
+
     /// Create a new mesh for a line of one or more connected segments.
     pub fn line<P>(&mut self, points: &[P], width: f32, color: Color) -> Result<&mut Self>
     where
@@ -287,6 +292,53 @@ impl MeshBuilder {
         self
     }
 
+    pub fn update(&self, ctx: &mut Graphics, mesh: &mut Mesh) {
+        let vertex_buffer = mq::Buffer::immutable(
+            &mut ctx.mq,
+            mq::BufferType::VertexBuffer,
+            &self.buffer.vertices,
+        );
+
+        let index_buffer = mq::Buffer::immutable(
+            &mut ctx.mq,
+            mq::BufferType::IndexBuffer,
+            &self.buffer.indices,
+        );
+
+        let instance = mq::Buffer::stream(
+            &mut ctx.mq,
+            mq::BufferType::VertexBuffer,
+            mem::size_of::<InstanceProperties>(),
+        );
+
+        let aabb = if self.buffer.vertices.is_empty() {
+            Box2::invalid()
+        } else {
+            Box2::from_points(
+                &self
+                    .buffer
+                    .vertices
+                    .iter()
+                    .map(|v| Point2::from(v.pos.xy()))
+                    .collect::<Vec<_>>(),
+            )
+        };
+
+        mesh.texture = self.texture.clone();
+
+        mesh.bindings.vertex_buffers.clear();
+        mesh.bindings.vertex_buffers.push(vertex_buffer);
+        mesh.bindings.vertex_buffers.push(instance);
+
+        mesh.bindings.index_buffer = index_buffer;
+
+        mesh.bindings.images.clear();
+        mesh.bindings.images.push(mesh.texture.get_cached().handle);
+
+        mesh.len = self.buffer.indices.len() as i32;
+        mesh.aabb = aabb;
+    }
+
     pub fn build(&self, ctx: &mut Graphics) -> Mesh {
         let vertex_buffer = mq::Buffer::immutable(
             &mut ctx.mq,
@@ -353,6 +405,7 @@ impl Drawable for Mesh {
     fn draw(&self, ctx: &mut Graphics, param: Instance) {
         self.bindings.vertex_buffers[1].update(&mut ctx.mq, &[param.to_instance_properties()]);
         ctx.mq.apply_bindings(&self.bindings);
+        ctx.apply_modelview();
         ctx.mq.draw(0, self.len, 1);
     }
 }

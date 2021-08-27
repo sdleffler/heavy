@@ -35,5 +35,23 @@ return {
     Instance = hf_graphics.create_instance_object,
     SpriteBatch = hf_graphics.create_sprite_batch_object,
 
-    nil
+    circle = hf_graphics.circle,
+    line = hf_graphics.line,
+    points = hf_graphics.points,
+    polygon = hf_graphics.polygon,
+    
+    clear = hf_graphics.clear,
+    present = hf_graphics.present,
+
+    apply_transform = hf_graphics.apply_transform,
+    inverse_transform_point = hf_graphics.inverse_transform_point,
+    origin = hf_graphics.origin,
+    pop = hf_graphics.pop,
+    push = hf_graphics.push,
+    replace_transform = hf_graphics.replace_transform,
+    rotate = hf_graphics.rotate,
+    scale = hf_graphics.scale,
+    shear = hf_graphics.shear,
+    transform_point = hf_graphics.transform_point,
+    translate = hf_graphics.translate,
 }

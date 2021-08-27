@@ -252,7 +252,7 @@ impl Editor {
                 )
                 .to_homogeneous(),
             );
-            gfx.apply_transforms();
+            gfx.apply_modelview();
         }
 
         self.egui.borrow_mut().draw(engine);

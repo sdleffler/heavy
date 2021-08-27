@@ -472,8 +472,8 @@ impl LevelEditorMode for NormalMode {
             .build(&mut gfx);
 
         let camera_inverse_scale = ctx.camera.borrow().world_to_screen_tx().scaling();
-        gfx.push_multiplied_transform(ctx.camera.borrow().view_tx());
-        gfx.apply_transforms();
+        gfx.modelview_mut().push(ctx.camera.borrow().view_tx());
+        gfx.apply_modelview();
 
         let maybe_closest =
             ctx.get_closest_interactable_object_to_hover_pos(POSITION_INTERACTION_RADIUS);
@@ -504,7 +504,7 @@ impl LevelEditorMode for NormalMode {
             }
         }
 
-        gfx.pop_transform();
+        gfx.modelview_mut().pop();
 
         Ok(())
     }

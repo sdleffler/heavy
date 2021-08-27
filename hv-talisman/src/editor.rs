@@ -521,8 +521,8 @@ impl LevelEditor {
             .line(&[Point2::origin(), Point2::new(32., 0.)], 2., Color::RED)?
             .build(&mut gfx);
 
-        gfx.push_multiplied_transform(self.camera.borrow().view_tx());
-        gfx.apply_transforms();
+        gfx.modelview_mut().push(self.camera.borrow().view_tx());
+        gfx.apply_modelview();
 
         for (_, (pos, maybe_visible)) in space
             .borrow_mut()
@@ -543,7 +543,7 @@ impl LevelEditor {
             );
         }
 
-        gfx.pop_transform();
+        gfx.modelview_mut().pop();
         drop(gfx);
 
         if let Some(mode) = self.current_mode.as_ref() {
@@ -898,7 +898,7 @@ impl Editor {
             );
 
             gfx.apply_default_pipeline();
-            gfx.apply_transforms();
+            gfx.apply_modelview();
             gfx.begin_render_pass(
                 Some(&self.world_canvas.render_pass),
                 Some(ClearOptions {
@@ -918,7 +918,7 @@ impl Editor {
             gfx.end_render_pass();
             gfx.begin_render_pass(None, Some(ClearOptions::default()));
             gfx.apply_default_pipeline();
-            gfx.apply_transforms();
+            gfx.apply_modelview();
         }
 
         self.egui_resource.borrow_mut().draw(engine);
