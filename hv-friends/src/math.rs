@@ -26,6 +26,9 @@ pub use num_traits as num;
 
 use crate::lua::*;
 
+pub mod transform;
+pub use transform::*;
+
 pub trait Numeric:
     NumAssign + NumAssignRef + NumCast + Scalar + Copy + PartialOrd + SimdPartialOrd + Bounded
 {
@@ -561,37 +564,81 @@ impl<T: RealField + Copy + for<'lua> ToLua<'lua> + for<'lua> FromLua<'lua>> LuaU
     fn add_methods<'lua, M: LuaUserDataMethods<'lua, Self>>(methods: &mut M) {
         add_clone_methods(methods);
 
-        methods.add_method_mut(
-            "prepend_isometry2_mut",
-            |_, this, HvIsometry2(iso): HvIsometry2<T>| {
-                let iso_mat = homogeneous_mat3_to_mat4(&iso.to_homogeneous());
-                this.0 *= iso_mat;
-                Ok(())
+        methods.add_method_mut("apply", |_, this, HvMatrix4(mat)| {
+            this.0 *= mat;
+            Ok(())
+        });
+
+        methods.add_method("inverse", |_, this, ()| {
+            Ok(this.0.try_inverse().map(HvMatrix4))
+        });
+
+        methods.add_method(
+            "inverse_transform_point2",
+            |_, this, (x, y): (T, T)| match this
+                .0
+                .try_inverse()
+                .map(|inv| inv.transform_point(&Point3::new(x, y, T::zero())))
+                .map(|pt| (pt.x, pt.y))
+            {
+                Some((x, y)) => Ok((Some(x), Some(y))),
+                None => Ok((None, None)),
             },
         );
 
-        methods.add_method_mut(
-            "append_isometry2_mut",
-            |_, this, HvIsometry2(iso): HvIsometry2<T>| {
-                let iso_mat = homogeneous_mat3_to_mat4(&iso.to_homogeneous());
-                this.0 = iso_mat * this.0;
-                Ok(())
-            },
-        );
+        methods.add_method_mut("isometry2", |_, this, HvIsometry2(iso): HvIsometry2<T>| {
+            let iso_mat = homogeneous_mat3_to_mat4(&iso.to_homogeneous());
+            this.0 *= iso_mat;
+            Ok(())
+        });
 
-        methods.add_method_mut("append_translation2_mut", |_, this, (x, y): (T, T)| {
+        methods.add_method_mut("reset", |_, this, ()| {
+            this.0 = Matrix4::identity();
+            Ok(())
+        });
+
+        methods.add_method_mut("rotate2", |_, this, angle| {
+            this.0 *= homogeneous_mat3_to_mat4(&UnitComplex::new(angle).to_homogeneous());
+            Ok(())
+        });
+
+        methods.add_method_mut("scale2", |_, this, (x, maybe_y): (T, Option<T>)| {
+            let y = maybe_y.unwrap_or(x);
+            this.0
+                .append_nonuniform_scaling_mut(&Vector3::new(x, y, T::one()));
+            Ok(())
+        });
+
+        methods.add_method_mut("set_matrix", |_, this, (m11, m12, m13, m14, m21, m22, m23, m24, m31, m32, m33, m34, m41, m42, m43, m44)| {
+            this.0 = Matrix4::new(m11, m12, m13, m14, m21, m22, m23, m24, m31, m32, m33, m34, m41, m42, m43, m44);
+            Ok(())
+        });
+
+        methods.add_method_mut("set_transformation", |_, this, HvMatrix4(rhs)| {
+            this.0 = rhs;
+            Ok(())
+        });
+
+        methods.add_method_mut("shear2", |_, this, (x, y)| {
+            this.0 *=
+                homogeneous_mat3_to_mat4(&Matrix2::new(T::one(), x, y, T::one()).to_homogeneous());
+            Ok(())
+        });
+
+        methods.add_method_mut("transform_point", |_, this, (x, y)| {
+            let out = this.0.transform_point(&Point3::new(x, y, T::zero())).xy();
+            Ok((out.x, out.y))
+        });
+
+        methods.add_method_mut("translate2", |_, this, (x, y)| {
             this.0
                 .append_translation_mut(&Vector3::new(x, y, T::zero()));
             Ok(())
         });
 
-        methods.add_method_mut(
-            "append_translation3_mut",
-            |_, this, (x, y, z): (T, T, T)| {
-                this.0.append_translation_mut(&Vector3::new(x, y, z));
-                Ok(())
-            },
-        );
+        methods.add_meta_method(LuaMetaMethod::Mul, |_, HvMatrix4(lhs), HvMatrix4(rhs)| {
+            Ok(HvMatrix4(lhs * rhs))
+        });
     }
 }
 
@@ -617,6 +664,8 @@ pub(crate) fn open<'lua>(lua: &'lua Lua, _engine: &Engine) -> Result<LuaTable<'l
     let create_matrix4_object_from_identity =
         lua.create_function(move |_lua, ()| Ok(HvMatrix4::<f32>(Matrix4::identity())))?;
 
+    let create_transform_object = lua.create_function(move |_lua, ()| Ok(Tx::<f32>::identity()))?;
+
     Ok(lua
         .load(mlua::chunk! {
             {
@@ -627,6 +676,8 @@ pub(crate) fn open<'lua>(lua: &'lua Lua, _engine: &Engine) -> Result<LuaTable<'l
                 create_velocity2_object_from_zero = $create_velocity2_object_from_zero,
 
                 create_matrix4_object_from_identity = $create_matrix4_object_from_identity,
+
+                create_transform_object = $create_transform_object,
             }
         })
         .eval()?)
