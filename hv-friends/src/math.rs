@@ -570,9 +570,9 @@ impl<T: RealField + Copy + for<'lua> ToLua<'lua> + for<'lua> FromLua<'lua>> LuaU
 }
 
 pub(crate) fn open<'lua>(lua: &'lua Lua, _engine: &Engine) -> Result<LuaTable<'lua>> {
-    let create_isometry2_object_from_identity =
+    let create_position2_object_from_identity =
         lua.create_function(move |_lua, ()| Ok(Position2::<f32>(Isometry2::identity())))?;
-    let create_isometry2_object = lua.create_function(move |_lua, (x, y, angle)| {
+    let create_position2_object = lua.create_function(move |_lua, (x, y, angle)| {
         Ok(Position2::<f32>(Isometry2::new(Vector2::new(x, y), angle)))
     })?;
 
@@ -587,8 +587,8 @@ pub(crate) fn open<'lua>(lua: &'lua Lua, _engine: &Engine) -> Result<LuaTable<'l
     Ok(lua
         .load(mlua::chunk! {
             {
-                create_isometry2_object = $create_isometry2_object,
-                create_isometry2_object_from_identity = $create_isometry2_object_from_identity,
+                create_position2_object = $create_position2_object,
+                create_position2_object_from_identity = $create_position2_object_from_identity,
 
                 create_velocity2_object = $create_velocity2_object,
                 create_velocity2_object_from_zero = $create_velocity2_object_from_zero,
