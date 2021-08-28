@@ -404,8 +404,8 @@ impl DrawableMut for Mesh {
 impl Drawable for Mesh {
     fn draw(&self, ctx: &mut Graphics, param: Instance) {
         self.bindings.vertex_buffers[1].update(&mut ctx.mq, &[param.to_instance_properties()]);
-        ctx.mq.apply_bindings(&self.bindings);
         ctx.apply_modelview();
+        ctx.mq.apply_bindings(&self.bindings);
         ctx.mq.draw(0, self.len, 1);
     }
 }

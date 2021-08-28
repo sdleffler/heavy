@@ -93,6 +93,7 @@ impl Engine<'static> {
             }
 
             lua.load(mlua::chunk! {
+                function hv.load() end
                 function hv.update() end
                 function hv.draw() end
             })
@@ -138,6 +139,10 @@ impl<'a> Engine<'a> {
 
     pub fn fs(&self) -> MutexGuard<Filesystem> {
         self.inner.fs.try_lock().unwrap()
+    }
+
+    pub fn input_state(&self) -> MutexGuard<EngineInputState> {
+        self.inner.input_state.try_lock().unwrap()
     }
 
     pub fn insert_wrapped<T: Send + Sync + 'static>(&self, resource: Resource<T>) {

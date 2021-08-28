@@ -44,6 +44,8 @@ return {
     clear = hf_graphics.clear,
     present = hf_graphics.present,
 
+    set_color = hf_graphics.set_color,
+
     apply_transform = hf_graphics.apply_transform,
     inverse_transform_point = hf_graphics.inverse_transform_point,
     origin = hf_graphics.origin,
@@ -55,4 +57,6 @@ return {
     shear = hf_graphics.shear,
     transform_point = hf_graphics.transform_point,
     translate = hf_graphics.translate,
+
+    DrawMode = hf_graphics.DrawMode,
 }

@@ -76,6 +76,7 @@ use crate::{
 // Easy way?  Hash map of event -> axis/button bindings.
 
 #[derive(Debug, Copy, Clone, PartialEq, Hash, Eq, strum::EnumString)]
+#[strum(ascii_case_insensitive)]
 #[repr(u32)]
 pub enum KeyCode {
     Space,
@@ -810,7 +811,9 @@ impl EngineInputState {
         Self::default()
     }
 
-    pub fn set_key_state(&mut self, key: KeyCode, repeat: bool, down: bool) {
+    pub fn set_key_state(&mut self, key: KeyCode, down: bool, repeat: bool) {
+        log::trace!("key state set: {:?} {} {}", key, down, repeat);
+
         let entry = self.is_key_down.entry(key).or_default();
 
         if self.key_repeat_enabled || !repeat {
@@ -830,15 +833,17 @@ impl Plugin for KeyboardModule {
     }
 
     fn open<'lua>(&self, lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lua>, Error> {
-        let mq_input_state = engine.insert(EngineInputState::default());
+        let weak = engine.downgrade();
         let is_down = lua.create_function(move |_, key: LuaString| {
             let key_variant = KeyCode::from_str(key.to_str()?).to_lua_err()?;
-            Ok(mq_input_state
-                .borrow()
+            let strong = weak.upgrade();
+            let state = strong
+                .input_state()
                 .is_key_down
                 .get(&key_variant)
                 .map(|ks| ks.is_down)
-                .unwrap_or(false))
+                .unwrap_or(false);
+            Ok(state)
         })?;
 
         Ok(lua

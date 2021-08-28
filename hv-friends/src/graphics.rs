@@ -15,17 +15,7 @@ use hv_core::{
 use mlua::prelude::*;
 use serde::*;
 
-use crate::{
-    graphics::{
-        bindings::Bindings,
-        lua::LuaGraphicsState,
-        pipeline::{Pipeline, PipelineRegistry, ShaderRegistry},
-        render_pass::RenderPassRegistry,
-        sprite::{CachedSpriteSheet, SpriteAnimationState, SpriteSheetCache},
-        texture::TextureCache,
-    },
-    math::*,
-};
+use crate::{graphics::{bindings::Bindings, lua::{LuaDrawMode, LuaGraphicsState}, pipeline::{Pipeline, PipelineRegistry, ShaderRegistry}, render_pass::RenderPassRegistry, sprite::{CachedSpriteSheet, SpriteAnimationState, SpriteSheetCache}, texture::TextureCache}, math::*};
 
 pub mod basic;
 pub mod bindings;
@@ -801,8 +791,10 @@ pub(crate) fn open<'lua>(lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lu
     let polygon = lua.create_function(self::lua::polygon(lgs.clone(), gfx_lock.clone()))?;
     let print = lua.create_function(self::lua::print(lgs.clone(), gfx_lock.clone()))?;
     
-    let clear = lua.create_function(self::lua::clear(lgs, gfx_lock.clone()))?;
+    let clear = lua.create_function(self::lua::clear(lgs.clone(), gfx_lock.clone()))?;
     let present = lua.create_function(self::lua::present(gfx_lock.clone()))?;
+
+    let set_color = lua.create_function(self::lua::set_color(lgs))?;
     
     let apply_transform = lua.create_function(self::lua::apply_transform(gfx_lock.clone()))?;
     let inverse_transform_point = lua.create_function(self::lua::inverse_transform_point(gfx_lock.clone()))?;
@@ -815,6 +807,9 @@ pub(crate) fn open<'lua>(lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lu
     let shear = lua.create_function(self::lua::shear(gfx_lock.clone()))?;
     let transform_point = lua.create_function(self::lua::transform_point(gfx_lock.clone()))?;
     let translate = lua.create_function(self::lua::translate(gfx_lock))?;
+
+    let draw_mode_fill = LuaDrawMode::Fill;
+    let draw_mode_line = LuaDrawMode::Line;
 
     Ok(lua
         .load(mlua::chunk! {
@@ -849,6 +844,8 @@ pub(crate) fn open<'lua>(lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lu
                 clear = $clear,
                 present = $present,
 
+                set_color = $set_color,
+
                 apply_transform = $apply_transform,
                 inverse_transform_point = $inverse_transform_point,
                 origin = $origin,
@@ -860,6 +857,11 @@ pub(crate) fn open<'lua>(lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lu
                 shear = $shear,
                 transform_point = $transform_point,
                 translate = $translate,
+
+                DrawMode = {
+                    Fill = $draw_mode_fill,
+                    Line = $draw_mode_line,
+                },
             }
         })
         .eval()?)

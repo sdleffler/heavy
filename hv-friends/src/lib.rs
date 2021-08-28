@@ -5,6 +5,7 @@ use hv_core::{
     engine::{Engine, EventHandler},
     mlua::{self, prelude::*},
     plugins::Plugin,
+    util::RwLockExt,
 };
 
 pub extern crate nalgebra as na;
@@ -64,6 +65,13 @@ impl EventHandler for SimpleHandler {
         gfx.set_projection(Orthographic3::new(0., w, 0., h, -1., 1.).to_homogeneous());
         gfx.apply_default_pipeline();
         gfx.begin_render_pass(None, Some(ClearOptions::default()));
+        drop(gfx);
+
+        engine
+            .lua()
+            .globals()
+            .get::<_, LuaTable>("hv")?
+            .call_function("load", ())?;
 
         Ok(())
     }
@@ -73,16 +81,26 @@ impl EventHandler for SimpleHandler {
             .lua()
             .globals()
             .get::<_, LuaTable>("hv")?
-            .call_function("update", ())?;
+            .call_function("update", 1. / 60.)?;
         Ok(())
     }
 
     fn draw(&mut self, engine: &Engine) -> Result<()> {
+        let gfx_lock = engine.get::<GraphicsLock>();
+
+        let mut gfx = gfx_lock.lock();
+        gfx.begin_render_pass(None, Some(ClearOptions::default()));
+        drop(gfx);
+
         engine
             .lua()
             .globals()
             .get::<_, LuaTable>("hv")?
             .call_function("draw", ())?;
+
+        let mut gfx = gfx_lock.lock();
+        gfx.end_render_pass();
+        gfx.commit_frame();
 
         Ok(())
     }
