@@ -221,9 +221,8 @@ impl LevelEditorMode for ContextMenuSubMode {
                         .screen_to_world_tx()
                         .transform_point(&canvas_position);
 
-                    let position = Position {
-                        isometry: Isometry2::translation(world_position.x, world_position.y),
-                    };
+                    let position =
+                        Position(Position2::translation(world_position.x, world_position.y));
 
                     ctx.level.borrow().space.borrow_mut().spawn((position,));
 
@@ -344,8 +343,8 @@ impl LevelEditorMode for MoveObjectSubMode {
                 let space = ctx.level.borrow().space.clone();
                 let mut space_mut = space.borrow_mut();
                 for &object in &ctx.selected_objects {
-                    if let Ok(pos) = space_mut.query_one_mut::<&mut Position>(object) {
-                        pos.isometry.translation.vector += delta_vector;
+                    if let Ok(Position(pos)) = space_mut.query_one_mut::<&mut Position>(object) {
+                        pos.translation.vector += delta_vector;
                     }
                 }
             } else {
@@ -482,11 +481,11 @@ impl LevelEditorMode for NormalMode {
         let mut space_mut = space.borrow_mut();
 
         if let Some(closest) = maybe_closest {
-            if let Ok(&pos) = space_mut.query_one_mut::<&Position>(closest) {
+            if let Ok(Position(pos)) = space_mut.query_one_mut::<&Position>(closest) {
                 mesh.draw_mut(
                     &mut gfx,
                     Instance::new()
-                        .translate2(pos.isometry.translation.vector)
+                        .translate2(pos.translation.vector)
                         .scale2(Vector2::repeat(camera_inverse_scale))
                         .color(Color::new(1.0, 1.0, 1.0, 0.6)),
                 );
@@ -494,11 +493,11 @@ impl LevelEditorMode for NormalMode {
         }
 
         for &object in &ctx.selected_objects {
-            if let Ok(&pos) = space_mut.query_one_mut::<&Position>(object) {
+            if let Ok(Position(pos)) = space_mut.query_one_mut::<&Position>(object) {
                 mesh.draw_mut(
                     &mut gfx,
                     Instance::new()
-                        .translate2(pos.isometry.translation.vector)
+                        .translate2(pos.translation.vector)
                         .scale2(Vector2::repeat(camera_inverse_scale)),
                 );
             }

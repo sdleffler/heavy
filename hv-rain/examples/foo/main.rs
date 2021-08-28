@@ -107,12 +107,12 @@ impl Game {
         }
 
         if !self.paused {
-            for (_, (pos, vel)) in self
+            for (_, (Position(pos), Velocity(vel))) in self
                 .space
                 .borrow_mut()
                 .query_mut::<(&mut Position, &mut Velocity)>()
             {
-                pos.isometry = vel.velocity.integrate(1. / 60.) * pos.isometry;
+                pos.integrate_mut(vel, 1. / 60.);
             }
 
             {
@@ -169,12 +169,12 @@ impl Game {
             gfx.apply_default_pipeline();
             gfx.apply_modelview();
 
-            for (_, (pos,)) in self.space.borrow_mut().query_mut::<(&Position,)>() {
+            for (_, (Position(pos),)) in self.space.borrow_mut().query_mut::<(&Position,)>() {
                 self.mesh.draw(
                     &mut gfx,
                     Instance::new()
-                        .translate2(pos.isometry.translation.vector)
-                        .rotate2(pos.isometry.rotation.angle()),
+                        .translate2(pos.translation.vector)
+                        .rotate2(pos.rotation.angle()),
                 );
             }
         }

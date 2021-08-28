@@ -295,14 +295,14 @@ mod object_properties {
         fn init<'q>(
             &self,
             _object: Object,
-            position: &'q mut Position,
+            Position(pos): &'q mut Position,
             _lua: &Lua,
         ) -> Result<Self::State> {
             Ok(PositionState {
-                actual: position.isometry,
-                x: position.isometry.translation.vector.x,
-                y: position.isometry.translation.vector.y,
-                theta: position.isometry.rotation.angle(),
+                actual: **pos,
+                x: pos.translation.vector.x,
+                y: pos.translation.vector.y,
+                theta: pos.rotation.angle(),
                 dirty: false,
             })
         }
@@ -310,7 +310,7 @@ mod object_properties {
         fn edit<'q>(
             &self,
             object: Object,
-            position: &'q mut Position,
+            Position(pos): &'q mut Position,
             _lua: &Lua,
             ui: &mut egui::Ui,
             state: &mut Self::State,
@@ -345,12 +345,11 @@ mod object_properties {
                         state.dirty = true;
 
                         // Preview
-                        position.isometry =
-                            Isometry2::new(Vector2::new(state.x, state.y), state.theta);
+                        *pos = Position2::new(Vector2::new(state.x, state.y), state.theta);
                     }
 
                     if state.dirty && (all_response.drag_released() || all_response.lost_focus()) {
-                        state.actual = position.isometry;
+                        state.actual = **pos;
                         state.dirty = false;
 
                         Ok(EditResult::MarkUndoPoint(format!(

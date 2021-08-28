@@ -8,7 +8,7 @@ use {
 
 use std::{
     mem,
-    ops::{Add, AddAssign, Mul, MulAssign, Sub, SubAssign},
+    ops::{Add, AddAssign, Deref, DerefMut, Mul, MulAssign, Sub, SubAssign},
 };
 
 use hv_core::engine::Engine;
@@ -38,9 +38,62 @@ impl<T> Numeric for T where
 {
 }
 
-/// A velocity structure combining both the linear angular velocities of a point.
 #[repr(C)]
-#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct Position2<N: RealField + Copy>(Isometry2<N>);
+
+impl<N: RealField + Copy> From<Isometry2<N>> for Position2<N> {
+    fn from(iso: Isometry2<N>) -> Self {
+        Self(iso)
+    }
+}
+
+impl<N: RealField + Copy> Deref for Position2<N> {
+    type Target = Isometry2<N>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<N: RealField + Copy> DerefMut for Position2<N> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl<N: RealField + Copy> Position2<N> {
+    pub fn new(translation: Vector2<N>, rotation: N) -> Self {
+        Self(Isometry2::new(translation, rotation))
+    }
+
+    pub fn translation(x: N, y: N) -> Self {
+        Self(Isometry2::translation(x, y))
+    }
+
+    /// Semi-implicit Euler integration.
+    pub fn integrate2_mut(
+        &mut self,
+        velocity: &mut Velocity2<N>,
+        acceleration: &Velocity2<N>,
+        dt: N,
+    ) {
+        let dv = (*acceleration) * dt;
+        velocity.linear += dv.linear;
+        velocity.angular += dv.angular;
+        self.integrate_mut(velocity, dt);
+    }
+
+    pub fn integrate_mut(&mut self, velocity: &Velocity2<N>, dt: N) {
+        let integrated = velocity.integrate(dt);
+        self.translation *= integrated.translation;
+        self.rotation *= integrated.rotation;
+    }
+}
+
+/// A velocity structure combining both the linear and angular velocities of a point.
+#[repr(C)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub struct Velocity2<N: RealField + Copy> {
     /// The linear velocity.
     pub linear: Vector2<N>,
@@ -451,41 +504,14 @@ pub fn homogeneous_mat3_to_mat4<T: RealField + Copy>(mat3: &Matrix3<T>) -> Matri
     )
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct HvVector2<T: RealField + Copy>(pub Vector2<T>);
-
-impl<T: RealField + Copy + for<'lua> ToLua<'lua> + for<'lua> FromLua<'lua>> LuaUserData
-    for HvVector2<T>
-{
-    fn add_fields<'lua, F: LuaUserDataFields<'lua, Self>>(fields: &mut F) {
-        add_field!(fields, t.x => t.0.x);
-        add_field!(fields, t.y => t.0.y);
-    }
-
-    fn add_methods<'lua, M: LuaUserDataMethods<'lua, Self>>(methods: &mut M) {
-        use HvVector2 as HvV2;
-
-        add_clone_methods(methods);
-
-        simple_mut(methods, "init", |t, (x, y)| t.0 = Vector2::new(x, y));
-        simple(methods, "norm", |t, ()| t.0.norm());
-
-        lh_binop(methods, "add", |HvV2(lhs), HvV2(rhs)| HvV2(lhs + rhs));
-        lh_binop(methods, "sub", |HvV2(lhs), HvV2(rhs)| HvV2(lhs - rhs));
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct HvPosition2<T: RealField + Copy>(pub Isometry2<T>);
-
-impl<T: RealField + Copy> HvPosition2<T> {
+impl<T: RealField + Copy> Position2<T> {
     pub fn to_matrix4(&self) -> Matrix4<T> {
-        homogeneous_mat3_to_mat4(&self.0.to_homogeneous())
+        homogeneous_mat3_to_mat4(&self.to_homogeneous())
     }
 }
 
 impl<T: RealField + Copy + for<'lua> ToLua<'lua> + for<'lua> FromLua<'lua>> LuaUserData
-    for HvPosition2<T>
+    for Position2<T>
 {
     fn add_fields<'lua, F: LuaUserDataFields<'lua, Self>>(fields: &mut F) {
         add_field!(fields, t.x => t.0.translation.vector.x);
@@ -493,9 +519,6 @@ impl<T: RealField + Copy + for<'lua> ToLua<'lua> + for<'lua> FromLua<'lua>> LuaU
 
         add_getter!(fields, t.angle => t.0.rotation.angle());
         add_setter!(fields, t.angle = angle => t.0.rotation = UnitComplex::new(angle));
-
-        add_getter!(fields, t.translation => HvVector2(t.0.translation.vector));
-        add_setter!(fields, t.translation = v: HvVector2<T> => t.0.translation.vector = v.0);
     }
 
     fn add_methods<'lua, M: LuaUserDataMethods<'lua, Self>>(methods: &mut M) {
@@ -517,36 +540,30 @@ impl<T: RealField + Copy + for<'lua> ToLua<'lua> + for<'lua> FromLua<'lua>> LuaU
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct HvVelocity2<T: RealField + Copy>(pub Velocity2<T>);
-
 impl<T: RealField + Copy + for<'lua> ToLua<'lua> + for<'lua> FromLua<'lua>> LuaUserData
-    for HvVelocity2<T>
+    for Velocity2<T>
 {
     fn add_fields<'lua, F: LuaUserDataFields<'lua, Self>>(fields: &mut F) {
-        add_field!(fields, t.x => t.0.linear.x);
-        add_field!(fields, t.y => t.0.linear.y);
-        add_field!(fields, t.angular => t.0.angular);
-
-        add_getter!(fields, t.linear => HvVector2(t.0.linear));
-        add_setter!(fields, t.linear = v: HvVector2<T> => t.0.linear = v.0);
+        add_field!(fields, t.x => t.linear.x);
+        add_field!(fields, t.y => t.linear.y);
+        add_field!(fields, t.angular => t.angular);
     }
 
     fn add_methods<'lua, M: LuaUserDataMethods<'lua, Self>>(methods: &mut M) {
         add_clone_methods(methods);
 
         methods.add_method_mut("init", |_, this, (x, y, angular)| {
-            this.0 = Velocity2::new(Vector2::new(x, y), angular);
+            *this = Velocity2::new(Vector2::new(x, y), angular);
             Ok(())
         });
 
         methods.add_method_mut("set_linear", |_, this, (x, y)| {
-            this.0.linear = Vector2::new(x, y);
+            this.linear = Vector2::new(x, y);
             Ok(())
         });
 
         methods.add_method_mut("set_angular", |_, this, angular| {
-            this.0.angular = angular;
+            this.angular = angular;
             Ok(())
         });
     }
@@ -554,21 +571,15 @@ impl<T: RealField + Copy + for<'lua> ToLua<'lua> + for<'lua> FromLua<'lua>> LuaU
 
 pub(crate) fn open<'lua>(lua: &'lua Lua, _engine: &Engine) -> Result<LuaTable<'lua>> {
     let create_isometry2_object_from_identity =
-        lua.create_function(move |_lua, ()| Ok(HvPosition2::<f32>(Isometry2::identity())))?;
+        lua.create_function(move |_lua, ()| Ok(Position2::<f32>(Isometry2::identity())))?;
     let create_isometry2_object = lua.create_function(move |_lua, (x, y, angle)| {
-        Ok(HvPosition2::<f32>(Isometry2::new(
-            Vector2::new(x, y),
-            angle,
-        )))
+        Ok(Position2::<f32>(Isometry2::new(Vector2::new(x, y), angle)))
     })?;
 
     let create_velocity2_object_from_zero =
-        lua.create_function(move |_lua, ()| Ok(HvVelocity2::<f32>(Velocity2::zero())))?;
+        lua.create_function(move |_lua, ()| Ok(Velocity2::<f32>::zero()))?;
     let create_velocity2_object = lua.create_function(move |_lua, (x, y, angular)| {
-        Ok(HvVelocity2::<f32>(Velocity2::new(
-            Vector2::new(x, y),
-            angular,
-        )))
+        Ok(Velocity2::<f32>::new(Vector2::new(x, y), angular))
     })?;
 
     let create_transform_object = lua.create_function(move |_lua, ()| Ok(Tx::<f32>::identity()))?;

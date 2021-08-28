@@ -286,7 +286,7 @@ impl LevelContext {
 
         let space = self.level.borrow().space.clone();
         let mut closest: Option<(Object, f32)> = None;
-        for (obj, pos) in space
+        for (obj, Position(pos)) in space
             .borrow_mut()
             .query_mut::<(&Position, Option<&Visible>)>()
             .into_iter()
@@ -298,7 +298,7 @@ impl LevelContext {
                 }
             })
         {
-            let object_pos = Point2::from(pos.isometry.translation.vector);
+            let object_pos = Point2::from(pos.translation.vector);
             let canvas_object_pos = world_to_canvas_tx.transform_point(&object_pos);
             let distance = na::distance_squared(&canvas_object_pos, &canvas_interact_pos);
 
@@ -524,7 +524,7 @@ impl LevelEditor {
         gfx.modelview_mut().push(self.camera.borrow().view_tx());
         gfx.apply_modelview();
 
-        for (_, (pos, maybe_visible)) in space
+        for (_, (Position(pos), maybe_visible)) in space
             .borrow_mut()
             .query_mut::<(&Position, Option<&Visible>)>()
         {
@@ -535,8 +535,8 @@ impl LevelEditor {
             mesh.draw_mut(
                 &mut gfx,
                 Instance::new()
-                    .translate2(pos.isometry.translation.vector)
-                    .rotate2(pos.isometry.rotation.angle())
+                    .translate2(pos.translation.vector)
+                    .rotate2(pos.rotation.angle())
                     .scale2(Vector2::repeat(
                         self.camera.borrow().screen_to_world_tx().scaling(),
                     )),

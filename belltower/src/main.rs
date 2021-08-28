@@ -153,12 +153,12 @@ impl Game {
             pc.update(pos, vel, cg, &self.input_state)?;
         }
 
-        for (_, (pos, vel)) in self
+        for (_, (Position(pos), Velocity(vel))) in self
             .space
             .borrow_mut()
             .query_mut::<(&mut Position, &mut Velocity)>()
         {
-            pos.isometry = vel.velocity.integrate(1. / 60.) * pos.isometry;
+            pos.integrate_mut(vel, dt);
         }
 
         let player_pos = self
@@ -169,9 +169,8 @@ impl Game {
             .next()
             .map(|(_, (&pos,))| pos);
 
-        if let Some(pos) = player_pos {
-            self.camera
-                .set_subject_pos(pos.isometry.translation.vector.into());
+        if let Some(Position(pos)) = player_pos {
+            self.camera.set_subject_pos(pos.translation.vector.into());
         }
 
         self.camera.update(dt);
@@ -232,12 +231,12 @@ impl Game {
 
             gfx.apply_modelview();
 
-            for (_, (pos,)) in self.space.borrow_mut().query_mut::<(&Position,)>() {
+            for (_, Position(pos)) in self.space.borrow_mut().query_mut::<&Position>() {
                 self.mesh.draw(
                     &mut gfx,
                     Instance::new()
-                        .translate2(pos.isometry.translation.vector)
-                        .rotate2(pos.isometry.rotation.angle()),
+                        .translate2(pos.translation.vector)
+                        .rotate2(pos.rotation.angle()),
                 );
             }
         }
@@ -251,7 +250,7 @@ impl Game {
         {
             let mut gfx = self.gfx_resource.lock();
 
-            for (_, (pos, cg)) in self
+            for (_, (Position(pos), cg)) in self
                 .space
                 .borrow_mut()
                 .query_mut::<(&Position, &CombatGeometry)>()
@@ -262,8 +261,8 @@ impl Game {
                 mesh.draw(
                     &mut gfx,
                     Instance::new()
-                        .translate2(pos.isometry.translation.vector)
-                        .rotate2(pos.isometry.rotation.angle())
+                        .translate2(pos.translation.vector)
+                        .rotate2(pos.rotation.angle())
                         .color(Color::new(1., 1., 1., 0.5)),
                 );
             }

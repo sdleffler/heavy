@@ -85,25 +85,25 @@ where
     });
 }
 
-pub fn lh_binop<'lua, M, L, R, F, S>(methods: &mut M, name: &S, f: F)
-where
-    M: LuaUserDataMethods<'lua, L>,
-    L: Copy + Send + LuaUserData + 'static,
-    R: Copy + Send + LuaUserData + 'static,
-    F: Fn(L, R) -> L + Send + Sync + 'static,
-    S: AsRef<[u8]> + ?Sized,
-{
-    methods.add_function(
-        name,
-        move |_, (out_ud, lhs_ud, rhs_ud): (LuaAnyUserData, LuaAnyUserData, LuaAnyUserData)| {
-            let lhs = *lhs_ud.borrow::<L>()?;
-            let rhs = *rhs_ud.borrow::<R>()?;
-            let tmp = f(lhs, rhs);
-            *out_ud.borrow_mut()? = tmp;
-            Ok(out_ud)
-        },
-    );
-}
+// pub fn lh_binop<'lua, M, L, R, F, S>(methods: &mut M, name: &S, f: F)
+// where
+//     M: LuaUserDataMethods<'lua, L>,
+//     L: Copy + Send + LuaUserData + 'static,
+//     R: Copy + Send + LuaUserData + 'static,
+//     F: Fn(L, R) -> L + Send + Sync + 'static,
+//     S: AsRef<[u8]> + ?Sized,
+// {
+//     methods.add_function(
+//         name,
+//         move |_, (out_ud, lhs_ud, rhs_ud): (LuaAnyUserData, LuaAnyUserData, LuaAnyUserData)| {
+//             let lhs = *lhs_ud.borrow::<L>()?;
+//             let rhs = *rhs_ud.borrow::<R>()?;
+//             let tmp = f(lhs, rhs);
+//             *out_ud.borrow_mut()? = tmp;
+//             Ok(out_ud)
+//         },
+//     );
+// }
 
 pub fn add_drawable_methods<'lua, M, T>(methods: &mut M)
 where

@@ -201,7 +201,7 @@ impl LuaUserData for Instance {
             Ok(())
         });
 
-        methods.add_method_mut("isometry2", |_, this, hv_iso: HvPosition2<f32>| {
+        methods.add_method_mut("isometry2", |_, this, hv_iso: Position2<f32>| {
             *this = this.transform3(&Transform3::from_matrix_unchecked(hv_iso.to_matrix4()));
             Ok(())
         });

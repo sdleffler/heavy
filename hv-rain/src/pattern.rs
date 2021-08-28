@@ -351,114 +351,105 @@ impl LuaUserData for Barrage {
             Ok(())
         });
 
-        methods.add_method_mut("prepend_origin", |_, this, HvPosition2(tx)| {
+        methods.add_method_mut("prepend_origin", |_, this, tx: Position2<f32>| {
             this.prepend_origin(&tx);
             Ok(())
         });
 
-        methods.add_method_mut("append_origin", |_, this, HvPosition2(tx)| {
+        methods.add_method_mut("append_origin", |_, this, tx: Position2<f32>| {
             this.append_origin(&tx);
             Ok(())
         });
 
-        methods.add_method_mut("append_rotation_to_origin", |_, this, HvPosition2(tx)| {
-            this.append_rotation_to_origin(&tx.rotation);
-            Ok(())
-        });
+        methods.add_method_mut(
+            "append_rotation_to_origin",
+            |_, this, tx: Position2<f32>| {
+                this.append_rotation_to_origin(&tx.rotation);
+                Ok(())
+            },
+        );
 
-        methods.add_method_mut("prepend_linear_tx", |_, this, HvPosition2(tx)| {
+        methods.add_method_mut("prepend_linear_tx", |_, this, tx: Position2<f32>| {
             this.prepend_linear_tx(&tx);
             Ok(())
         });
 
-        methods.add_method_mut("append_linear_tx", |_, this, HvPosition2(tx)| {
+        methods.add_method_mut("append_linear_tx", |_, this, tx: Position2<f32>| {
             this.append_linear_tx(&tx);
             Ok(())
         });
 
-        methods.add_method_mut("set_linear_tx", |_, this, HvPosition2(tx)| {
+        methods.add_method_mut("set_linear_tx", |_, this, tx: Position2<f32>| {
             this.set_linear_tx(&tx);
             Ok(())
         });
 
-        methods.add_method_mut("add_polar_tx", |_, this, HvPosition2(tx)| {
+        methods.add_method_mut("add_polar_tx", |_, this, tx: Position2<f32>| {
             this.add_polar_tx(&tx);
             Ok(())
         });
 
-        methods.add_method_mut("set_polar_tx", |_, this, HvPosition2(tx)| {
+        methods.add_method_mut("set_polar_tx", |_, this, tx: Position2<f32>| {
             this.set_polar_tx(&tx);
             Ok(())
         });
 
-        methods.add_method_mut("add_linear_velocity", |_, this, HvVelocity2(vel)| {
+        methods.add_method_mut("add_linear_velocity", |_, this, vel| {
             this.add_linear_velocity(&vel);
             Ok(())
         });
 
-        methods.add_method_mut("set_linear_velocity", |_, this, HvVelocity2(vel)| {
+        methods.add_method_mut("set_linear_velocity", |_, this, vel| {
             this.set_linear_velocity(&vel);
             Ok(())
         });
 
-        methods.add_method_mut(
-            "add_linear_velocity_wrt_world",
-            |_, this, HvVelocity2(vel)| {
-                this.add_linear_velocity_wrt_world(&vel);
-                Ok(())
-            },
-        );
+        methods.add_method_mut("add_linear_velocity_wrt_world", |_, this, vel| {
+            this.add_linear_velocity_wrt_world(&vel);
+            Ok(())
+        });
 
-        methods.add_method_mut(
-            "set_linear_velocity_wrt_world",
-            |_, this, HvVelocity2(vel)| {
-                this.set_linear_velocity_wrt_world(&vel);
-                Ok(())
-            },
-        );
+        methods.add_method_mut("set_linear_velocity_wrt_world", |_, this, vel| {
+            this.set_linear_velocity_wrt_world(&vel);
+            Ok(())
+        });
 
-        methods.add_method_mut("add_polar_velocity", |_, this, HvVelocity2(vel)| {
+        methods.add_method_mut("add_polar_velocity", |_, this, vel| {
             this.add_polar_velocity(&vel);
             Ok(())
         });
 
-        methods.add_method_mut("set_polar_velocity", |_, this, HvVelocity2(vel)| {
+        methods.add_method_mut("set_polar_velocity", |_, this, vel| {
             this.set_polar_velocity(&vel);
             Ok(())
         });
 
-        methods.add_method_mut("add_linear_acceleration", |_, this, HvVelocity2(accel)| {
+        methods.add_method_mut("add_linear_acceleration", |_, this, accel| {
             this.add_linear_acceleration(&accel);
             Ok(())
         });
 
-        methods.add_method_mut("set_linear_acceleration", |_, this, HvVelocity2(accel)| {
+        methods.add_method_mut("set_linear_acceleration", |_, this, accel| {
             this.set_linear_acceleration(&accel);
             Ok(())
         });
 
-        methods.add_method_mut(
-            "add_linear_acceleration_wrt_world",
-            |_, this, HvVelocity2(accel)| {
-                this.add_linear_acceleration_wrt_world(&accel);
-                Ok(())
-            },
-        );
+        methods.add_method_mut("add_linear_acceleration_wrt_world", |_, this, accel| {
+            this.add_linear_acceleration_wrt_world(&accel);
+            Ok(())
+        });
 
-        methods.add_method_mut(
-            "set_linear_acceleration_wrt_world",
-            |_, this, HvVelocity2(accel)| {
-                this.set_linear_acceleration_wrt_world(&accel);
-                Ok(())
-            },
-        );
+        methods.add_method_mut("set_linear_acceleration_wrt_world", |_, this, accel| {
+            this.set_linear_acceleration_wrt_world(&accel);
+            Ok(())
+        });
 
-        methods.add_method_mut("add_polar_acceleration", |_, this, HvVelocity2(accel)| {
+        methods.add_method_mut("add_polar_acceleration", |_, this, accel| {
             this.add_polar_acceleration(&accel);
             Ok(())
         });
 
-        methods.add_method_mut("set_polar_acceleration", |_, this, HvVelocity2(accel)| {
+        methods.add_method_mut("set_polar_acceleration", |_, this, accel| {
             this.set_polar_acceleration(&accel);
             Ok(())
         });

@@ -105,13 +105,13 @@ impl PlayerState for NormalState {
 
     fn update(
         &mut self,
-        position: &mut Position,
-        velocity: &mut Velocity,
+        Position(position): &mut Position,
+        Velocity(velocity): &mut Velocity,
         combat_geometry: &mut CombatGeometry,
         input_state: &PlayerInput,
     ) -> Result<StateTransition> {
         if !input_state.is_stick_centered() {
-            position.isometry.rotation =
+            position.rotation =
                 UnitComplex::rotation_between(&Vector2::x(), &input_state.stick_direction);
         }
 
@@ -126,7 +126,7 @@ impl PlayerState for NormalState {
             ))))
         } else if input_state.frames_since_last_press[&Buttons::Swing] < 8 {
             Ok(StateTransition::To(Box::new(SwingState::new(
-                position.isometry.transform_vector(&Vector2::x()) * 160.,
+                position.transform_vector(&Vector2::x()) * 160.,
             ))))
         } else {
             if !input_state.is_stick_centered() {
@@ -141,7 +141,7 @@ impl PlayerState for NormalState {
                 self.direction = Vector2::zeros();
             }
 
-            velocity.velocity = Velocity2::new(self.direction, 0.);
+            *velocity = Velocity2::new(self.direction, 0.);
 
             combat_geometry.clear();
             combat_geometry.hitbox(Cuboid::new(Vector2::repeat(4.)), Isometry2::identity());
@@ -183,17 +183,16 @@ impl PlayerState for DashState {
 
     fn update(
         &mut self,
-        position: &mut Position,
-        velocity: &mut Velocity,
+        Position(position): &mut Position,
+        Velocity(velocity): &mut Velocity,
         _combat_geometry: &mut CombatGeometry,
         _input_state: &PlayerInput,
     ) -> Result<StateTransition> {
-        position.isometry.rotation =
-            UnitComplex::rotation_between(&Vector2::x(), &self.linear_velocity);
+        position.rotation = UnitComplex::rotation_between(&Vector2::x(), &self.linear_velocity);
 
         if self.dash_frame < self.max_dash_frames {
             self.dash_frame += 1;
-            velocity.velocity = Velocity2::new(self.linear_velocity, 0.);
+            *velocity = Velocity2::new(self.linear_velocity, 0.);
             Ok(StateTransition::None)
         } else {
             Ok(StateTransition::To(Box::new(SkidState::new(
@@ -228,7 +227,7 @@ impl PlayerState for SkidState {
     fn update(
         &mut self,
         _position: &mut Position,
-        velocity: &mut Velocity,
+        Velocity(velocity): &mut Velocity,
         _combat_geometry: &mut CombatGeometry,
         input_state: &PlayerInput,
     ) -> Result<StateTransition> {
@@ -244,7 +243,7 @@ impl PlayerState for SkidState {
         } else if self.frame < self.max_frames {
             self.frame += 1;
             let decay_factor = (self.max_frames - self.frame) as f32 / self.max_frames as f32;
-            velocity.velocity = Velocity2::new(self.linear_velocity * decay_factor, 0.);
+            *velocity = Velocity2::new(self.linear_velocity * decay_factor, 0.);
             Ok(StateTransition::None)
         } else {
             Ok(StateTransition::To(Box::new(NormalState::new())))
@@ -299,15 +298,15 @@ impl PlayerState for SwingState {
 
     fn update(
         &mut self,
-        position: &mut Position,
-        velocity: &mut Velocity,
+        Position(position): &mut Position,
+        Velocity(velocity): &mut Velocity,
         combat_geometry: &mut CombatGeometry,
         input_state: &PlayerInput,
     ) -> Result<StateTransition> {
         if self.frame < self.max_frames {
             if self.frame <= self.slide_end {
                 let decay_factor = (self.slide_end - self.frame) as f32 / self.slide_end as f32;
-                velocity.velocity = Velocity2::new(self.linear_velocity * decay_factor, 0.);
+                *velocity = Velocity2::new(self.linear_velocity * decay_factor, 0.);
             }
 
             if self.frame == self.hurtbox_begin {
@@ -342,7 +341,7 @@ impl PlayerState for SwingState {
                 }
 
                 Ok(StateTransition::To(Box::new(SwingState::new(
-                    position.isometry.transform_vector(&Vector2::x()) * 70.,
+                    position.transform_vector(&Vector2::x()) * 70.,
                 ))))
             } else {
                 self.frame += 1;

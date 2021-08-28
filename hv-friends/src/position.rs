@@ -6,44 +6,35 @@ use hv_core::{
     spaces::{Object, SpaceCache},
     util::RwLockExt,
 };
-use nalgebra::Isometry2;
 use serde::*;
 
-use crate::math::HvPosition2;
+use crate::math::Position2;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct Position {
-    pub isometry: Isometry2<f32>,
-}
+pub struct Position(pub Position2<f32>);
 
 impl LuaUserData for Position {}
 
 pub(crate) fn open<'lua>(lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lua>, Error> {
-    let create_position_constructor = lua.create_function(|_, HvPosition2(isometry)| {
-        Ok(DynamicComponentConstructor::copy(Position { isometry }))
-    })?;
+    let create_position_constructor = lua
+        .create_function(|_, position| Ok(DynamicComponentConstructor::copy(Position(position))))?;
 
     let mut space_cache = SpaceCache::new(engine);
     let get_position2 =
         lua.create_function_mut(move |_, (obj, out): (Object, LuaAnyUserData)| {
             let space = space_cache.get_space(obj.space());
-            let isometry = space.borrow().get::<Position>(obj).to_lua_err()?.isometry;
-            out.borrow_mut::<HvPosition2<f32>>()?.0 = isometry;
+            let position = space.borrow().get::<Position>(obj).to_lua_err()?.0;
+            *out.borrow_mut::<Position2<f32>>()? = position;
             Ok(())
         })?;
 
     let mut space_cache = SpaceCache::new(engine);
-    let set_position2 = lua.create_function_mut(
-        move |_, (obj, HvPosition2(iso)): (Object, HvPosition2<f32>)| {
+    let set_position2 =
+        lua.create_function_mut(move |_, (obj, pos): (Object, Position2<f32>)| {
             let space = space_cache.get_space(obj.space());
-            space
-                .borrow()
-                .get_mut::<Position>(obj)
-                .to_lua_err()?
-                .isometry = iso;
+            space.borrow().get_mut::<Position>(obj).to_lua_err()?.0 = pos;
             Ok(())
-        },
-    )?;
+        })?;
 
     Ok(lua
         .load(mlua::chunk! {
