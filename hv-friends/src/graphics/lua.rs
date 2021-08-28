@@ -329,9 +329,13 @@ pub(crate) fn present(gfx_lock: Resource<GraphicsLock>) -> lua_fn!(Fn<'lua>(()) 
 
 pub(crate) fn apply_transform(
     gfx_lock: Resource<GraphicsLock>,
-) -> lua_fn!(Fn<'lua>(HvMatrix4<f32>) -> ()) {
-    move |_, HvMatrix4(mat)| {
-        gfx_lock.lock().state.modelview.apply_transform(mat);
+) -> lua_fn!(Fn<'lua>(Tx<f32>) -> ()) {
+    move |_, tx| {
+        gfx_lock
+            .lock()
+            .state
+            .modelview
+            .apply_transform(tx.to_homogeneous_mat4());
         Ok(())
     }
 }
@@ -372,9 +376,13 @@ pub(crate) fn push(gfx_lock: Resource<GraphicsLock>) -> lua_fn!(Fn<'lua>(()) -> 
 
 pub(crate) fn replace_transform(
     gfx_lock: Resource<GraphicsLock>,
-) -> lua_fn!(Fn<'lua>(HvMatrix4<f32>) -> ()) {
-    move |_, HvMatrix4(mat)| {
-        gfx_lock.lock().state.modelview.replace_transform(mat);
+) -> lua_fn!(Fn<'lua>(Tx<f32>) -> ()) {
+    move |_, tx| {
+        gfx_lock
+            .lock()
+            .state
+            .modelview
+            .replace_transform(tx.to_homogeneous_mat4());
         Ok(())
     }
 }

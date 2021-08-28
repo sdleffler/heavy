@@ -842,6 +842,7 @@ dependencies = [
  "rusttype",
  "serde",
  "serde_json",
+ "smallbox",
  "thunderdome",
  "walkdir",
  "zip",

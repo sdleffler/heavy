@@ -1,3 +1,5 @@
+#![feature(ptr_metadata)]
+
 #[doc(hidden)]
 pub extern crate hecs;
 #[doc(hidden)]
@@ -20,6 +22,7 @@ pub mod input;
 pub mod plugins;
 pub mod spaces;
 pub mod swappable_cache;
+pub mod xsbox;
 
 pub mod prelude {
     pub use crate::{engine::LuaExt, util::RwLockExt};

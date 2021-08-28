@@ -1,21 +1,21 @@
 local hf_math = hv.plugins.friends.math
 
-local Isometry2 = {}
+local Position2 = {}
 do
-    Isometry2.new = hf_math.create_isometry2_object
-    Isometry2.identity = hf_math.create_isometry2_object_from_identity
+    Position2.new = hf_math.create_position2_object
+    Position2.identity = hf_math.create_position2_object_from_identity
     
-    function Isometry2.from_translation(x, y)
-        return Isometry2.new(x, y, 0)
+    function Position2.from_translation(x, y)
+        return Position2.new(x, y, 0)
     end
 
-    function Isometry2.from_rotation(angle)
-        return Isometry2.new(0, 0, angle)
+    function Position2.from_rotation(angle)
+        return Position2.new(0, 0, angle)
     end
 
-    setmetatable(Isometry2, {
+    setmetatable(Position2, {
         __call = function(_, x, y, angle)
-            return Isometry2.new(x or 0, y or 0, angle or 0)
+            return Position2.new(x or 0, y or 0, angle or 0)
         end 
     })
 end
@@ -40,7 +40,13 @@ do
     })
 end
 
+local Transform = {}
+do
+    Transform.new = hv_math.create_transform_object
+end
+
 return {
-    Isometry2 = Isometry2,
+    Position2 = Position2,
     Velocity2 = Velocity2,
+    Transform = Transform,
 }
