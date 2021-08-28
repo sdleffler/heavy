@@ -390,6 +390,8 @@ impl mq::EventHandlerFree for Engine<'static> {
         let mut handler = self.handler();
 
         while let Some(event) = self.gilrs().next_event() {
+            log::trace!("gilrs: {:?}", event);
+
             match event.event {
                 EventType::ButtonPressed(button, _) => {
                     handler.gamepad_button_down_event(self, GamepadButton::from(button), false)

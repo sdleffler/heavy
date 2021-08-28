@@ -4,6 +4,8 @@ use hv_core::{conf::Conf, engine::Engine, filesystem::Filesystem};
 use hv_friends::SimpleHandler;
 
 fn main() {
+    simple_logger::SimpleLogger::new().init().unwrap();
+
     let conf = Conf {
         filesystem: Filesystem::from_project_dirs(
             Path::new("examples/asteroids"),

@@ -31,3 +31,6 @@ smallbox = { version = "0.8.0", features = ["coerce"] }
 [build-dependencies]
 walkdir = "2.3.2"
 zip = "0.5.13"
+
+[dev-dependencies]
+simple_logger = "1.13.0"

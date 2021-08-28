@@ -920,6 +920,7 @@ dependencies = [
  "rusttype",
  "serde",
  "serde_json",
+ "simple_logger",
  "smallbox",
  "thunderdome",
  "walkdir",
