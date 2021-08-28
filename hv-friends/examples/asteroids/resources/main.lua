@@ -1,3 +1,6 @@
+-- A simple port of https://simplegametutorials.github.io/love/asteroids/ for the purpose of testing
+-- Heavy as a Love2D-like engine.
+
 local hf = require("hf")
 local gfx = hf.graphics
 
