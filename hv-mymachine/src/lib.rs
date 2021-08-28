@@ -1,8 +1,7 @@
-use anyhow::*;
 use hv_core::{
     engine::{Engine, LuaExt, LuaResource, Resource},
-    mlua::prelude::*,
     plugins::Plugin,
+    prelude::*,
     util::RwLockExt,
 };
 use rustyline::{Config, EditMode, Editor};

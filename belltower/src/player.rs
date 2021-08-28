@@ -1,9 +1,8 @@
 use std::collections::HashMap;
 
-use anyhow::*;
 use hv_core::{
     components::DynamicComponentConstructor, engine::Engine, input::InputState, inventory,
-    mlua::prelude::*, plugins::Plugin,
+    plugins::Plugin, prelude::*,
 };
 use hv_friends::{math::*, nc::shape::Cuboid, Position, Velocity};
 

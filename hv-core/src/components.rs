@@ -1,10 +1,10 @@
-use anyhow::Result;
-use hecs::{ColumnBatchType, Component, EntityBuilder};
-use mlua::prelude::*;
 use smallbox::{space::S4, SmallBox};
 
 use crate::{
     engine::Engine,
+    error::*,
+    hecs::{ColumnBatchType, Component, EntityBuilder},
+    mlua::prelude::*,
     plugins::{ModuleWrapper, Plugin},
     spaces::{Object, Space},
 };

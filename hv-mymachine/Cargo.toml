@@ -7,7 +7,6 @@ edition = "2018"
 
 [dependencies]
 hv-core = { path = "../hv-core" }
-anyhow = "1.0.42"
 rustyline = "8.2.0"
 serde_json = "1.0.66"
 mlua = "0.6.2"

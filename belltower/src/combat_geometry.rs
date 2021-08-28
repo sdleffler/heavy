@@ -1,9 +1,8 @@
-use anyhow::Result;
 use hv_core::{
     components::DynamicComponentConstructor,
     engine::Engine,
-    mlua::prelude::*,
     plugins::Plugin,
+    prelude::*,
     spaces::{Object, SpaceCache},
     util::RwLockExt,
 };

@@ -8,11 +8,9 @@ edition = "2018"
 [dependencies]
 hv-friends = { path = "../hv-friends" }
 hv-core = { path = "../hv-core" }
-hecs = "0.6.0"
 num-traits = "0.2.14"
 smallbox = "0.8.0"
 thunderdome = "0.4.1"
-anyhow = "1.0.42"
 mlua = "0.6.2"
 log = "0.4.14"
 smallvec = { version = "1.6.1", features = ["union", "const_generics"] }

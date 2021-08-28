@@ -1,11 +1,10 @@
 #![feature(float_interpolation)]
 
-use anyhow::*;
 use hv_core::{
     engine::{Engine, EventHandler},
     input::{KeyCode, KeyMods},
-    mlua::{self, prelude::*},
     plugins::Plugin,
+    prelude::*,
     util::RwLockExt,
 };
 

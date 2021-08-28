@@ -9,8 +9,6 @@ edition = "2018"
 hv-core = { path = "../hv-core" }
 nalgebra = { version = "0.29.0", features = ["convert-mint", "serde-serialize"] }
 ncollide2d = { version = "0.32.0", features = ["serde-serialize"] }
-hecs = "0.6.0"
-anyhow = "1.0.42"
 mlua = { version = "0.6.2", features = ["luajit", "vendored", "serialize", "send", "macros"] }
 lyon = "0.17.5"
 thunderdome = "0.4.1"

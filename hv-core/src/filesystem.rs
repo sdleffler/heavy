@@ -50,7 +50,6 @@
  */
 
 use {
-    anyhow::*,
     directories::ProjectDirs,
     mlua::prelude::*,
     std::{
@@ -60,6 +59,7 @@ use {
 };
 
 use crate::engine::Engine;
+use crate::error::*;
 use crate::plugins::ModuleWrapper;
 use crate::plugins::Plugin;
 use crate::{
@@ -172,9 +172,7 @@ impl Filesystem {
 
         let project_dirs = match ProjectDirs::from("", author, id) {
             Some(dirs) => dirs,
-            None => {
-                bail!("No valid home directory path could be retrieved.");
-            }
+            None => bail!("could not determine valid project directories"),
         };
 
         // <game exe root>/resources/

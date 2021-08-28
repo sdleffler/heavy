@@ -136,10 +136,8 @@ checksum = "a4521f3e3d031370679b3b140beb36dfe4801b09ac77e30c61941f97df3ef28b"
 name = "belltower"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "ctor",
  "erased-serde",
- "hecs",
  "hv-core",
  "hv-egui",
  "hv-fmod",
@@ -901,10 +899,8 @@ dependencies = [
 name = "hv-friends"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "aseprite",
  "crevice",
- "hecs",
  "hibitset",
  "hv-core",
  "image",
@@ -931,7 +927,6 @@ dependencies = [
 name = "hv-mymachine"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "hv-core",
  "mlua",
  "rustyline",
@@ -942,9 +937,7 @@ dependencies = [
 name = "hv-rain"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "dyn-clone",
- "hecs",
  "hibitset",
  "hv-core",
  "hv-friends",

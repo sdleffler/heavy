@@ -1,7 +1,5 @@
 use {
-    anyhow::*,
     miniquad as mq,
-    mlua::prelude::*,
     send_wrapper::SendWrapper,
     std::{
         any::{Any, TypeId},
@@ -15,8 +13,10 @@ use gilrs::Gilrs;
 
 use crate::{
     conf::Conf,
+    error::*,
     filesystem::Filesystem,
     input::{CursorIcon, GamepadAxis, GamepadButton, KeyCode, KeyMods, MouseButton},
+    mlua::prelude::*,
     util::RwLockExt,
 };
 

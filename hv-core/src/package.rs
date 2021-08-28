@@ -1,7 +1,9 @@
-use {anyhow::*, mlua::prelude::*, std::io::Read};
+use std::io::Read;
 
 use crate::{
     engine::Engine,
+    error::*,
+    mlua::prelude::*,
     plugins::{ModuleWrapper, Plugin},
 };
 

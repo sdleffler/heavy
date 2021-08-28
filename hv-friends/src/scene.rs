@@ -20,6 +20,7 @@
 use hv_core::{
     engine::{Engine, EngineRef, EventHandler},
     input::{KeyCode, KeyMods, MouseButton},
+    prelude::*,
     util::RwLockExt,
 };
 
@@ -47,13 +48,10 @@ use hv_core::{
  * SOFTWARE.
  */
 
-use {
-    anyhow::*,
-    std::{
-        borrow::Cow,
-        fmt,
-        sync::{Arc, RwLock},
-    },
+use std::{
+    borrow::Cow,
+    fmt,
+    sync::{Arc, RwLock},
 };
 
 pub struct DynamicScene<C, Ev>(Arc<RwLock<dyn Scene<C, Ev>>>);

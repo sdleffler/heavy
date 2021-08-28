@@ -6,13 +6,13 @@ use std::{
 
 use crate::{
     engine::{LuaExt, LuaResource, Resource},
+    error::*,
+    mlua::prelude::*,
     plugins::{ModuleWrapper, Plugin},
 };
 
 use {
-    anyhow::*,
     hecs::{Archetype, ArchetypesGeneration, ColumnBatch, MissingComponent, Ref, RefMut},
-    mlua::prelude::*,
     thunderdome::{Arena, Index},
 };
 
@@ -618,7 +618,7 @@ impl Plugin for SpacesPlugin {
         &self,
         lua: &'lua Lua,
         engine: &crate::engine::Engine,
-    ) -> anyhow::Result<mlua::Table<'lua>, anyhow::Error> {
+    ) -> Result<LuaTable<'lua>, Error> {
         let spaces_resource = engine.insert(Spaces::new());
         lua.register(spaces_resource.clone())?;
 

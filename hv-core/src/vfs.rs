@@ -36,19 +36,16 @@
  * SOFTWARE.
  */
 
-use {
-    anyhow::*,
-    std::{
-        collections::VecDeque,
-        fmt::{self, Debug},
-        fs,
-        io::{self, Read, Seek, Write},
-        path::{self, Path, PathBuf},
-        sync::RwLock,
-    },
+use std::{
+    collections::VecDeque,
+    fmt::{self, Debug},
+    fs,
+    io::{self, Read, Seek, Write},
+    path::{self, Path, PathBuf},
+    sync::RwLock,
 };
 
-use crate::{path_clean::PathClean, util::RwLockExt};
+use crate::{error::*, path_clean::PathClean, util::RwLockExt};
 
 fn convenient_path_to_str(path: &path::Path) -> Result<&str> {
     path.to_str()

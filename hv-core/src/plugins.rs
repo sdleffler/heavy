@@ -1,9 +1,7 @@
-use crate::engine::Engine;
-
-use {anyhow::*, mlua::prelude::*};
+use crate::{engine::Engine, error::*, mlua::prelude::*};
 
 #[doc(hidden)]
-pub use inventory::*;
+pub use crate::inventory::*;
 
 pub trait Plugin: 'static {
     fn name(&self) -> &'static str;

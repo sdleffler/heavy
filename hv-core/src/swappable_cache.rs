@@ -1,10 +1,11 @@
-use anyhow::*;
 use arc_swap::{ArcSwap, Cache};
 use std::{
     collections::{hash_map::Entry, HashMap},
     hash::Hash,
     sync::Arc,
 };
+
+use crate::error::*;
 
 pub type Guard<T> = arc_swap::Guard<Arc<T>>;
 

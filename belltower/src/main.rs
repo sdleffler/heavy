@@ -1,12 +1,11 @@
 #![feature(option_get_or_insert_default)]
 
-use anyhow::*;
 use hv_core::{
     conf::Conf,
     engine::{Engine, EventHandler, LuaExt, Resource},
     filesystem::Filesystem,
     input::{InputBinding, InputState, KeyCode, MouseButton},
-    mlua::prelude::*,
+    prelude::*,
     spaces::{
         object_table::{ObjectTableComponent, ObjectTableRegistry, UpdateHookComponent},
         Space, Spaces,
@@ -23,7 +22,6 @@ use hv_friends::{
     scene::{DynamicScene, SceneStack},
     Position, Velocity,
 };
-use nalgebra::Orthographic3;
 use std::path::Path;
 
 use crate::{combat_geometry::CombatGeometry, player::PlayerController};

@@ -1,8 +1,7 @@
-use anyhow::Result;
-use mlua::prelude::*;
-
 use crate::{
     engine::Engine,
+    error::*,
+    mlua::prelude::*,
     plugins::{ModuleWrapper, Plugin},
 };
 

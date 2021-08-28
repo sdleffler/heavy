@@ -1,10 +1,9 @@
-use anyhow::*;
 use hv_core::{
     conf::Conf,
     engine::{Engine, EventHandler, LuaExt, Resource},
     filesystem::Filesystem,
     input::{InputBinding, InputState, KeyCode, MouseButton},
-    mlua::prelude::*,
+    prelude::*,
     spaces::{
         object_table::{ObjectTableComponent, ObjectTableRegistry, UpdateHookComponent},
         Space, Spaces,
@@ -19,7 +18,6 @@ use hv_friends::{
     math::*,
     Position, Velocity,
 };
-use na::Orthographic3;
 use std::path::Path;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

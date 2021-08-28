@@ -10,13 +10,11 @@ hv-core = { path = "../hv-core" }
 hv-friends = { path = "../hv-friends" }
 hv-fmod = { path = "../hv-fmod" }
 nalgebra = "0.29.0"
-anyhow = "1.0.42"
 simple_logger = "1.12.1"
 mlua = "0.6.2"
 ctor = "0.1.20"
 log = "0.4.14"
 nalgebra-glm = "0.14.0"
-hecs = { version = "0.6.0", features = ["column-serialize"] }
 thunderdome = "0.4.1"
 serde = "1.0.127"
 hv-mymachine = { path = "../hv-mymachine" }

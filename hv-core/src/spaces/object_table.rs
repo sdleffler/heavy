@@ -3,20 +3,17 @@ use std::{
     sync::{Arc, RwLock, Weak},
 };
 
-use anyhow::Result;
-
 use crate::{
     components::DynamicComponentConstructor,
     engine::{Engine, LuaExt, LuaResource, Resource},
+    error::*,
+    mlua::prelude::*,
     plugins::Plugin,
     spaces::Object,
     util::RwLockExt,
 };
 
-use {
-    mlua::prelude::*,
-    thunderdome::{Arena, Index},
-};
+use thunderdome::{Arena, Index};
 
 pub struct ObjectTableComponent {
     pub index: ObjectTableIndex,

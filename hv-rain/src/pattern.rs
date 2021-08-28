@@ -1,9 +1,8 @@
-use anyhow::*;
-use hecs::EntityBuilder;
 use hv_core::{
     components::DynamicComponentConstructor,
     engine::{LuaExt, LuaResource, Resource},
-    mlua::{prelude::*, Variadic as LuaVariadic},
+    hecs::EntityBuilder,
+    prelude::*,
     spaces::Space,
     util::RwLockExt,
 };

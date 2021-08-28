@@ -24,8 +24,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHERDEALINGS IN THE
 SOFTWARE.
  */
 
-use anyhow::*;
-use hv_core::mq;
+use hv_core::{mq, prelude::*};
 use lyon::tessellation::{self as t, FillOptions, StrokeOptions};
 use std::mem;
 
