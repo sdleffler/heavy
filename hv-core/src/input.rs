@@ -44,8 +44,16 @@
 
 // TODO: Handle mice, game pads, joysticks
 
+use anyhow::*;
+use mlua::prelude::*;
 use nalgebra::{Point2, Vector2};
-use std::{collections::HashMap, hash::Hash};
+use std::{collections::HashMap, hash::Hash, str::FromStr};
+
+use crate::{
+    engine::Engine,
+    plugins::{ModuleWrapper, Plugin},
+    util::RwLockExt,
+};
 
 // Okay, but how does it actually work?
 // Basically we have to bind input events to buttons and axes.
@@ -67,7 +75,7 @@ use std::{collections::HashMap, hash::Hash};
 //
 // Easy way?  Hash map of event -> axis/button bindings.
 
-#[derive(Debug, Copy, Clone, PartialEq, Hash, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Hash, Eq, strum::EnumString)]
 #[repr(u32)]
 pub enum KeyCode {
     Space,
@@ -782,6 +790,68 @@ impl From<CursorIcon> for mq::CursorIcon {
         }
     }
 }
+
+#[derive(Debug, Clone, Copy, Default)]
+struct EngineKeyState {
+    is_down: bool,
+    is_repeat: bool,
+}
+
+/// Used for providing input state to Lua; "normal" input from the Rust side should not use this,
+/// but rather should rely on the event handler's methods and the `InputState`/`InputBinding` types.
+#[derive(Debug, Default)]
+pub struct EngineInputState {
+    is_key_down: HashMap<KeyCode, EngineKeyState>,
+    key_repeat_enabled: bool,
+}
+
+impl EngineInputState {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn set_key_state(&mut self, key: KeyCode, repeat: bool, down: bool) {
+        let entry = self.is_key_down.entry(key).or_default();
+
+        if self.key_repeat_enabled || !repeat {
+            entry.is_repeat = repeat;
+            entry.is_down = down
+        } else {
+            entry.is_repeat = false;
+        }
+    }
+}
+
+struct KeyboardModule;
+
+impl Plugin for KeyboardModule {
+    fn name(&self) -> &'static str {
+        "keyboard"
+    }
+
+    fn open<'lua>(&self, lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lua>, Error> {
+        let mq_input_state = engine.insert(EngineInputState::default());
+        let is_down = lua.create_function(move |_, key: LuaString| {
+            let key_variant = KeyCode::from_str(key.to_str()?).to_lua_err()?;
+            Ok(mq_input_state
+                .borrow()
+                .is_key_down
+                .get(&key_variant)
+                .map(|ks| ks.is_down)
+                .unwrap_or(false))
+        })?;
+
+        Ok(lua
+            .load(mlua::chunk! {
+                {
+                    is_down = $is_down,
+                }
+            })
+            .eval()?)
+    }
+}
+
+inventory::submit!(ModuleWrapper::new(KeyboardModule));
 
 #[cfg(test)]
 mod tests {
