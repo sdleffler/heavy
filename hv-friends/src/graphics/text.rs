@@ -121,7 +121,7 @@ impl FontAtlas {
                 y: 0,
             },
         };
-        const MARGIN: u32 = 1;
+        const MARGIN: u32 = 2;
         let char_list = Self::get_char_list(char_list_type)?;
         let chars_per_row = ((char_list.len() as f32).sqrt() as u32) + 1;
         let mut glyphs_and_chars = char_list
