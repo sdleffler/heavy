@@ -3,6 +3,7 @@
 use anyhow::*;
 use hv_core::{
     engine::{Engine, EventHandler},
+    input::{KeyCode, KeyMods},
     mlua::{self, prelude::*},
     plugins::Plugin,
     util::RwLockExt,
@@ -14,6 +15,7 @@ pub extern crate ncollide2d as nc;
 #[macro_use]
 mod lua;
 
+mod keyboard;
 mod position;
 mod velocity;
 
@@ -26,7 +28,10 @@ use na::Orthographic3;
 pub use position::*;
 pub use velocity::*;
 
-use crate::graphics::{ClearOptions, GraphicsLock, GraphicsLockExt};
+use crate::{
+    graphics::{ClearOptions, GraphicsLock, GraphicsLockExt},
+    keyboard::EngineKeyboardState,
+};
 
 #[doc(hidden)]
 pub fn link_me() {}
@@ -55,6 +60,7 @@ impl EventHandler for SimpleHandler {
         engine
             .lua()
             .load(mlua::chunk! {
+                hf = require("hf")
                 require($entrypoint)
             })
             .exec()?;
@@ -104,6 +110,26 @@ impl EventHandler for SimpleHandler {
 
         Ok(())
     }
+
+    fn key_down_event(
+        &mut self,
+        engine: &Engine,
+        keycode: KeyCode,
+        _keymods: KeyMods,
+        repeat: bool,
+    ) {
+        engine
+            .get::<EngineKeyboardState>()
+            .borrow_mut()
+            .set_key_state(keycode, true, repeat);
+    }
+
+    fn key_up_event(&mut self, engine: &Engine, keycode: KeyCode, _keymods: KeyMods) {
+        engine
+            .get::<EngineKeyboardState>()
+            .borrow_mut()
+            .set_key_state(keycode, false, false);
+    }
 }
 
 struct HvFriendsPlugin;
@@ -121,6 +147,7 @@ impl Plugin for HvFriendsPlugin {
             )))?;
 
         let graphics = crate::graphics::open(lua, engine)?;
+        let keyboard = crate::keyboard::open(lua, engine)?;
         let position = crate::position::open(lua, engine)?;
         let velocity = crate::velocity::open(lua, engine)?;
         let math = crate::math::open(lua, engine)?;
@@ -129,6 +156,7 @@ impl Plugin for HvFriendsPlugin {
             .load(mlua::chunk! {
                 {
                     graphics = $graphics,
+                    keyboard = $keyboard,
                     math = $math,
                     position = $position,
                     velocity = $velocity,

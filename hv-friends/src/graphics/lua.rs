@@ -140,7 +140,7 @@ pub(crate) struct LuaGraphicsState {
     bg_color: Color,
     mesh_builder: MeshBuilder,
     mesh: Option<Mesh>,
-    font: CachedFontAtlas,
+    // font: CachedFontAtlas,
     text_layout: TextLayout,
     text: Text,
 }
@@ -156,7 +156,7 @@ impl LuaGraphicsState {
             )
             .expect("error loading default font"),
         );
-        let text_layout = TextLayout::new(font.clone());
+        let text_layout = TextLayout::new(font);
         let text = Text::new(gfx);
 
         Arc::new(RwLock::new(Self {
@@ -166,7 +166,7 @@ impl LuaGraphicsState {
             bg_color: Color::ZEROS,
             mesh_builder: MeshBuilder::new(gfx.state.null_texture.clone()),
             mesh: None,
-            font,
+            // font,
             text_layout,
             text,
         }))

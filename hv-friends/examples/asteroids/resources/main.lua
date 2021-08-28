@@ -1,7 +1,6 @@
 -- A simple port of https://simplegametutorials.github.io/love/asteroids/ for the purpose of testing
 -- Heavy as a Love2D-like engine.
 
-local hf = require("hf")
 local gfx = hf.graphics
 
 function hv.load()
@@ -70,17 +69,17 @@ end
 function hv.update(dt)
     local turnSpeed = 10
 
-    if hv.keyboard.is_down('right') then
+    if hf.keyboard.is_down('right') then
          shipAngle = shipAngle - turnSpeed * dt
     end
 
-    if hv.keyboard.is_down('left') then
+    if hf.keyboard.is_down('left') then
         shipAngle = shipAngle + turnSpeed * dt
     end
 
     shipAngle = shipAngle % (2 * math.pi)
 
-    if hv.keyboard.is_down('up') then
+    if hf.keyboard.is_down('up') then
         local shipSpeed = 100
         shipSpeedX = shipSpeedX + math.cos(shipAngle) * shipSpeed * dt
         shipSpeedY = shipSpeedY + math.sin(shipAngle) * shipSpeed * dt
@@ -144,7 +143,7 @@ function hv.update(dt)
 
     bulletTimer = bulletTimer + dt
 
-    if hv.keyboard.is_down('s') then
+    if hf.keyboard.is_down('s') then
         if bulletTimer >= bulletTimerLimit then
             bulletTimer = 0
 

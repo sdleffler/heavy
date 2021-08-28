@@ -14,7 +14,7 @@ use {
 use crate::{
     conf::Conf,
     filesystem::Filesystem,
-    input::{CursorIcon, EngineInputState, KeyCode, KeyMods, MouseButton},
+    input::{CursorIcon, KeyCode, KeyMods, MouseButton},
     util::RwLockExt,
 };
 
@@ -45,7 +45,6 @@ struct EngineInner {
     handler: Mutex<Box<dyn EventHandler>>,
     lua: Mutex<Lua>,
     mq: Mutex<mq::Context>,
-    input_state: Mutex<EngineInputState>,
     fs: Mutex<Filesystem>,
     resources: Mutex<HashMap<TypeId, Box<dyn Any + Send + Sync>>>,
 }
@@ -75,7 +74,6 @@ impl Engine<'static> {
                 handler: Mutex::new(Box::new(handler)),
                 lua: Mutex::new(lua),
                 mq: Mutex::new(mq),
-                input_state: Mutex::new(EngineInputState::default()),
                 fs: Mutex::new(fs),
                 resources: Default::default(),
             }),
@@ -139,10 +137,6 @@ impl<'a> Engine<'a> {
 
     pub fn fs(&self) -> MutexGuard<Filesystem> {
         self.inner.fs.try_lock().unwrap()
-    }
-
-    pub fn input_state(&self) -> MutexGuard<EngineInputState> {
-        self.inner.input_state.try_lock().unwrap()
     }
 
     pub fn insert_wrapped<T: Send + Sync + 'static>(&self, resource: Resource<T>) {
@@ -355,23 +349,11 @@ impl mq::EventHandlerFree for Engine<'static> {
     }
 
     fn key_down_event(&mut self, keycode: mq::KeyCode, keymods: mq::KeyMods, repeat: bool) {
-        self.inner
-            .input_state
-            .try_lock()
-            .unwrap()
-            .set_key_state(keycode.into(), true, repeat);
-
         self.handler()
             .key_down_event(self, KeyCode::from(keycode), KeyMods::from(keymods), repeat);
     }
 
     fn key_up_event(&mut self, keycode: mq::KeyCode, keymods: mq::KeyMods) {
-        self.inner
-            .input_state
-            .try_lock()
-            .unwrap()
-            .set_key_state(keycode.into(), false, false);
-
         self.handler()
             .key_up_event(self, KeyCode::from(keycode), KeyMods::from(keymods));
     }
