@@ -29,5 +29,5 @@ pub mod prelude {
 
     pub use anyhow::*;
     pub use inventory;
-    pub use mlua::{self, prelude::*};
+    pub use mlua::{self, prelude::*, Variadic as LuaVariadic};
 }

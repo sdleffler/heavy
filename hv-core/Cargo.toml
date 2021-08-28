@@ -7,7 +7,7 @@ edition = "2018"
 
 [dependencies]
 mlua = { version = "0.6.2", features = ["luajit", "vendored", "serialize", "send", "macros"] }
-hecs = "0.6.1"
+hecs = { version = "0.6.1", features = ["column-serialize"] }
 static_assertions = "1.1.0"
 inventory = "0.1.10"
 hibitset = { version = "0.6.3", default-features = false }

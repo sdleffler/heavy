@@ -7,6 +7,7 @@ use hv_core::{
 
 use crate::{
     graphics::{
+        text::{CachedFontAtlas, CharacterListType, FontAtlas, Text, TextLayout},
         CachedTexture, ClearOptions, Color, DrawMode, DrawableMut, Graphics, GraphicsLock,
         GraphicsLockExt, Instance, Mesh, MeshBuilder, Vertex,
     },
@@ -139,10 +140,25 @@ pub(crate) struct LuaGraphicsState {
     bg_color: Color,
     mesh_builder: MeshBuilder,
     mesh: Option<Mesh>,
+    font: CachedFontAtlas,
+    text_layout: TextLayout,
+    text: Text,
 }
 
 impl LuaGraphicsState {
     pub fn new(gfx: &mut Graphics) -> Arc<RwLock<Self>> {
+        let font = CachedFontAtlas::new_uncached(
+            FontAtlas::from_reader(
+                gfx,
+                std::io::Cursor::new(include_bytes!("../../resources/default_font.ttf")),
+                20.,
+                CharacterListType::Ascii,
+            )
+            .expect("error loading default font"),
+        );
+        let text_layout = TextLayout::new(font.clone());
+        let text = Text::new(gfx);
+
         Arc::new(RwLock::new(Self {
             line_width: 1.,
             point_size: 1.,
@@ -150,6 +166,9 @@ impl LuaGraphicsState {
             bg_color: Color::ZEROS,
             mesh_builder: MeshBuilder::new(gfx.state.null_texture.clone()),
             mesh: None,
+            font,
+            text_layout,
+            text,
         }))
     }
 
@@ -249,6 +268,16 @@ impl LuaGraphicsState {
 
         Ok(())
     }
+
+    pub fn print(&mut self, gfx: &mut Graphics, text: &str, instance: Instance) -> Result<()> {
+        self.text_layout.clear();
+        self.text_layout
+            .push_str(text, std::iter::repeat(Color::WHITE));
+        self.text.apply_layout(&mut self.text_layout);
+        self.text.draw_mut(gfx, instance);
+
+        Ok(())
+    }
 }
 
 pub(crate) fn circle(
@@ -292,6 +321,36 @@ pub(crate) fn polygon(
         lgs.borrow_mut()
             .polygon(&mut gfx_lock.lock(), mode, &point_buffer.0)
             .to_lua_err()
+    }
+}
+
+pub(crate) fn print(
+    lgs: Arc<RwLock<LuaGraphicsState>>,
+    gfx_lock: Resource<GraphicsLock>,
+) -> lua_fn!(Fn<'lua>((LuaString<'lua>, LuaVariadic<f32>)) -> ()) {
+    move |_, (text, params): (LuaString, LuaVariadic<f32>)| {
+        let mut ps = params.into_iter();
+        let x = ps.next().unwrap_or(0.);
+        let y = ps.next().unwrap_or(0.);
+        let r = ps.next().unwrap_or(0.);
+        let sx = ps.next().unwrap_or(1.);
+        let sy = ps.next().unwrap_or(sx);
+        let ox = ps.next().unwrap_or(0.);
+        let oy = ps.next().unwrap_or(0.);
+
+        let mut lgs_mut = lgs.borrow_mut();
+        let instance = Instance::new()
+            .color(lgs_mut.color)
+            .translate2(Vector2::new(x, y))
+            .scale2(Vector2::new(sx, sy))
+            .rotate2(r)
+            .translate2(Vector2::new(ox, oy));
+
+        lgs_mut
+            .print(&mut gfx_lock.lock(), text.to_str()?, instance)
+            .to_lua_err()?;
+
+        Ok(())
     }
 }
 

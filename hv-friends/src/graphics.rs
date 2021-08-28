@@ -799,6 +799,7 @@ pub(crate) fn open<'lua>(lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lu
     let line = lua.create_function(self::lua::line(lgs.clone(), gfx_lock.clone()))?;
     let points = lua.create_function(self::lua::points(lgs.clone(), gfx_lock.clone()))?;
     let polygon = lua.create_function(self::lua::polygon(lgs.clone(), gfx_lock.clone()))?;
+    let print = lua.create_function(self::lua::print(lgs.clone(), gfx_lock.clone()))?;
     
     let clear = lua.create_function(self::lua::clear(lgs, gfx_lock.clone()))?;
     let present = lua.create_function(self::lua::present(gfx_lock.clone()))?;
@@ -843,6 +844,7 @@ pub(crate) fn open<'lua>(lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lu
                 line = $line,
                 points = $points,
                 polygon = $polygon,
+                print = $print,
 
                 clear = $clear,
                 present = $present,

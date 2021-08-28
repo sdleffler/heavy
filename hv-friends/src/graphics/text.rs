@@ -198,12 +198,12 @@ impl FontAtlas {
                 char_map.insert(
                     c,
                     CharInfo {
-                        vertical_offset: (v_metrics.ascent + bb.min.y as f32),
+                        vertical_offset: v_metrics.descent + bb.min.y as f32,
                         uvs: Box2::new(
                             texture_cursor.x as f32 / texture_width as f32,
-                            texture_cursor.y as f32 / texture_height as f32,
+                            (texture_cursor.y + height) as f32 / texture_height as f32,
                             bb.width() as f32 / texture_width as f32,
-                            bb.height() as f32 / texture_height as f32,
+                            -bb.height() as f32 / texture_height as f32,
                         ),
                         advance_width: h_metrics.advance_width,
                         horizontal_offset: h_metrics.left_side_bearing,
@@ -215,7 +215,7 @@ impl FontAtlas {
 
                 glyph.draw(|x, y, v| {
                     let x: u32 = texture_cursor.x as u32 + x;
-                    let y: u32 = texture_cursor.y as u32 + y;
+                    let y: u32 = texture_cursor.y as u32 + (height - y);
                     let c = (threshold(v).clamp(0., 1.) * 255.0) as u8;
                     let color = Rgba([255, 255, 255, c]);
                     texture.put_pixel(x, y, color);
@@ -319,6 +319,12 @@ pub struct CachedFontAtlas {
 }
 
 impl CachedFontAtlas {
+    pub fn new_uncached(font_atlas: FontAtlas) -> Self {
+        Self {
+            inner: CacheRef::new_uncached(font_atlas),
+        }
+    }
+
     pub fn get(&self) -> Guard<FontAtlas> {
         self.inner.get()
     }
@@ -478,15 +484,15 @@ impl TextLayout {
             let c_info = font_atlas.font_map.get(&c).unwrap_or(question_mark);
             self.chars.push(LayoutCharInfo {
                 coords: Box2::new(
-                    self.cursor.x + c_info.horizontal_offset,
-                    self.cursor.y + c_info.vertical_offset,
+                    self.cursor.x,
+                    self.cursor.y - c_info.vertical_offset,
                     c_info.width,
                     c_info.height,
                 ),
                 color,
                 c,
             });
-            self.cursor.x += c_info.advance_width;
+            self.cursor.x += c_info.advance_width - c_info.horizontal_offset;
         }
         assert_eq!(
             chars.next(),
@@ -532,15 +538,15 @@ impl TextLayout {
                 let c_info = font_atlas.font_map.get(&c).unwrap_or(&question_mark);
                 self.chars.push(LayoutCharInfo {
                     coords: Box2::new(
-                        self.cursor.x + c_info.horizontal_offset,
-                        self.cursor.y + c_info.vertical_offset,
+                        self.cursor.x,
+                        self.cursor.y - c_info.vertical_offset,
                         c_info.width,
                         c_info.height,
                     ),
                     color,
                     c,
                 });
-                self.cursor.x += c_info.advance_width;
+                self.cursor.x += c_info.advance_width - c_info.horizontal_offset;
             }
 
             start = word.end;

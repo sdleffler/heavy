@@ -4,7 +4,7 @@ local hf_math = require("hf.math")
 local Position = {}
 do
     local hf_position = hv.plugins.friends.position
-    local tmp = hf_math.Isometry2.identity()
+    local tmp = hf_math.Position2.identity()
 
     local hf_create_position_constructor = hf_position.create_position_constructor
     setmetatable(Position, {
@@ -19,33 +19,33 @@ do
         end
     })
 
-    local get_isometry2 = hf_position.get_isometry2
+    local get_position2 = hf_position.get_position2
     function Position:position(out)
         local out = out or tmp:clone()
-        get_isometry2(self, out)
+        get_position2(self, out)
         return out
     end
 
-    local set_isometry2 = hf_position.set_isometry2
+    local set_position2 = hf_position.set_position2
     function Position:set_position(...)
         if type(select(1, ...)) == "userdata" then
-            set_isometry2(self, select(1, ...))
+            set_position2(self, select(1, ...))
         else
             tmp:init(...)
-            set_isometry2(self, tmp)
+            set_position2(self, tmp)
         end
     end
 
     function Position:set_translation(x, y)
-        get_isometry2(self, tmp)
+        get_position2(self, tmp)
         tmp:set_translation(x, y)
-        set_isometry2(self, tmp)
+        set_position2(self, tmp)
     end
 
     function Position:set_rotation(angle)
-        get_isometry2(self, tmp)
+        get_position2(self, tmp)
         tmp:set_rotation(angle)
-        set_isometry2(self, tmp)
+        set_position2(self, tmp)
     end
 end
 

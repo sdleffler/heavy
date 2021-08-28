@@ -39,6 +39,7 @@ return {
     line = hf_graphics.line,
     points = hf_graphics.points,
     polygon = hf_graphics.polygon,
+    print = hf_graphics.print,
     
     clear = hf_graphics.clear,
     present = hf_graphics.present,

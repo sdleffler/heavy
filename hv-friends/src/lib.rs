@@ -2,7 +2,7 @@
 
 use anyhow::*;
 use hv_core::{
-    engine::Engine,
+    engine::{Engine, EventHandler},
     mlua::{self, prelude::*},
     plugins::Plugin,
 };
@@ -21,11 +21,72 @@ pub mod graphics;
 pub mod math;
 pub mod scene;
 
+use na::Orthographic3;
 pub use position::*;
 pub use velocity::*;
 
+use crate::graphics::{ClearOptions, GraphicsLock, GraphicsLockExt};
+
 #[doc(hidden)]
 pub fn link_me() {}
+
+pub struct SimpleHandler {
+    entrypoint: String,
+}
+
+impl Default for SimpleHandler {
+    fn default() -> Self {
+        Self::new("main")
+    }
+}
+
+impl SimpleHandler {
+    pub fn new(s: impl AsRef<str>) -> Self {
+        Self {
+            entrypoint: s.as_ref().to_owned(),
+        }
+    }
+}
+
+impl EventHandler for SimpleHandler {
+    fn init(&mut self, engine: &Engine) -> Result<()> {
+        let entrypoint = self.entrypoint.as_str();
+        engine
+            .lua()
+            .load(mlua::chunk! {
+                require($entrypoint)
+            })
+            .exec()?;
+
+        let gfx_lock = engine.get::<GraphicsLock>();
+        let mut gfx = gfx_lock.lock();
+        let (w, h) = gfx.mq.screen_size();
+        gfx.set_projection(Orthographic3::new(0., w, 0., h, -1., 1.).to_homogeneous());
+        gfx.apply_default_pipeline();
+        gfx.begin_render_pass(None, Some(ClearOptions::default()));
+
+        Ok(())
+    }
+
+    fn update(&mut self, engine: &Engine) -> Result<()> {
+        engine
+            .lua()
+            .globals()
+            .get::<_, LuaTable>("hv")?
+            .call_function("update", ())?;
+        Ok(())
+    }
+
+    fn draw(&mut self, engine: &Engine) -> Result<()> {
+        engine
+            .lua()
+            .globals()
+            .get::<_, LuaTable>("hv")?
+            .call_function("draw", ())?;
+
+        Ok(())
+    }
+}
 
 struct HvFriendsPlugin;
 

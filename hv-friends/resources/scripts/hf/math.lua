@@ -42,7 +42,7 @@ end
 
 local Transform = {}
 do
-    Transform.new = hv_math.create_transform_object
+    Transform.new = hf_math.create_transform_object
 end
 
 return {
