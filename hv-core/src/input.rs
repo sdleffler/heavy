@@ -45,6 +45,7 @@
 // TODO: Handle mice, game pads, joysticks
 
 use nalgebra::{Point2, Vector2};
+use serde::*;
 use std::{collections::HashMap, hash::Hash};
 
 // Okay, but how does it actually work?
@@ -67,7 +68,7 @@ use std::{collections::HashMap, hash::Hash};
 //
 // Easy way?  Hash map of event -> axis/button bindings.
 
-#[derive(Debug, Copy, Clone, PartialEq, Hash, Eq, strum::EnumString)]
+#[derive(Debug, Copy, Clone, PartialEq, Hash, Eq, strum::EnumString, Serialize, Deserialize)]
 #[strum(ascii_case_insensitive)]
 #[repr(u32)]
 pub enum KeyCode {
@@ -325,7 +326,7 @@ impl From<miniquad::KeyCode> for KeyCode {
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Default)]
+#[derive(Debug, Copy, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct KeyMods {
     pub shift: bool,
     pub ctrl: bool,
@@ -344,7 +345,7 @@ impl From<miniquad::KeyMods> for KeyMods {
     }
 }
 
-#[derive(Debug, Hash, Eq, PartialEq, Copy, Clone)]
+#[derive(Debug, Hash, Eq, PartialEq, Copy, Clone, Serialize, Deserialize)]
 pub enum MouseButton {
     Left,
     Right,
@@ -365,10 +366,92 @@ impl From<miniquad::MouseButton> for MouseButton {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub enum GamepadButton {
+    South,
+    East,
+    North,
+    West,
+    C,
+    Z,
+    LeftTrigger,
+    LeftTrigger2,
+    RightTrigger,
+    RightTrigger2,
+    Select,
+    Start,
+    Mode,
+    LeftThumb,
+    RightThumb,
+    DPadUp,
+    DPadDown,
+    DPadLeft,
+    DPadRight,
+}
+
+impl From<gilrs::Button> for GamepadButton {
+    fn from(gs: gilrs::Button) -> Self {
+        use {gilrs::Button as Gb, GamepadButton::*};
+        match gs {
+            Gb::South => South,
+            Gb::East => East,
+            Gb::North => North,
+            Gb::West => West,
+            Gb::C => C,
+            Gb::Z => Z,
+            Gb::LeftTrigger => LeftTrigger,
+            Gb::LeftTrigger2 => LeftTrigger2,
+            Gb::RightTrigger => RightTrigger,
+            Gb::RightTrigger2 => RightTrigger2,
+            Gb::Select => Select,
+            Gb::Start => Start,
+            Gb::Mode => Mode,
+            Gb::LeftThumb => LeftThumb,
+            Gb::RightThumb => RightThumb,
+            Gb::DPadUp => DPadUp,
+            Gb::DPadDown => DPadDown,
+            Gb::DPadLeft => DPadLeft,
+            Gb::DPadRight => DPadRight,
+            Gb::Unknown => panic!("EEEEEEEEEEEEEE"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub enum GamepadAxis {
+    LeftStickX,
+    LeftStickY,
+    LeftZ,
+    RightStickX,
+    RightStickY,
+    RightZ,
+    DPadX,
+    DPadY,
+}
+
+impl From<gilrs::Axis> for GamepadAxis {
+    fn from(axis: gilrs::Axis) -> Self {
+        use {gilrs::Axis as Ga, GamepadAxis::*};
+        match axis {
+            Ga::LeftStickX => LeftStickX,
+            Ga::LeftStickY => LeftStickY,
+            Ga::LeftZ => LeftZ,
+            Ga::RightStickX => RightStickX,
+            Ga::RightStickY => RightStickY,
+            Ga::RightZ => RightZ,
+            Ga::DPadX => DPadX,
+            Ga::DPadY => DPadY,
+            Ga::Unknown => panic!("OOOOOOOOOOOOO"),
+        }
+    }
+}
+
 #[derive(Debug, Hash, Eq, PartialEq, Copy, Clone)]
 enum InputType {
-    KeyEvent(KeyCode),
-    MouseButtonEvent(MouseButton),
+    Key(KeyCode),
+    GamepadButton(GamepadButton),
+    GamepadAxis(GamepadAxis),
+    MouseButton(MouseButton),
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -377,7 +460,7 @@ where
     Axes: Eq + Hash + Clone,
     Buttons: Eq + Hash + Clone,
 {
-    Axis(Axes, bool),
+    Axis(Axes, f32),
     Button(Buttons, Option<Point2<f32>>),
     Cursor(Point2<f32>),
 }
@@ -387,9 +470,18 @@ where
     Axes: Eq + Hash + Clone,
     Buttons: Eq + Hash + Clone,
 {
-    pub fn with_point(self, point: Point2<f32>) -> Self {
+    /// Inject a mouse position into this effect.
+    pub fn with_mouse_position(self, point: Point2<f32>) -> Self {
         match self {
             Self::Button(button, _) => Self::Button(button, Some(point)),
+            _ => self,
+        }
+    }
+
+    /// Inject a gamepad axis position into this effect.
+    pub fn with_axis_position(self, position: f32) -> Self {
+        match self {
+            Self::Axis(axis, factor) => Self::Axis(axis, position * factor),
             _ => self,
         }
     }
@@ -486,27 +578,43 @@ where
 
     /// Adds a key binding connecting the given keycode to the given
     /// logical axis.
-    pub fn bind_key_to_axis(mut self, keycode: KeyCode, axis: Axes, positive: bool) -> Self {
-        self.bindings.insert(
-            InputType::KeyEvent(keycode),
-            InputEffect::Axis(axis, positive),
-        );
+    pub fn bind_key_to_axis(mut self, keycode: KeyCode, axis: Axes, position: f32) -> Self {
+        self.bindings
+            .insert(InputType::Key(keycode), InputEffect::Axis(axis, position));
         self
     }
 
     /// Adds a key binding connecting the given keycode to the given
     /// logical button.
     pub fn bind_key_to_button(mut self, keycode: KeyCode, button: Buttons) -> Self {
+        self.bindings
+            .insert(InputType::Key(keycode), InputEffect::Button(button, None));
+        self
+    }
+
+    pub fn bind_gamepad_button_to_button(
+        mut self,
+        gamepad_button: GamepadButton,
+        button: Buttons,
+    ) -> Self {
         self.bindings.insert(
-            InputType::KeyEvent(keycode),
+            InputType::GamepadButton(gamepad_button),
             InputEffect::Button(button, None),
+        );
+        self
+    }
+
+    pub fn bind_gamepad_axis_to_axis(mut self, gamepad_axis: GamepadAxis, axis: Axes) -> Self {
+        self.bindings.insert(
+            InputType::GamepadAxis(gamepad_axis),
+            InputEffect::Axis(axis, 1.0),
         );
         self
     }
 
     pub fn bind_mouse_to_button(mut self, mouse_button: MouseButton, button: Buttons) -> Self {
         self.bindings.insert(
-            InputType::MouseButtonEvent(mouse_button),
+            InputType::MouseButton(mouse_button),
             InputEffect::Button(button, None),
         );
         self
@@ -514,7 +622,16 @@ where
 
     /// Takes an physical input type and turns it into a logical input type (keycode -> axis/button).
     pub fn resolve_keycode(&self, keycode: KeyCode) -> Option<InputEffect<Axes, Buttons>> {
-        self.bindings.get(&InputType::KeyEvent(keycode)).cloned()
+        self.bindings.get(&InputType::Key(keycode)).cloned()
+    }
+
+    pub fn resolve_gamepad_button(
+        &self,
+        button: GamepadButton,
+    ) -> Option<InputEffect<Axes, Buttons>> {
+        self.bindings
+            .get(&InputType::GamepadButton(button))
+            .cloned()
     }
 
     pub fn resolve_mouse_button(
@@ -523,9 +640,20 @@ where
         point: Point2<f32>,
     ) -> Option<InputEffect<Axes, Buttons>> {
         self.bindings
-            .get(&InputType::MouseButtonEvent(mouse_button))
+            .get(&InputType::MouseButton(mouse_button))
             .cloned()
-            .map(|eff| eff.with_point(point))
+            .map(|eff| eff.with_mouse_position(point))
+    }
+
+    pub fn resolve_gamepad_axis(
+        &self,
+        axis: GamepadAxis,
+        position: f32,
+    ) -> Option<InputEffect<Axes, Buttons>> {
+        self.bindings
+            .get(&InputType::GamepadAxis(axis))
+            .cloned()
+            .map(|eff| eff.with_axis_position(position))
     }
 }
 
@@ -620,12 +748,12 @@ where
     }
 
     /// This method should get called by your key_up_event handler.
-    pub fn update_axis_start(&mut self, axis: Axes, positive: bool) {
-        self.update_effect(InputEffect::Axis(axis, positive), true);
+    pub fn update_axis_start(&mut self, axis: Axes, position: f32) {
+        self.update_effect(InputEffect::Axis(axis, position), true);
     }
 
-    pub fn update_axis_stop(&mut self, axis: Axes, positive: bool) {
-        self.update_effect(InputEffect::Axis(axis, positive), false);
+    pub fn update_axis_stop(&mut self, axis: Axes, position: f32) {
+        self.update_effect(InputEffect::Axis(axis, position), false);
     }
 
     /// This method should be called by your mouse_motion_event handler.
@@ -636,14 +764,13 @@ where
     /// Takes an InputEffect and actually applies it.
     pub fn update_effect(&mut self, effect: InputEffect<Axes, Buttons>, started: bool) {
         match effect {
-            InputEffect::Axis(axis, positive) => {
+            InputEffect::Axis(axis, position) => {
                 let f = || AxisState::default();
                 let axis_status = self.axes.entry(axis).or_insert_with(f);
                 if started {
-                    let direction_float = if positive { 1.0 } else { -1.0 };
-                    axis_status.direction = direction_float;
-                } else if (positive && axis_status.direction > 0.0)
-                    || (!positive && axis_status.direction < 0.0)
+                    axis_status.direction = position;
+                } else if (position.is_sign_positive() && axis_status.direction > 0.0)
+                    || (position.is_sign_negative() && axis_status.direction < 0.0)
                 {
                     axis_status.direction = 0.0;
                 }
@@ -809,10 +936,10 @@ mod tests {
             .bind_key_to_button(KeyCode::Enter, Buttons::Start)
             .bind_key_to_button(KeyCode::RightShift, Buttons::Select)
             .bind_key_to_button(KeyCode::LeftShift, Buttons::Select)
-            .bind_key_to_axis(KeyCode::Up, Axes::Vert, true)
-            .bind_key_to_axis(KeyCode::Down, Axes::Vert, false)
-            .bind_key_to_axis(KeyCode::Left, Axes::Horz, false)
-            .bind_key_to_axis(KeyCode::Right, Axes::Horz, true)
+            .bind_key_to_axis(KeyCode::Up, Axes::Vert, 1.)
+            .bind_key_to_axis(KeyCode::Down, Axes::Vert, -1.)
+            .bind_key_to_axis(KeyCode::Left, Axes::Horz, -1.)
+            .bind_key_to_axis(KeyCode::Right, Axes::Horz, 1.)
     }
 
     #[test]
@@ -841,19 +968,19 @@ mod tests {
 
         assert_eq!(
             ib.resolve_keycode(KeyCode::Up),
-            Some(InputEffect::Axis(Axes::Vert, true))
+            Some(InputEffect::Axis(Axes::Vert, 1.))
         );
         assert_eq!(
             ib.resolve_keycode(KeyCode::Down),
-            Some(InputEffect::Axis(Axes::Vert, false))
+            Some(InputEffect::Axis(Axes::Vert, -1.))
         );
         assert_eq!(
             ib.resolve_keycode(KeyCode::Left),
-            Some(InputEffect::Axis(Axes::Horz, false))
+            Some(InputEffect::Axis(Axes::Horz, -1.))
         );
         assert_eq!(
             ib.resolve_keycode(KeyCode::Right),
-            Some(InputEffect::Axis(Axes::Horz, true))
+            Some(InputEffect::Axis(Axes::Horz, 1.))
         );
 
         assert_eq!(ib.resolve_keycode(KeyCode::Q), None);
@@ -872,7 +999,7 @@ mod tests {
 
         // Push the 'up' button, watch the axis
         // increase to 1.0 but not beyond
-        im.update_axis_start(Axes::Vert, true);
+        im.update_axis_start(Axes::Vert, 1.);
         assert!(im.get_axis_raw(Axes::Vert) > 0.0);
         while im.get_axis(Axes::Vert) < 0.99 {
             im.update(0.16);
@@ -880,14 +1007,14 @@ mod tests {
             assert!(im.get_axis(Axes::Vert) <= 1.0);
         }
         // Release it, watch it wind down
-        im.update_axis_stop(Axes::Vert, true);
+        im.update_axis_stop(Axes::Vert, 1.);
         while im.get_axis(Axes::Vert) > 0.01 {
             im.update(0.16);
             assert!(im.get_axis(Axes::Vert) >= 0.0)
         }
 
         // Do the same with the 'down' button.
-        im.update_axis_start(Axes::Vert, false);
+        im.update_axis_start(Axes::Vert, -1.);
         while im.get_axis(Axes::Vert) > -0.99 {
             im.update(0.16);
             assert!(im.get_axis(Axes::Vert) <= 0.0);
@@ -895,16 +1022,16 @@ mod tests {
         }
 
         // Test the transition from 'up' to 'down'
-        im.update_axis_start(Axes::Vert, true);
+        im.update_axis_start(Axes::Vert, 1.);
         while im.get_axis(Axes::Vert) < 1.0 {
             im.update(0.16);
         }
-        im.update_axis_start(Axes::Vert, false);
+        im.update_axis_start(Axes::Vert, -1.);
         im.update(0.16);
         assert!(im.get_axis(Axes::Vert) < 1.0);
-        im.update_axis_stop(Axes::Vert, true);
+        im.update_axis_stop(Axes::Vert, 1.);
         assert!(im.get_axis_raw(Axes::Vert) < 0.0);
-        im.update_axis_stop(Axes::Vert, false);
+        im.update_axis_stop(Axes::Vert, -1.);
         assert_eq!(im.get_axis_raw(Axes::Vert), 0.0);
     }
 

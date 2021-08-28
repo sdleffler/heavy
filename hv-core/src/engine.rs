@@ -2,19 +2,21 @@ use {
     anyhow::*,
     miniquad as mq,
     mlua::prelude::*,
-    std::sync::Mutex,
+    send_wrapper::SendWrapper,
     std::{
         any::{Any, TypeId},
         collections::HashMap,
         marker::PhantomData,
-        sync::{Arc, MutexGuard, RwLock, Weak},
+        sync::{Arc, Mutex, MutexGuard, RwLock, Weak},
     },
 };
+
+use gilrs::Gilrs;
 
 use crate::{
     conf::Conf,
     filesystem::Filesystem,
-    input::{CursorIcon, KeyCode, KeyMods, MouseButton},
+    input::{CursorIcon, GamepadAxis, GamepadButton, KeyCode, KeyMods, MouseButton},
     util::RwLockExt,
 };
 
@@ -46,6 +48,7 @@ struct EngineInner {
     lua: Mutex<Lua>,
     mq: Mutex<mq::Context>,
     fs: Mutex<Filesystem>,
+    gilrs: Mutex<SendWrapper<Gilrs>>,
     resources: Mutex<HashMap<TypeId, Box<dyn Any + Send + Sync>>>,
 }
 
@@ -75,6 +78,9 @@ impl Engine<'static> {
                 lua: Mutex::new(lua),
                 mq: Mutex::new(mq),
                 fs: Mutex::new(fs),
+                gilrs: Mutex::new(send_wrapper::SendWrapper::new(
+                    Gilrs::new().expect("unrecoverable error initializing gilrs"),
+                )),
                 resources: Default::default(),
             }),
         };
@@ -133,6 +139,10 @@ impl<'a> Engine<'a> {
 
     pub fn mq(&self) -> MutexGuard<mq::Context> {
         self.inner.mq.try_lock().unwrap()
+    }
+
+    pub fn gilrs(&self) -> MutexGuard<SendWrapper<Gilrs>> {
+        self.inner.gilrs.try_lock().unwrap()
     }
 
     pub fn fs(&self) -> MutexGuard<Filesystem> {
@@ -293,30 +303,115 @@ pub trait EventHandler: Send + Sync + 'static {
     fn key_down_event(
         &mut self,
         _engine: &Engine,
-        _keycode: KeyCode,
-        _keymods: KeyMods,
-        _repeat: bool,
+        keycode: KeyCode,
+        keymods: KeyMods,
+        repeat: bool,
     ) {
+        log::trace!(
+            "unhandled key_down_event({:?}, {:?}, {})",
+            keycode,
+            keymods,
+            repeat
+        );
     }
-    fn key_up_event(&mut self, _engine: &Engine, _keycode: KeyCode, _keymods: KeyMods) {}
-    fn char_event(&mut self, _engine: &Engine, _character: char, _keymods: KeyMods, _repeat: bool) {
+
+    fn key_up_event(&mut self, _engine: &Engine, keycode: KeyCode, keymods: KeyMods) {
+        log::trace!("unhandled key_up_event({:?}, {:?})", keycode, keymods);
     }
-    fn mouse_motion_event(&mut self, _engine: &Engine, _x: f32, _y: f32) {}
-    fn mouse_wheel_event(&mut self, _engine: &Engine, _x: f32, _y: f32) {}
-    fn mouse_button_down_event(
-        &mut self,
-        _engine: &Engine,
-        _button: MouseButton,
-        _x: f32,
-        _y: f32,
-    ) {
+
+    fn char_event(&mut self, _engine: &Engine, character: char, keymods: KeyMods, repeat: bool) {
+        log::trace!(
+            "unhandled char_event({:?}, {:?}, {})",
+            character,
+            keymods,
+            repeat
+        );
     }
-    fn mouse_button_up_event(&mut self, _engine: &Engine, _button: MouseButton, _x: f32, _y: f32) {}
+
+    fn mouse_motion_event(&mut self, _engine: &Engine, x: f32, y: f32) {
+        log::trace!("unhandled mouse_motion_event({}, {})", x, y);
+    }
+
+    fn mouse_wheel_event(&mut self, _engine: &Engine, x: f32, y: f32) {
+        log::trace!("unhandled mouse_wheel_event({}, {})", x, y);
+    }
+
+    fn mouse_button_down_event(&mut self, _engine: &Engine, button: MouseButton, x: f32, y: f32) {
+        log::trace!(
+            "unhandled mouse_button_down_event({:?}, {}, {})",
+            button,
+            x,
+            y
+        );
+    }
+
+    fn mouse_button_up_event(&mut self, _engine: &Engine, button: MouseButton, x: f32, y: f32) {
+        log::trace!(
+            "unhandled mouse_button_up_event({:?}, {}, {})",
+            button,
+            x,
+            y
+        );
+    }
+
+    fn gamepad_button_down_event(&mut self, _engine: &Engine, button: GamepadButton, repeat: bool) {
+        log::trace!(
+            "unhandled gamepad_button_down_event({:?}, {})",
+            button,
+            repeat
+        );
+    }
+
+    fn gamepad_button_up_event(&mut self, _engine: &Engine, button: GamepadButton) {
+        log::trace!("unhandled gamepad_button_up_event({:?})", button);
+    }
+
+    fn gamepad_axis_changed_event(&mut self, _engine: &Engine, axis: GamepadAxis, position: f32) {
+        log::trace!(
+            "unhandled gamepad_axis_changed_event({:?}, {})",
+            axis,
+            position
+        );
+    }
+
+    fn gamepad_connected_event(&mut self, _engine: &Engine) {
+        log::trace!("unhandled gamepad_connected_event()");
+    }
+
+    fn gamepad_disconnected_event(&mut self, _engine: &Engine) {
+        log::trace!("unhandled gamepad_disconnected_event()");
+    }
 }
 
 impl mq::EventHandlerFree for Engine<'static> {
     fn update(&mut self) {
-        self.handler().update(self).unwrap();
+        use gilrs::EventType;
+
+        let mut handler = self.handler();
+
+        while let Some(event) = self.gilrs().next_event() {
+            match event.event {
+                EventType::ButtonPressed(button, _) => {
+                    handler.gamepad_button_down_event(self, GamepadButton::from(button), false)
+                }
+                EventType::ButtonRepeated(button, _) => {
+                    handler.gamepad_button_down_event(self, GamepadButton::from(button), true)
+                }
+                EventType::ButtonReleased(button, _) => {
+                    handler.gamepad_button_up_event(self, GamepadButton::from(button))
+                }
+                EventType::AxisChanged(axis, position, _) => {
+                    handler.gamepad_axis_changed_event(self, GamepadAxis::from(axis), position)
+                }
+                EventType::Connected => handler.gamepad_connected_event(self),
+                EventType::Disconnected => handler.gamepad_disconnected_event(self),
+                ev => {
+                    log::trace!("unhandled gamepad event: {:?}", ev);
+                }
+            }
+        }
+
+        handler.update(self).unwrap();
     }
 
     fn draw(&mut self) {
@@ -435,5 +530,19 @@ impl<T: EventHandler> EventHandler for Arc<RwLock<T>> {
     fn mouse_button_up_event(&mut self, engine: &Engine, button: MouseButton, x: f32, y: f32) {
         self.borrow_mut()
             .mouse_button_up_event(engine, button, x, y)
+    }
+
+    fn gamepad_button_down_event(&mut self, engine: &Engine, button: GamepadButton, repeat: bool) {
+        self.borrow_mut()
+            .gamepad_button_down_event(engine, button, repeat)
+    }
+
+    fn gamepad_button_up_event(&mut self, engine: &Engine, button: GamepadButton) {
+        self.borrow_mut().gamepad_button_up_event(engine, button)
+    }
+
+    fn gamepad_axis_changed_event(&mut self, engine: &Engine, axis: GamepadAxis, position: f32) {
+        self.borrow_mut()
+            .gamepad_axis_changed_event(engine, axis, position)
     }
 }

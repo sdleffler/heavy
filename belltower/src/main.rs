@@ -57,10 +57,10 @@ fn link_me() {
 
 fn default_input_binding() -> InputBinding<Axes, Buttons> {
     InputBinding::new()
-        .bind_key_to_axis(KeyCode::W, Axes::Vert, true)
-        .bind_key_to_axis(KeyCode::S, Axes::Vert, false)
-        .bind_key_to_axis(KeyCode::A, Axes::Horz, false)
-        .bind_key_to_axis(KeyCode::D, Axes::Horz, true)
+        .bind_key_to_axis(KeyCode::W, Axes::Vert, 1.)
+        .bind_key_to_axis(KeyCode::S, Axes::Vert, -1.)
+        .bind_key_to_axis(KeyCode::A, Axes::Horz, -1.)
+        .bind_key_to_axis(KeyCode::D, Axes::Horz, 1.)
         .bind_key_to_button(KeyCode::Space, Buttons::Dash)
         .bind_key_to_button(KeyCode::LeftShift, Buttons::Focus)
         .bind_mouse_to_button(MouseButton::Left, Buttons::Swing)
