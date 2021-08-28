@@ -20,6 +20,8 @@ use crate::{
     util::RwLockExt,
 };
 
+pub const MINIQUAD_DT: f32 = 1. / 60.;
+
 pub type Resource<T> = Arc<RwLock<T>>;
 
 pub trait LuaResource: LuaUserData + Send + Sync + 'static {
@@ -295,9 +297,11 @@ impl<T> WeakResourceCache<T> {
 }
 
 pub trait EventHandler: Send + Sync + 'static {
-    fn init(&mut self, engine: &Engine) -> Result<()>;
+    fn init(&mut self, _engine: &Engine) -> Result<()> {
+        Ok(())
+    }
 
-    fn update(&mut self, engine: &Engine) -> Result<()>;
+    fn update(&mut self, engine: &Engine, dt: f32) -> Result<()>;
     fn draw(&mut self, engine: &Engine) -> Result<()>;
 
     fn key_down_event(
@@ -413,7 +417,7 @@ impl mq::EventHandlerFree for Engine<'static> {
             }
         }
 
-        handler.update(self).unwrap();
+        handler.update(self, MINIQUAD_DT).unwrap();
     }
 
     fn draw(&mut self) {
@@ -488,8 +492,8 @@ impl<T: EventHandler> EventHandler for Arc<RwLock<T>> {
         self.borrow_mut().init(engine)
     }
 
-    fn update(&mut self, engine: &Engine) -> Result<()> {
-        self.borrow_mut().update(engine)
+    fn update(&mut self, engine: &Engine, dt: f32) -> Result<()> {
+        self.borrow_mut().update(engine, dt)
     }
 
     fn draw(&mut self, engine: &Engine) -> Result<()> {
@@ -546,5 +550,111 @@ impl<T: EventHandler> EventHandler for Arc<RwLock<T>> {
     fn gamepad_axis_changed_event(&mut self, engine: &Engine, axis: GamepadAxis, position: f32) {
         self.borrow_mut()
             .gamepad_axis_changed_event(engine, axis, position)
+    }
+}
+
+enum LazyHandlerState {
+    Uninitialized(Box<dyn FnOnce(&Engine) -> Result<Box<dyn EventHandler>> + Send + Sync>),
+    Initialized(Box<dyn EventHandler>),
+    Empty,
+}
+
+pub struct LazyHandler(LazyHandlerState);
+
+impl LazyHandler {
+    pub fn new<H: EventHandler>(
+        f: impl FnOnce(&Engine) -> Result<H> + Send + Sync + 'static,
+    ) -> Self {
+        Self(LazyHandlerState::Uninitialized(Box::new(move |engine| {
+            Ok(Box::new(f(engine)?))
+        })))
+    }
+
+    fn get_mut(&mut self) -> &mut dyn EventHandler {
+        match &mut self.0 {
+            LazyHandlerState::Initialized(handler) => &mut **handler,
+            _ => unreachable!("attempted to access uninitialized `LazyHandler`"),
+        }
+    }
+}
+
+impl EventHandler for LazyHandler {
+    fn init(&mut self, engine: &Engine) -> Result<()> {
+        match std::mem::replace(&mut self.0, LazyHandlerState::Empty) {
+            LazyHandlerState::Uninitialized(thunk) => {
+                let mut handler = thunk(engine)?;
+                handler.init(engine)?;
+                self.0 = LazyHandlerState::Initialized(handler);
+            }
+            _ => unreachable!("`LazyHandler` must not be initialized multiple times!"),
+        }
+
+        Ok(())
+    }
+
+    fn update(&mut self, engine: &Engine, dt: f32) -> Result<()> {
+        self.get_mut().update(engine, dt)
+    }
+
+    fn draw(&mut self, engine: &Engine) -> Result<()> {
+        self.get_mut().draw(engine)
+    }
+
+    fn key_down_event(
+        &mut self,
+        engine: &Engine,
+        keycode: KeyCode,
+        keymods: KeyMods,
+        repeat: bool,
+    ) {
+        self.get_mut()
+            .key_down_event(engine, keycode, keymods, repeat)
+    }
+
+    fn key_up_event(&mut self, engine: &Engine, keycode: KeyCode, keymods: KeyMods) {
+        self.get_mut().key_up_event(engine, keycode, keymods)
+    }
+
+    fn char_event(&mut self, engine: &Engine, character: char, keymods: KeyMods, repeat: bool) {
+        self.get_mut()
+            .char_event(engine, character, keymods, repeat)
+    }
+
+    fn mouse_motion_event(&mut self, engine: &Engine, x: f32, y: f32) {
+        self.get_mut().mouse_motion_event(engine, x, y)
+    }
+
+    fn mouse_wheel_event(&mut self, engine: &Engine, x: f32, y: f32) {
+        self.get_mut().mouse_wheel_event(engine, x, y)
+    }
+
+    fn mouse_button_down_event(&mut self, engine: &Engine, button: MouseButton, x: f32, y: f32) {
+        self.get_mut().mouse_button_down_event(engine, button, x, y)
+    }
+
+    fn mouse_button_up_event(&mut self, engine: &Engine, button: MouseButton, x: f32, y: f32) {
+        self.get_mut().mouse_button_up_event(engine, button, x, y)
+    }
+
+    fn gamepad_button_down_event(&mut self, engine: &Engine, button: GamepadButton, repeat: bool) {
+        self.get_mut()
+            .gamepad_button_down_event(engine, button, repeat)
+    }
+
+    fn gamepad_button_up_event(&mut self, engine: &Engine, button: GamepadButton) {
+        self.get_mut().gamepad_button_up_event(engine, button)
+    }
+
+    fn gamepad_axis_changed_event(&mut self, engine: &Engine, axis: GamepadAxis, position: f32) {
+        self.get_mut()
+            .gamepad_axis_changed_event(engine, axis, position)
+    }
+
+    fn gamepad_connected_event(&mut self, engine: &Engine) {
+        self.get_mut().gamepad_connected_event(engine)
+    }
+
+    fn gamepad_disconnected_event(&mut self, engine: &Engine) {
+        self.get_mut().gamepad_disconnected_event(engine)
     }
 }

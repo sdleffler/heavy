@@ -136,9 +136,7 @@ impl Game {
         })
     }
 
-    fn update(&mut self, engine: &Engine) -> Result<()> {
-        let dt = 1.0 / 60.0;
-
+    fn update(&mut self, engine: &Engine, dt: f32) -> Result<()> {
         engine
             .get::<hv_mymachine::Console>()
             .borrow_mut()
@@ -302,8 +300,8 @@ impl EventHandler for GameHandler {
         Ok(())
     }
 
-    fn update(&mut self, engine: &Engine) -> Result<()> {
-        self.inner.as_mut().unwrap().update(engine)
+    fn update(&mut self, engine: &Engine, dt: f32) -> Result<()> {
+        self.inner.as_mut().unwrap().update(engine, dt)
     }
 
     fn draw(&mut self, engine: &Engine) -> Result<()> {

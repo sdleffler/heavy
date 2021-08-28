@@ -343,7 +343,7 @@ impl EventHandler for SceneStack<EngineRef, EngineEvent> {
         Ok(())
     }
 
-    fn update(&mut self, engine: &Engine) -> Result<()> {
+    fn update(&mut self, engine: &Engine, _dt: f32) -> Result<()> {
         self.update(&mut engine.downgrade())
     }
 

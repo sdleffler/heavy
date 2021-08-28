@@ -82,12 +82,12 @@ impl EventHandler for SimpleHandler {
         Ok(())
     }
 
-    fn update(&mut self, engine: &Engine) -> Result<()> {
+    fn update(&mut self, engine: &Engine, dt: f32) -> Result<()> {
         engine
             .lua()
             .globals()
             .get::<_, LuaTable>("hv")?
-            .call_function("update", 1. / 60.)?;
+            .call_function("update", dt)?;
         Ok(())
     }
 

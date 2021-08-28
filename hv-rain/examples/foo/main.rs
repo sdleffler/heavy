@@ -101,7 +101,7 @@ impl Game {
         })
     }
 
-    fn update(&mut self, engine: &Engine) -> Result<()> {
+    fn update(&mut self, engine: &Engine, dt: f32) -> Result<()> {
         if self.input_state.get_button_pressed(Buttons::Dash) {
             self.paused = !self.paused;
         }
@@ -112,7 +112,7 @@ impl Game {
                 .borrow_mut()
                 .query_mut::<(&mut Position, &mut Velocity)>()
             {
-                pos.integrate_mut(vel, 1. / 60.);
+                pos.integrate_mut(vel, dt);
             }
 
             {
@@ -147,10 +147,10 @@ impl Game {
                 .lua()
                 .globals()
                 .get::<_, LuaTable>("hv")?
-                .call_function("update", 1. / 60.)?;
+                .call_function("update", dt)?;
         }
 
-        self.input_state.update(1. / 60.);
+        self.input_state.update(dt);
 
         Ok(())
     }
@@ -233,8 +233,8 @@ impl EventHandler for GameHandler {
         Ok(())
     }
 
-    fn update(&mut self, engine: &Engine) -> Result<()> {
-        self.inner.as_mut().unwrap().update(engine)
+    fn update(&mut self, engine: &Engine, dt: f32) -> Result<()> {
+        self.inner.as_mut().unwrap().update(engine, dt)
     }
 
     fn draw(&mut self, engine: &Engine) -> Result<()> {
