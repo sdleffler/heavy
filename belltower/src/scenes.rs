@@ -1,7 +1,7 @@
 use std::sync::{Arc, RwLock};
 
 use hv_core::{
-    engine::{Engine, EngineRef, Resource},
+    engine::{Engine, EngineRef},
     prelude::*,
     spaces::Space,
 };
@@ -26,8 +26,8 @@ pub struct SceneContext {
 }
 
 pub struct GameplayScene {
-    space: Resource<Space>,
-    gfx_lock: Resource<GraphicsLock>,
+    space: Shared<Space>,
+    gfx_lock: Shared<GraphicsLock>,
     camera: Arc<RwLock<Camera>>,
 }
 

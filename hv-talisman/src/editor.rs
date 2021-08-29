@@ -1,11 +1,11 @@
 use std::{
     collections::{BTreeMap, HashSet, VecDeque},
-    sync::{Arc, RwLock},
+    sync::Arc,
 };
 
 use bincode::Options;
 use hv_core::{
-    engine::{Engine, EngineRef, LuaResource, Resource, WeakResourceCache},
+    engine::{Engine, EngineRef, LuaResource, WeakResourceCache},
     hecs::{Bundle, EntityBuilder},
     prelude::*,
     spaces::{Object, Space, Spaces},
@@ -61,8 +61,8 @@ impl UndoState {
 }
 
 pub struct UndoTracker {
-    level: Arc<RwLock<Level>>,
-    space: Arc<RwLock<Space>>,
+    level: Shared<Level>,
+    space: Shared<Space>,
     current_lua_objects: Vec<u8>,
     current_ecs_objects: Vec<u8>,
     prev_lua_objects: Vec<u8>,
@@ -72,7 +72,7 @@ pub struct UndoTracker {
 }
 
 impl UndoTracker {
-    pub fn new(lua: &Lua, level: Arc<RwLock<Level>>) -> Result<Self> {
+    pub fn new(lua: &Lua, level: Shared<Level>) -> Result<Self> {
         let space = level.borrow().space.clone();
         let mut this = Self {
             level,
@@ -237,12 +237,12 @@ pub struct WidgetComponent {
 
 pub struct LevelContext {
     pub engine: EngineRef,
-    pub graphics_lock: Resource<GraphicsLock>,
-    pub egui: Resource<egui::CtxRef>,
-    pub level: Arc<RwLock<Level>>,
-    pub undo_tracker: Arc<RwLock<UndoTracker>>,
-    pub camera: Arc<RwLock<Camera>>,
-    pub editor_space: Arc<RwLock<Space>>,
+    pub graphics_lock: Shared<GraphicsLock>,
+    pub egui: Shared<egui::CtxRef>,
+    pub level: Shared<Level>,
+    pub undo_tracker: Shared<UndoTracker>,
+    pub camera: Shared<Camera>,
+    pub editor_space: Shared<Space>,
     pub window_to_canvas_tx: Transform2<f32>,
     pub canvas_response: Option<Response>,
     pub selected_objects: HashSet<Object>,
@@ -323,16 +323,16 @@ impl LevelContext {
 pub struct LevelEditor {
     path: Option<String>,
 
-    level: Arc<RwLock<Level>>,
+    level: Shared<Level>,
     object_tree: ObjectTree,
 
-    undo_tracker: Arc<RwLock<UndoTracker>>,
+    undo_tracker: Shared<UndoTracker>,
 
     show_objects: bool,
 
-    camera: Arc<RwLock<Camera>>,
+    camera: Shared<Camera>,
 
-    editor_space: Arc<RwLock<Space>>,
+    editor_space: Shared<Space>,
 
     mode_ctx: LevelContext,
     modes: BTreeMap<String, Box<dyn LevelEditorMode>>,
@@ -340,12 +340,12 @@ pub struct LevelEditor {
 }
 
 impl LevelEditor {
-    pub fn new(engine: &Engine, lua: &Lua, level: Arc<RwLock<Level>>) -> Result<Self> {
+    pub fn new(engine: &Engine, lua: &Lua, level: Shared<Level>) -> Result<Self> {
         let (w, h) = engine.mq().screen_size();
-        let camera = Arc::new(RwLock::new(Camera::new(CameraParameters::new(
-            Vector2::new(w as u32, h as u32),
+        let camera = Shared::new(Camera::new(CameraParameters::new(Vector2::new(
+            w as u32, h as u32,
         ))));
-        let undo_tracker = Arc::new(RwLock::new(UndoTracker::new(lua, level.clone())?));
+        let undo_tracker = Shared::new(UndoTracker::new(lua, level.clone())?);
         let editor_space = engine.get::<Spaces>().borrow_mut().create_space();
         let mut mode_ctx = LevelContext {
             engine: engine.downgrade(),
@@ -513,7 +513,7 @@ impl LevelEditor {
         Ok(())
     }
 
-    pub fn draw(&mut self, graphics: &Resource<GraphicsLock>) -> Result<()> {
+    pub fn draw(&mut self, graphics: &Shared<GraphicsLock>) -> Result<()> {
         let mut gfx = graphics.lock();
         let space = self.level.borrow().space.clone();
         let mut mesh = MeshBuilder::new(gfx.state.null_texture.clone())
@@ -575,11 +575,11 @@ pub struct Editor {
     world_canvas: Canvas,
     events: VecDeque<EngineEvent>,
 
-    gfx_lock: Resource<GraphicsLock>,
-    egui_resource: Resource<Egui>,
-    egui_ctx: Resource<egui::CtxRef>,
+    gfx_lock: Shared<GraphicsLock>,
+    egui_resource: Shared<Egui>,
+    egui_ctx: Shared<egui::CtxRef>,
 
-    open_levels: Arena<Arc<RwLock<LevelEditor>>>,
+    open_levels: Arena<Shared<LevelEditor>>,
     current_level: Option<Index>,
 
     open_file_dialog_is_open: bool,
@@ -587,7 +587,7 @@ pub struct Editor {
 }
 
 impl Editor {
-    pub fn new(engine: &Engine) -> Result<Resource<Self>> {
+    pub fn new(engine: &Engine) -> Result<Shared<Self>> {
         if let Some(this) = engine.try_get::<Self>() {
             return Ok(this);
         }
@@ -622,15 +622,10 @@ impl Editor {
         Ok(this)
     }
 
-    pub fn open_level(
-        &mut self,
-        engine: &Engine,
-        lua: &Lua,
-        level: Arc<RwLock<Level>>,
-    ) -> Result<()> {
+    pub fn open_level(&mut self, engine: &Engine, lua: &Lua, level: Shared<Level>) -> Result<()> {
         let index = self
             .open_levels
-            .insert(Arc::new(RwLock::new(LevelEditor::new(engine, lua, level)?)));
+            .insert(Shared::new(LevelEditor::new(engine, lua, level)?));
         self.current_level = Some(index);
 
         Ok(())
@@ -640,9 +635,11 @@ impl Editor {
         egui::menu::menu(ui, "File", |ui| {
             if ui.button("New").clicked() {
                 let lua = &engine.lua();
-                self.current_level = Some(self.open_levels.insert(Arc::new(RwLock::new(
-                    LevelEditor::new(engine, lua, Arc::new(RwLock::new(Level::empty(engine))))?,
-                ))));
+                self.current_level = Some(self.open_levels.insert(Shared::new(LevelEditor::new(
+                    engine,
+                    lua,
+                    Shared::new(Level::empty(engine)),
+                )?)));
             } else if ui.button("Open").clicked() {
                 self.open_file_dialog_is_open = true;
             }
@@ -714,7 +711,7 @@ impl Editor {
                         });
                         match level_result {
                             Ok(level) => {
-                                self.open_level(engine, lua, Arc::new(RwLock::new(level)))?;
+                                self.open_level(engine, lua, Shared::new(level))?;
                             }
                             Err(err) => {
                                 let mut memory = ui.memory();
@@ -976,7 +973,7 @@ impl LuaResource for Editor {
 }
 
 pub struct EditorScene {
-    pub editor: Resource<Editor>,
+    pub editor: Shared<Editor>,
 }
 
 impl EditorScene {
@@ -1030,7 +1027,7 @@ pub(crate) fn open<'lua>(lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lu
 
     let weak_engine = engine.downgrade();
     let mut weak_resource_cache = WeakResourceCache::<Editor>::new();
-    let open_level = lua.create_function_mut(move |lua, level: Arc<RwLock<Level>>| {
+    let open_level = lua.create_function_mut(move |lua, level: Shared<Level>| {
         let editor = weak_resource_cache.get(|| lua.resource::<Editor>())?;
         let mut editor_mut = editor.borrow_mut();
         editor_mut

@@ -5,7 +5,7 @@ mod painter;
 
 use egui::CursorIcon;
 use hv_core::{
-    engine::{Engine, LuaExt, LuaResource, Resource},
+    engine::{Engine, LuaExt, LuaResource},
     input::{KeyCode, KeyMods, MouseButton},
     mq,
     prelude::*,
@@ -16,7 +16,7 @@ use copypasta::ClipboardProvider;
 
 pub struct Egui {
     egui_ctx: egui::CtxRef,
-    egui_ctx_resource: Resource<egui::CtxRef>,
+    egui_ctx_resource: Shared<egui::CtxRef>,
     egui_input: egui::RawInput,
     painter: painter::Painter,
     #[cfg(target_os = "macos")]
@@ -25,7 +25,7 @@ pub struct Egui {
 }
 
 impl Egui {
-    pub fn new(engine: &Engine) -> Result<Resource<Egui>> {
+    pub fn new(engine: &Engine) -> Result<Shared<Egui>> {
         if let Some(this) = engine.try_get::<Self>() {
             return Ok(this);
         }

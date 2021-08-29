@@ -1,45 +1,39 @@
-use std::{
-    collections::{HashMap, HashSet},
-    sync::{Arc, RwLock, Weak},
-};
+use std::collections::{HashMap, HashSet};
 
 use crate::{
     components::DynamicComponentConstructor,
-    engine::{Engine, LuaExt, LuaResource, Resource},
+    engine::{Engine, LuaExt, LuaResource},
     error::*,
     mlua::prelude::*,
     plugins::Plugin,
+    shared::{Shared, Weak},
     spaces::Object,
-    util::RwLockExt,
 };
 
 use thunderdome::{Arena, Index};
 
 pub struct ObjectTableComponent {
     pub index: ObjectTableIndex,
-    pub weak_ref: Weak<RwLock<ObjectTableRegistry>>,
+    pub weak_ref: Weak<ObjectTableRegistry>,
 }
 
 impl Drop for ObjectTableComponent {
     fn drop(&mut self) {
-        let strong = match self.weak_ref.upgrade() {
-            Some(s) => s,
-            None => return,
-        };
-
-        let mut write = match strong.try_write() {
-            Ok(otr) => otr,
-            Err(_) => return,
-        };
-
-        write.remove(self.index);
+        if let Some(mut write) = self
+            .weak_ref
+            .try_upgrade()
+            .as_ref()
+            .and_then(|s| s.try_borrow_mut())
+        {
+            write.remove(self.index);
+        }
     }
 }
 
 impl<'a, 'lua> ToLua<'lua> for &'a ObjectTableComponent {
     fn to_lua(self, lua: &'lua Lua) -> LuaResult<LuaValue<'lua>> {
         let object_table_registry_shared = lua.resource::<ObjectTableRegistry>()?;
-        let object_table_registry = object_table_registry_shared.try_read().unwrap();
+        let object_table_registry = object_table_registry_shared.borrow();
         object_table_registry
             .by_index(self.index)
             .map(|entry| lua.registry_value::<LuaTable>(entry.key()))
@@ -58,7 +52,7 @@ impl<'lua> FromLua<'lua> for ObjectTableComponent {
         match maybe_index {
             Some(index) => Ok(ObjectTableComponent {
                 index,
-                weak_ref: Resource::downgrade(&otr_shared),
+                weak_ref: Shared::downgrade(&otr_shared),
             }),
             None => Ok(otr_shared
                 .borrow_mut()
@@ -73,7 +67,7 @@ const HV_LUA_OBJECT_TABLE: &str = "HV_LUA_OBJECT_TABLE";
 impl<'lua> ToLua<'lua> for Object {
     fn to_lua(self, lua: &'lua Lua) -> LuaResult<LuaValue<'lua>> {
         let object_table_registry_shared = lua.resource::<ObjectTableRegistry>()?;
-        let object_table_registry = object_table_registry_shared.try_read().unwrap();
+        let object_table_registry = object_table_registry_shared.borrow();
         object_table_registry
             .by_object(self)
             .map(|entry| lua.registry_value::<LuaTable>(entry.key()))
@@ -87,7 +81,7 @@ impl<'lua> FromLua<'lua> for Object {
         let lua_object_table: LuaTable = lua.named_registry_value(HV_LUA_OBJECT_TABLE)?;
         let otable_index = lua_object_table.get(lua_value)?;
         let otr_shared = lua.resource::<ObjectTableRegistry>()?;
-        let otr = otr_shared.try_read().unwrap();
+        let otr = otr_shared.borrow();
 
         match otr
             .by_index(otable_index)
@@ -117,7 +111,7 @@ impl ObjectTableEntry {
 pub struct ObjectTableRegistry {
     objects: Arena<ObjectTableEntry>,
     tables: HashMap<Object, ObjectTableIndex>,
-    weak: Weak<RwLock<ObjectTableRegistry>>,
+    weak: Weak<ObjectTableRegistry>,
     cleanup: HashSet<LuaRegistryKey>,
 }
 
@@ -144,14 +138,14 @@ impl<'lua> FromLua<'lua> for ObjectTableIndex {
 }
 
 impl ObjectTableRegistry {
-    pub fn new() -> Resource<Self> {
-        let this = Arc::new(RwLock::new(Self {
+    pub fn new() -> Shared<Self> {
+        let this = Shared::new(Self {
             objects: Arena::new(),
             tables: HashMap::new(),
             weak: Weak::new(),
             cleanup: HashSet::new(),
-        }));
-        this.borrow_mut().weak = Arc::downgrade(&this);
+        });
+        this.borrow_mut().weak = Shared::downgrade(&this);
         this
     }
 
@@ -237,18 +231,14 @@ impl Plugin for ObjectTableComponentPlugin {
         lua.register(otable_resource.clone())?;
         lua.set_named_registry_value(HV_LUA_OBJECT_TABLE, lua.create_table()?)?;
 
-        let otr_weak = Arc::downgrade(&otable_resource);
+        let otr_weak = otable_resource.downgrade();
         let object_table_new = lua.create_function(move |lua, table: LuaTable| {
             let key = lua.create_registry_value(table)?;
             let weak_ref = otr_weak.clone();
             Ok(DynamicComponentConstructor::new(
                 move |lua: &Lua, object| {
                     let table = lua.registry_value(&key)?;
-                    let component = weak_ref
-                        .upgrade()
-                        .unwrap()
-                        .borrow_mut()
-                        .insert(lua, table, object)?;
+                    let component = weak_ref.upgrade().borrow_mut().insert(lua, table, object)?;
 
                     Ok(component)
                 },

@@ -1,14 +1,11 @@
-use std::{
-    cell::RefCell,
-    fmt,
-    sync::{Arc, RwLock},
-};
+use std::{cell::RefCell, fmt};
 
 use crate::{
-    engine::{LuaExt, LuaResource, Resource},
+    engine::{LuaExt, LuaResource},
     error::*,
     mlua::prelude::*,
     plugins::{ModuleWrapper, Plugin},
+    shared::Shared,
 };
 
 use {
@@ -60,7 +57,7 @@ impl From<hecs::NoSuchEntity> for ObjectError {
 }
 
 pub struct Spaces {
-    registry: Arena<Arc<RwLock<Space>>>,
+    registry: Arena<Shared<Space>>,
 }
 
 impl Spaces {
@@ -70,14 +67,14 @@ impl Spaces {
         }
     }
 
-    pub fn create_space(&mut self) -> Resource<Space> {
-        let space = Arc::new(RwLock::new(Space::new()));
+    pub fn create_space(&mut self) -> Shared<Space> {
+        let space = Shared::new(Space::new());
         let space_id = self.registry.insert(space.clone());
-        self.registry[space_id].write().unwrap().id = SpaceId(space_id);
+        self.registry[space_id].borrow_mut().id = SpaceId(space_id);
         space
     }
 
-    pub fn get_space(&self, space_id: SpaceId) -> Resource<Space> {
+    pub fn get_space(&self, space_id: SpaceId) -> Shared<Space> {
         self.registry[space_id.0].clone()
     }
 }
@@ -624,7 +621,7 @@ impl Plugin for SpacesPlugin {
 
         let sp_res = spaces_resource;
         let create_space = lua.create_function(move |_, ()| {
-            let mut sr = sp_res.try_write().unwrap();
+            let mut sr = sp_res.borrow_mut();
             Ok(sr.create_space())
         })?;
 

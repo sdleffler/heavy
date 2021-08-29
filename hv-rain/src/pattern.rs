@@ -1,16 +1,13 @@
 use hv_core::{
     components::DynamicComponentConstructor,
-    engine::{LuaExt, LuaResource, Resource},
+    engine::{LuaExt, LuaResource},
     hecs::EntityBuilder,
     prelude::*,
+    shared::Weak,
     spaces::Space,
-    util::RwLockExt,
 };
 use hv_friends::{graphics::Color, math::*};
-use std::{
-    collections::HashMap,
-    sync::{RwLock, Weak},
-};
+use std::collections::HashMap;
 use thunderdome::{Arena, Index};
 
 use crate::{graphics::ProjectileSprite, ProjectileState};
@@ -161,16 +158,16 @@ impl Default for Frame {
 }
 
 pub struct Barrage {
-    space: Weak<RwLock<Space>>,
+    space: Weak<Space>,
     stack: Vec<Frame>,
     batches: HashMap<ShotTypeIndex, Vec<Parameters>>,
     lua_slots: Arena<LuaRegistryKey>,
 }
 
 impl Barrage {
-    pub fn new(space: &Resource<Space>) -> Self {
+    pub fn new(space: &Shared<Space>) -> Self {
         Self {
-            space: Resource::downgrade(space),
+            space: Shared::downgrade(space),
             stack: vec![Default::default()],
             batches: HashMap::new(),
             lua_slots: Arena::new(),
@@ -313,12 +310,11 @@ impl Barrage {
     }
 
     pub fn flush(&mut self, lua: &Lua) -> Result<()> {
-        let strong = self.space.upgrade().unwrap();
-        let space = &mut strong.borrow_mut();
+        let mut space = self.space.borrow_mut();
         let st_registry_resource = lua.resource::<ShotTypeRegistry>()?;
         let st_registry = st_registry_resource.borrow();
         for (&shot_type, shots) in self.batches.iter_mut() {
-            st_registry.shot_types[shot_type.0].spawn(lua, &self.lua_slots, space, shots)?;
+            st_registry.shot_types[shot_type.0].spawn(lua, &self.lua_slots, &mut space, shots)?;
             shots.clear();
         }
         self.lua_slots.clear();

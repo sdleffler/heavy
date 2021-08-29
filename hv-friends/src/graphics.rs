@@ -1,16 +1,10 @@
 use std::{
     mem,
     ptr::NonNull,
-    sync::{Arc, Mutex, MutexGuard, RwLock, RwLockWriteGuard},
+    sync::{Arc, Mutex, MutexGuard, RwLock},
 };
 
-use hv_core::{
-    components::DynamicComponentConstructor,
-    engine::{Engine, EngineRef, LuaExt, LuaResource, Resource},
-    prelude::*,
-    mq::{self, PassAction},
-    util::RwLockExt,
-};
+use hv_core::{components::DynamicComponentConstructor, engine::{Engine, EngineRef, LuaExt, LuaResource}, mq::{self, PassAction}, prelude::*, shared::{Shared, RefMut}, util::RwLockExt};
 use serde::*;
 
 use crate::{graphics::{bindings::Bindings, lua::{LuaDrawMode, LuaGraphicsState}, pipeline::{Pipeline, PipelineRegistry, ShaderRegistry}, render_pass::RenderPassRegistry, sprite::{CachedSpriteSheet, SpriteAnimationState, SpriteSheetCache}, texture::TextureCache}, math::*};
@@ -256,6 +250,18 @@ impl<T: DrawableMut + ?Sized> Drawable for RwLock<T> {
     }
 }
 
+impl<T: DrawableMut + ?Sized> DrawableMut for Shared<T> {
+    fn draw_mut(&mut self, ctx: &mut Graphics, instance: Instance) {
+        self.borrow_mut().draw_mut(ctx, instance)
+    }
+}
+
+impl<T: DrawableMut + ?Sized> Drawable for Shared<T> {
+    fn draw(&self, ctx: &mut Graphics, instance: Instance) {
+        self.borrow_mut().draw_mut(ctx, instance)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum FilterMode {
     Nearest,
@@ -492,7 +498,7 @@ pub struct GraphicsLock {
 }
 
 impl GraphicsLock {
-    pub fn new(engine: &Engine) -> Result<Resource<Self>> {
+    pub fn new(engine: &Engine) -> Result<Shared<Self>> {
         let engine_ref = engine.downgrade();
         let this = Self {
             engine_ref,
@@ -512,7 +518,7 @@ pub trait GraphicsLockExt {
     fn lock(&self) -> Graphics;
 }
 
-impl GraphicsLockExt for Resource<GraphicsLock> {
+impl GraphicsLockExt for Shared<GraphicsLock> {
     fn lock(&self) -> Graphics {
         // First, we lock the resource, and then extract its dereferenced location into a pointer.
         let mut write_guard = self.borrow_mut();
@@ -560,7 +566,7 @@ impl GraphicsLockExt for Resource<GraphicsLock> {
 pub struct Graphics<'a> {
     pub state: &'a mut GraphicsState,
     pub mq: MutexGuard<'a, mq::Context>,
-    _write_guard: RwLockWriteGuard<'a, GraphicsLock>,
+    _write_guard: RefMut<'a, GraphicsLock>,
     _strong_owner: Engine<'a>,
 }
 

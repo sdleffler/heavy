@@ -18,6 +18,7 @@ pub mod engine;
 pub mod filesystem;
 pub mod input;
 pub mod plugins;
+pub mod shared;
 pub mod spaces;
 pub mod swappable_cache;
 pub mod xsbox;
@@ -32,6 +33,7 @@ pub mod prelude {
         error::*,
         inventory,
         mlua::{self, prelude::*, Variadic as LuaVariadic},
+        shared::Shared,
         util::RwLockExt,
     };
 }

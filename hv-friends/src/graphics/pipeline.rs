@@ -1,5 +1,5 @@
 use hibitset::{AtomicBitSet, DrainableBitSet};
-use hv_core::{engine::Resource, mq, prelude::*, util::RwLockExt};
+use hv_core::{mq, prelude::*, util::RwLockExt};
 use std::{
     ops,
     sync::{Arc, RwLock},
@@ -635,7 +635,7 @@ impl LuaUserData for Uniforms {
 
 pub(super) fn open<'lua>(
     lua: &'lua Lua,
-    gfx_lock: &Resource<GraphicsLock>,
+    gfx_lock: &Shared<GraphicsLock>,
 ) -> Result<LuaTable<'lua>, Error> {
     let pipeline = lua.create_table()?;
 

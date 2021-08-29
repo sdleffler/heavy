@@ -1,13 +1,11 @@
-use std::sync::{Arc, RwLock, Weak};
-
 use hecs::EntityBuilder;
 use mlua::{prelude::*, Variadic as LuaVariadic};
 
 use crate::{
     components::DynamicComponentConstructor,
     engine::{Engine, EngineRef},
+    shared::{Shared, Weak},
     spaces::{Object, Space, SpaceId, Spaces},
-    util::RwLockExt,
 };
 
 macro_rules! lua_fn {
@@ -57,9 +55,9 @@ pub fn spaces_insert(
 
 pub struct SpaceCache {
     weak_engine: EngineRef,
-    weak_spaces: Weak<RwLock<Spaces>>,
+    weak_spaces: Weak<Spaces>,
     cached_space_id: Option<SpaceId>,
-    weak_cached_space: Weak<RwLock<Space>>,
+    weak_cached_space: Weak<Space>,
 }
 
 impl SpaceCache {
@@ -72,22 +70,22 @@ impl SpaceCache {
         }
     }
 
-    pub fn get_space(&mut self, space_id: SpaceId) -> Arc<RwLock<Space>> {
+    pub fn get_space(&mut self, space_id: SpaceId) -> Shared<Space> {
         if self.cached_space_id != Some(space_id) {
-            let strong_spaces = match self.weak_spaces.upgrade() {
+            let strong_spaces = match self.weak_spaces.try_upgrade() {
                 Some(strong) => strong,
                 None => {
                     let strong = self.weak_engine.upgrade().get::<Spaces>();
-                    self.weak_spaces = Arc::downgrade(&strong);
+                    self.weak_spaces = strong.downgrade();
                     strong
                 }
             };
 
             let space = strong_spaces.borrow().get_space(space_id);
-            self.weak_cached_space = Arc::downgrade(&space);
+            self.weak_cached_space = space.downgrade();
             space
         } else {
-            self.weak_cached_space.upgrade().unwrap()
+            self.weak_cached_space.upgrade()
         }
     }
 }

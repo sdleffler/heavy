@@ -1,9 +1,6 @@
 use std::sync::{Arc, RwLock};
 
-use hv_core::{
-    engine::{Resource, WeakResourceCache},
-    prelude::*,
-};
+use hv_core::{engine::WeakResourceCache, prelude::*};
 
 use crate::{
     graphics::{
@@ -282,7 +279,7 @@ impl LuaGraphicsState {
 
 pub(crate) fn circle(
     lgs: Arc<RwLock<LuaGraphicsState>>,
-    gfx_lock: Resource<GraphicsLock>,
+    gfx_lock: Shared<GraphicsLock>,
 ) -> lua_fn!(Fn<'lua>((LuaDrawMode, f32, f32, f32)) -> ()) {
     move |_, (mode, x, y, radius)| {
         lgs.borrow_mut()
@@ -293,7 +290,7 @@ pub(crate) fn circle(
 
 pub(crate) fn line(
     lgs: Arc<RwLock<LuaGraphicsState>>,
-    gfx_lock: Resource<GraphicsLock>,
+    gfx_lock: Shared<GraphicsLock>,
 ) -> lua_fn!(Fn<'lua>(PointBuffer) -> ()) {
     move |_, point_buffer| {
         lgs.borrow_mut()
@@ -304,7 +301,7 @@ pub(crate) fn line(
 
 pub(crate) fn points(
     lgs: Arc<RwLock<LuaGraphicsState>>,
-    gfx_lock: Resource<GraphicsLock>,
+    gfx_lock: Shared<GraphicsLock>,
 ) -> lua_fn!(Fn<'lua>(PointBuffer) -> ()) {
     move |_, point_buffer| {
         lgs.borrow_mut()
@@ -315,7 +312,7 @@ pub(crate) fn points(
 
 pub(crate) fn polygon(
     lgs: Arc<RwLock<LuaGraphicsState>>,
-    gfx_lock: Resource<GraphicsLock>,
+    gfx_lock: Shared<GraphicsLock>,
 ) -> lua_fn!(Fn<'lua>((LuaDrawMode, PointBuffer)) -> ()) {
     move |_, (mode, point_buffer)| {
         lgs.borrow_mut()
@@ -326,7 +323,7 @@ pub(crate) fn polygon(
 
 pub(crate) fn print(
     lgs: Arc<RwLock<LuaGraphicsState>>,
-    gfx_lock: Resource<GraphicsLock>,
+    gfx_lock: Shared<GraphicsLock>,
 ) -> lua_fn!(Fn<'lua>((LuaString<'lua>, LuaVariadic<f32>)) -> ()) {
     move |_, (text, params): (LuaString, LuaVariadic<f32>)| {
         let mut ps = params.into_iter();
@@ -356,7 +353,7 @@ pub(crate) fn print(
 
 pub(crate) fn clear(
     lgs: Arc<RwLock<LuaGraphicsState>>,
-    gfx_lock: Resource<GraphicsLock>,
+    gfx_lock: Shared<GraphicsLock>,
 ) -> lua_fn!(Fn<'lua>(LuaMultiValue<'lua>) -> ()) {
     move |lua, values: LuaMultiValue| {
         if values.is_empty() {
@@ -379,7 +376,7 @@ pub(crate) fn clear(
     }
 }
 
-pub(crate) fn present(gfx_lock: Resource<GraphicsLock>) -> lua_fn!(Fn<'lua>(()) -> ()) {
+pub(crate) fn present(gfx_lock: Shared<GraphicsLock>) -> lua_fn!(Fn<'lua>(()) -> ()) {
     move |_, ()| {
         gfx_lock.lock().commit_frame();
         Ok(())
@@ -395,9 +392,7 @@ pub(crate) fn set_color(
     }
 }
 
-pub(crate) fn apply_transform(
-    gfx_lock: Resource<GraphicsLock>,
-) -> lua_fn!(Fn<'lua>(Tx<f32>) -> ()) {
+pub(crate) fn apply_transform(gfx_lock: Shared<GraphicsLock>) -> lua_fn!(Fn<'lua>(Tx<f32>) -> ()) {
     move |_, tx| {
         gfx_lock
             .lock()
@@ -408,7 +403,7 @@ pub(crate) fn apply_transform(
 }
 
 pub(crate) fn inverse_transform_point(
-    gfx_lock: Resource<GraphicsLock>,
+    gfx_lock: Shared<GraphicsLock>,
 ) -> lua_fn!(Fn<'lua>((f32, f32)) -> (f32, f32)) {
     move |_, (x, y)| {
         let out = gfx_lock
@@ -419,21 +414,21 @@ pub(crate) fn inverse_transform_point(
     }
 }
 
-pub(crate) fn origin(gfx_lock: Resource<GraphicsLock>) -> lua_fn!(Fn<'lua>(()) -> ()) {
+pub(crate) fn origin(gfx_lock: Shared<GraphicsLock>) -> lua_fn!(Fn<'lua>(()) -> ()) {
     move |_, ()| {
         gfx_lock.lock().modelview_mut().origin();
         Ok(())
     }
 }
 
-pub(crate) fn pop(gfx_lock: Resource<GraphicsLock>) -> lua_fn!(Fn<'lua>(()) -> ()) {
+pub(crate) fn pop(gfx_lock: Shared<GraphicsLock>) -> lua_fn!(Fn<'lua>(()) -> ()) {
     move |_, ()| {
         gfx_lock.lock().modelview_mut().pop();
         Ok(())
     }
 }
 
-pub(crate) fn push(gfx_lock: Resource<GraphicsLock>) -> lua_fn!(Fn<'lua>(()) -> ()) {
+pub(crate) fn push(gfx_lock: Shared<GraphicsLock>) -> lua_fn!(Fn<'lua>(()) -> ()) {
     move |_, ()| {
         gfx_lock.lock().modelview_mut().push(None);
         Ok(())
@@ -441,7 +436,7 @@ pub(crate) fn push(gfx_lock: Resource<GraphicsLock>) -> lua_fn!(Fn<'lua>(()) -> 
 }
 
 pub(crate) fn replace_transform(
-    gfx_lock: Resource<GraphicsLock>,
+    gfx_lock: Shared<GraphicsLock>,
 ) -> lua_fn!(Fn<'lua>(Tx<f32>) -> ()) {
     move |_, tx| {
         gfx_lock
@@ -452,16 +447,14 @@ pub(crate) fn replace_transform(
     }
 }
 
-pub(crate) fn rotate(gfx_lock: Resource<GraphicsLock>) -> lua_fn!(Fn<'lua>(f32) -> ()) {
+pub(crate) fn rotate(gfx_lock: Shared<GraphicsLock>) -> lua_fn!(Fn<'lua>(f32) -> ()) {
     move |_, angle| {
         gfx_lock.lock().modelview_mut().rotate2(angle);
         Ok(())
     }
 }
 
-pub(crate) fn scale(
-    gfx_lock: Resource<GraphicsLock>,
-) -> lua_fn!(Fn<'lua>((f32, Option<f32>)) -> ()) {
+pub(crate) fn scale(gfx_lock: Shared<GraphicsLock>) -> lua_fn!(Fn<'lua>((f32, Option<f32>)) -> ()) {
     move |_, (x, maybe_y)| {
         gfx_lock
             .lock()
@@ -471,7 +464,7 @@ pub(crate) fn scale(
     }
 }
 
-pub(crate) fn shear(gfx_lock: Resource<GraphicsLock>) -> lua_fn!(Fn<'lua>((f32, f32)) -> ()) {
+pub(crate) fn shear(gfx_lock: Shared<GraphicsLock>) -> lua_fn!(Fn<'lua>((f32, f32)) -> ()) {
     move |_, (x, y)| {
         gfx_lock.lock().modelview_mut().shear2(Vector2::new(x, y));
         Ok(())
@@ -479,7 +472,7 @@ pub(crate) fn shear(gfx_lock: Resource<GraphicsLock>) -> lua_fn!(Fn<'lua>((f32, 
 }
 
 pub(crate) fn transform_point(
-    gfx_lock: Resource<GraphicsLock>,
+    gfx_lock: Shared<GraphicsLock>,
 ) -> lua_fn!(Fn<'lua>((f32, f32)) -> (f32, f32)) {
     move |_, (x, y)| {
         let out = gfx_lock
@@ -490,7 +483,7 @@ pub(crate) fn transform_point(
     }
 }
 
-pub(crate) fn translate(gfx_lock: Resource<GraphicsLock>) -> lua_fn!(Fn<'lua>((f32, f32)) -> ()) {
+pub(crate) fn translate(gfx_lock: Shared<GraphicsLock>) -> lua_fn!(Fn<'lua>((f32, f32)) -> ()) {
     move |_, (x, y)| {
         gfx_lock
             .lock()

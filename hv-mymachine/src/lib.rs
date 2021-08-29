@@ -1,8 +1,7 @@
 use hv_core::{
-    engine::{Engine, LuaExt, LuaResource, Resource},
+    engine::{Engine, LuaExt, LuaResource},
     plugins::Plugin,
     prelude::*,
-    util::RwLockExt,
 };
 use rustyline::{Config, EditMode, Editor};
 use std::{
@@ -45,7 +44,7 @@ pub struct Console {
 }
 
 impl Console {
-    pub fn new(engine: &Engine) -> Resource<Self> {
+    pub fn new(engine: &Engine) -> Shared<Self> {
         let (call_tx, call_rx) = std::sync::mpsc::channel();
         let (response_tx, response_rx) = std::sync::mpsc::channel();
 

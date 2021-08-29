@@ -2,7 +2,7 @@
 
 use hv_core::{
     conf::Conf,
-    engine::{Engine, EventHandler, LuaExt, Resource},
+    engine::{Engine, EventHandler, LuaExt},
     filesystem::Filesystem,
     input::{InputBinding, InputState, KeyCode, MouseButton},
     prelude::*,
@@ -10,13 +10,12 @@ use hv_core::{
         object_table::{ObjectTableComponent, ObjectTableRegistry, UpdateHookComponent},
         Space, Spaces,
     },
-    util::RwLockExt,
 };
 use hv_friends::{
     camera::{Camera, CameraParameters},
     graphics::{
-        Canvas, ClearOptions, Color, DrawMode, Drawable, GraphicsLock, GraphicsLockExt, Instance,
-        Mesh, MeshBuilder,
+        Canvas, ClearOptions, Color, DrawMode, DrawableMut, GraphicsLock, GraphicsLockExt,
+        Instance, Mesh, MeshBuilder,
     },
     math::*,
     scene::{DynamicScene, SceneStack},
@@ -66,10 +65,10 @@ fn default_input_binding() -> InputBinding<Axes, Buttons> {
 }
 
 struct Game {
-    space: Resource<Space>,
+    space: Shared<Space>,
     input_binding: InputBinding<Axes, Buttons>,
     input_state: InputState<Axes, Buttons>,
-    gfx_resource: Resource<GraphicsLock>,
+    gfx_resource: Shared<GraphicsLock>,
     mesh: Mesh,
     world_canvas: Canvas,
     static_canvas: Canvas,
@@ -228,7 +227,7 @@ impl Game {
             gfx.apply_modelview();
 
             for (_, Position(pos)) in self.space.borrow_mut().query_mut::<&Position>() {
-                self.mesh.draw(
+                self.mesh.draw_mut(
                     &mut gfx,
                     Instance::new()
                         .translate2(pos.translation.vector)
@@ -253,8 +252,8 @@ impl Game {
             {
                 let mut mesh_builder = MeshBuilder::new(gfx.state.null_texture.clone());
                 cg.append_debug_polygons_to_mesh(&mut mesh_builder)?;
-                let mesh = mesh_builder.build(&mut gfx);
-                mesh.draw(
+                let mut mesh = mesh_builder.build(&mut gfx);
+                mesh.draw_mut(
                     &mut gfx,
                     Instance::new()
                         .translate2(pos.translation.vector)

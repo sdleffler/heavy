@@ -1,4 +1,4 @@
-use hv_core::{engine::Resource, mq, prelude::*};
+use hv_core::{mq, prelude::*};
 
 use crate::graphics::{Buffer, CachedTexture, GraphicsLock};
 
@@ -100,7 +100,7 @@ impl LuaUserData for Bindings {
 
 pub(super) fn open<'lua>(
     lua: &'lua Lua,
-    _shared_gfx: &Resource<GraphicsLock>,
+    _shared_gfx: &Shared<GraphicsLock>,
 ) -> Result<LuaTable<'lua>> {
     let buffer = lua.create_table()?;
 

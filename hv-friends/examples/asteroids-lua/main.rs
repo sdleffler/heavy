@@ -8,8 +8,8 @@ fn main() {
 
     let conf = Conf {
         filesystem: Filesystem::from_project_dirs(
-            Path::new("examples/asteroids"),
-            "asteroids",
+            Path::new("examples/asteroids-lua"),
+            "asteroids-lua",
             "Shea Leffler",
         )
         .unwrap(),

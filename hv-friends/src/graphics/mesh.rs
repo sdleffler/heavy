@@ -24,14 +24,14 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHERDEALINGS IN THE
 SOFTWARE.
  */
 
-use hv_core::{mq, prelude::*};
+use hv_core::prelude::*;
 use lyon::tessellation::{self as t, FillOptions, StrokeOptions};
 use std::mem;
 
 use crate::{
     graphics::{
-        CachedTexture, Color, Drawable, DrawableMut, Graphics, Instance, InstanceProperties,
-        LinearColor, Vertex,
+        bindings::Bindings, BufferType, CachedTexture, Color, DrawableMut, Graphics, Instance,
+        InstanceProperties, LinearColor, OwnedBuffer, Vertex,
     },
     math::*,
 };
@@ -291,69 +291,61 @@ impl MeshBuilder {
         self
     }
 
-    pub fn update(&self, ctx: &mut Graphics, mesh: &mut Mesh) {
-        let vertex_buffer = mq::Buffer::immutable(
-            &mut ctx.mq,
-            mq::BufferType::VertexBuffer,
-            &self.buffer.vertices,
-        );
-
-        let index_buffer = mq::Buffer::immutable(
-            &mut ctx.mq,
-            mq::BufferType::IndexBuffer,
-            &self.buffer.indices,
-        );
-
-        let instance = mq::Buffer::stream(
-            &mut ctx.mq,
-            mq::BufferType::VertexBuffer,
-            mem::size_of::<InstanceProperties>(),
-        );
-
-        let aabb = if self.buffer.vertices.is_empty() {
-            Box2::invalid()
-        } else {
-            Box2::from_points(
-                &self
-                    .buffer
-                    .vertices
-                    .iter()
-                    .map(|v| Point2::from(v.pos.xy()))
-                    .collect::<Vec<_>>(),
+    pub fn update(&self, gfx: &mut Graphics, mesh: &mut Mesh) {
+        if self.buffer.vertices.len() > mesh.vertex_capacity {
+            let next_vertex_capacity = self
+                .buffer
+                .vertices
+                .len()
+                .checked_next_power_of_two()
+                .unwrap();
+            mesh.bindings.vertex_buffers[0] = OwnedBuffer::streaming(
+                gfx,
+                BufferType::VertexBuffer,
+                next_vertex_capacity * mem::size_of::<Vertex>(),
             )
-        };
+            .into();
+            mesh.vertex_capacity = next_vertex_capacity;
+        }
 
-        mesh.texture = self.texture.clone();
+        if self.buffer.indices.len() > mesh.index_capacity {
+            let next_index_capacity = self
+                .buffer
+                .indices
+                .len()
+                .checked_next_power_of_two()
+                .unwrap();
+            mesh.bindings.index_buffer = OwnedBuffer::streaming(
+                gfx,
+                BufferType::IndexBuffer,
+                next_index_capacity * mem::size_of::<u16>(),
+            )
+            .into();
+        }
 
-        mesh.bindings.vertex_buffers.clear();
-        mesh.bindings.vertex_buffers.push(vertex_buffer);
-        mesh.bindings.vertex_buffers.push(instance);
-
-        mesh.bindings.index_buffer = index_buffer;
-
-        mesh.bindings.images.clear();
-        mesh.bindings.images.push(mesh.texture.get_cached().handle);
-
+        mesh.bindings.vertex_buffers[0].update(gfx, &self.buffer.vertices);
+        mesh.bindings.index_buffer.update(gfx, &self.buffer.indices);
         mesh.len = self.buffer.indices.len() as i32;
-        mesh.aabb = aabb;
     }
 
-    pub fn build(&self, ctx: &mut Graphics) -> Mesh {
-        let vertex_buffer = mq::Buffer::immutable(
-            &mut ctx.mq,
-            mq::BufferType::VertexBuffer,
-            &self.buffer.vertices,
+    pub fn build(&self, gfx: &mut Graphics) -> Mesh {
+        let vertex_buffer = OwnedBuffer::streaming(
+            gfx,
+            BufferType::VertexBuffer,
+            mem::size_of_val::<[Vertex]>(self.buffer.vertices.as_slice()),
         );
+        vertex_buffer.update(gfx, &self.buffer.vertices);
 
-        let index_buffer = mq::Buffer::immutable(
-            &mut ctx.mq,
-            mq::BufferType::IndexBuffer,
-            &self.buffer.indices,
+        let index_buffer = OwnedBuffer::streaming(
+            gfx,
+            BufferType::IndexBuffer,
+            mem::size_of_val::<[u16]>(self.buffer.indices.as_slice()),
         );
+        index_buffer.update(gfx, &self.buffer.indices);
 
-        let instance = mq::Buffer::stream(
-            &mut ctx.mq,
-            mq::BufferType::VertexBuffer,
+        let instance = OwnedBuffer::streaming(
+            gfx,
+            BufferType::VertexBuffer,
             mem::size_of::<InstanceProperties>(),
         );
 
@@ -371,13 +363,16 @@ impl MeshBuilder {
         };
 
         Mesh {
-            texture: self.texture.clone(),
-            bindings: mq::Bindings {
-                vertex_buffers: vec![vertex_buffer, instance],
-                index_buffer,
-                images: vec![self.texture.get().handle],
-            },
+            bindings: Bindings::new(
+                vec![vertex_buffer.into(), instance.into()],
+                index_buffer.into(),
+                vec![self.texture.clone()],
+            ),
             len: self.buffer.indices.len() as i32,
+            instances: 1,
+            vertex_capacity: self.buffer.vertices.len(),
+            index_capacity: self.buffer.indices.len(),
+            instance_capacity: 1,
             aabb,
         }
     }
@@ -385,26 +380,20 @@ impl MeshBuilder {
 
 #[derive(Debug)]
 pub struct Mesh {
-    /// The shared reference to the texture, so that it doesn't get dropped and deleted.
-    /// The inner data is already in `bindings` so this is really just to keep it from
-    /// being dropped.
-    pub texture: CachedTexture,
-    pub bindings: mq::Bindings,
+    pub bindings: Bindings,
     pub len: i32,
+    pub instances: i32,
+    pub vertex_capacity: usize,
+    pub index_capacity: usize,
+    pub instance_capacity: usize,
     pub aabb: Box2<f32>,
 }
 
 impl DrawableMut for Mesh {
     fn draw_mut(&mut self, ctx: &mut Graphics, instance: Instance) {
-        self.draw(ctx, instance);
-    }
-}
-
-impl Drawable for Mesh {
-    fn draw(&self, ctx: &mut Graphics, param: Instance) {
-        self.bindings.vertex_buffers[1].update(&mut ctx.mq, &[param.to_instance_properties()]);
+        self.bindings.vertex_buffers[1].update(ctx, &[instance.to_instance_properties()]);
         ctx.apply_modelview();
-        ctx.mq.apply_bindings(&self.bindings);
-        ctx.mq.draw(0, self.len, 1);
+        ctx.mq.apply_bindings(self.bindings.update());
+        ctx.mq.draw(0, self.len, self.instances);
     }
 }

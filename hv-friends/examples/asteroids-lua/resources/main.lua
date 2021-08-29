@@ -9,7 +9,7 @@ function hv.load()
 
     shipRadius = 30
 
-    bulletTimerLimit = 0.5
+    bulletTimerLimit = 0 -- 0.5
     bulletRadius = 5
 
     asteroidStages = {

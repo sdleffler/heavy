@@ -1,15 +1,14 @@
 #![feature(drain_filter)]
 
 use smallvec::SmallVec;
-use std::sync::{Arc, RwLock, Weak};
 
 use hv_core::{
     components::DynamicComponentConstructor,
-    engine::{Engine, LuaExt, Resource, WeakResourceCache},
+    engine::{Engine, LuaExt, WeakResourceCache},
     plugins::Plugin,
     prelude::*,
+    shared::Weak,
     spaces::{Object, Space},
-    util::RwLockExt,
 };
 use hv_friends::{
     graphics::{
@@ -115,19 +114,18 @@ pub struct ProjectileTrail {
 pub struct Bullet(Object);
 
 pub struct Danmaku {
-    space: Weak<RwLock<Space>>,
+    space: Weak<Space>,
 }
 
 impl Danmaku {
-    pub fn new(space: &Resource<Space>) -> Result<Self> {
+    pub fn new(space: &Shared<Space>) -> Result<Self> {
         Ok(Self {
-            space: Resource::downgrade(space),
+            space: Shared::downgrade(space),
         })
     }
 
     pub fn update(&self, lua: &Lua, dt: f32) -> Result<()> {
-        let space_resource = self.space.upgrade().unwrap();
-        let space = &mut space_resource.borrow_mut();
+        let space = &mut self.space.borrow_mut();
         let state_registry_resource = lua.resource::<StateRegistry>()?;
         let state_registry = &state_registry_resource.borrow();
         let sprite_registry_resource = lua.resource::<ProjectileSpriteRegistry>()?;
@@ -224,7 +222,7 @@ impl Danmaku {
 impl LuaUserData for Danmaku {
     fn add_methods<'lua, M: LuaUserDataMethods<'lua, Self>>(methods: &mut M) {
         methods.add_method("create_barrage_object", |_, this, ()| {
-            Ok(Barrage::new(&this.space.upgrade().unwrap()))
+            Ok(Barrage::new(&this.space.upgrade()))
         });
 
         methods.add_method("update", |lua, this, dt| {
@@ -266,19 +264,15 @@ impl Plugin for HvDanmakuPlugin {
         let create_danmaku_object =
             lua.create_function_mut(move |_lua, space| Danmaku::new(&space).to_lua_err())?;
 
-        let weak_registry = Arc::downgrade(&shot_type_registry);
+        let weak_registry = Shared::downgrade(&shot_type_registry);
         let create_shot_type_from_component_fn =
             lua.create_function(move |lua, component_fn: LuaFunction| {
                 let lcfst =
                     LuaComponentFunctionShotType::from_lua(LuaValue::Function(component_fn), lua)?;
-                Ok(weak_registry
-                    .upgrade()
-                    .unwrap()
-                    .borrow_mut()
-                    .register(Box::new(lcfst)))
+                Ok(weak_registry.borrow_mut().register(Box::new(lcfst)))
             })?;
 
-        let weak_registry = Arc::downgrade(&sprite_registry);
+        let weak_registry = Shared::downgrade(&sprite_registry);
         let create_projectile_sprite_batch = lua.create_function(
             move |lua,
                   (texture, sheet, pipeline): (
@@ -286,8 +280,7 @@ impl Plugin for HvDanmakuPlugin {
                 CachedSpriteSheet,
                 Option<Pipeline>,
             )| {
-                let strong = weak_registry.upgrade().unwrap();
-                let registry = &mut strong.borrow_mut();
+                let registry = &mut weak_registry.borrow_mut();
                 let gfx_lock = lua.resource::<GraphicsLock>()?;
                 let batch = SpriteBatch::new(&mut gfx_lock.lock(), texture);
 
@@ -344,7 +337,7 @@ impl Plugin for HvDanmakuPlugin {
                 }
             })?;
 
-        let weak_registry = Arc::downgrade(&sprite_registry);
+        let weak_registry = Shared::downgrade(&sprite_registry);
         let projectile_sprite_component_constructor = lua.create_function(
             move |_,
                   (projectile_sprite, tag, should_loop): (
@@ -352,8 +345,7 @@ impl Plugin for HvDanmakuPlugin {
                 LuaString,
                 Option<bool>,
             )| {
-                let strong = weak_registry.upgrade().unwrap();
-                let registry = &mut strong.borrow_mut();
+                let registry = &mut weak_registry.borrow_mut();
                 let sheet = registry[projectile_sprite].sheet.get_cached();
                 let tag_id = sheet
                     .get_tag(tag.to_str()?)

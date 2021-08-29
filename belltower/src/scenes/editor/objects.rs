@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, fmt::Write};
 
 use hv_core::{
-    engine::{Engine, Resource},
+    engine::Engine,
     prelude::*,
     spaces::{
         object_table::{ObjectTableComponent, ObjectTableRegistry},
@@ -31,7 +31,7 @@ impl ObjectEditBuffers {
 }
 
 pub struct Objects {
-    object_table_resource: Resource<ObjectTableRegistry>,
+    object_table_resource: Shared<ObjectTableRegistry>,
     bufs: BTreeMap<Object, ObjectEditBuffers>,
 }
 

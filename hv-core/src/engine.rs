@@ -5,7 +5,7 @@ use {
         any::{Any, TypeId},
         collections::HashMap,
         marker::PhantomData,
-        sync::{Arc, Mutex, MutexGuard, RwLock, Weak},
+        sync::{Arc as StdArc, Mutex, MutexGuard, RwLock, Weak as StdWeak},
     },
 };
 
@@ -17,30 +17,29 @@ use crate::{
     filesystem::Filesystem,
     input::{CursorIcon, GamepadAxis, GamepadButton, KeyCode, KeyMods, MouseButton},
     mlua::prelude::*,
+    shared::{Shared, Weak},
     util::RwLockExt,
 };
 
 pub const MINIQUAD_DT: f32 = 1. / 60.;
-
-pub type Resource<T> = Arc<RwLock<T>>;
 
 pub trait LuaResource: LuaUserData + Send + Sync + 'static {
     const REGISTRY_KEY: &'static str;
 }
 
 pub trait LuaExt {
-    fn resource<T: LuaResource>(&self) -> LuaResult<Resource<T>>;
-    fn register<T: LuaResource>(&self, resource: Resource<T>) -> LuaResult<()>;
+    fn resource<T: LuaResource>(&self) -> LuaResult<Shared<T>>;
+    fn register<T: LuaResource>(&self, resource: Shared<T>) -> LuaResult<()>;
 }
 
 impl LuaExt for Lua {
     #[inline]
-    fn resource<T: LuaResource>(&self) -> LuaResult<Resource<T>> {
+    fn resource<T: LuaResource>(&self) -> LuaResult<Shared<T>> {
         self.named_registry_value(T::REGISTRY_KEY)
     }
 
     #[inline]
-    fn register<T: LuaResource>(&self, resource: Resource<T>) -> LuaResult<()> {
+    fn register<T: LuaResource>(&self, resource: Shared<T>) -> LuaResult<()> {
         self.set_named_registry_value(T::REGISTRY_KEY, resource)
     }
 }
@@ -56,12 +55,12 @@ struct EngineInner {
 
 #[derive(Clone)]
 pub struct EngineRef {
-    weak: Weak<EngineInner>,
+    weak: StdWeak<EngineInner>,
 }
 
 pub struct Engine<'a> {
     _restrictor: PhantomData<&'a ()>,
-    inner: Arc<EngineInner>,
+    inner: StdArc<EngineInner>,
 }
 
 impl Engine<'static> {
@@ -75,7 +74,7 @@ impl Engine<'static> {
 
         let this = Engine {
             _restrictor: PhantomData,
-            inner: Arc::new(EngineInner {
+            inner: StdArc::new(EngineInner {
                 handler: Mutex::new(Box::new(handler)),
                 lua: Mutex::new(lua),
                 mq: Mutex::new(mq),
@@ -89,7 +88,7 @@ impl Engine<'static> {
 
         {
             let lua = this.lua();
-            lua.register(Arc::new(RwLock::new(this.downgrade())))?;
+            lua.register(Shared::new(this.downgrade()))?;
 
             let hv = lua.create_table()?;
             lua.globals().set("hv", hv.clone())?;
@@ -127,7 +126,7 @@ impl Engine<'static> {
 impl<'a> Engine<'a> {
     pub fn downgrade(&self) -> EngineRef {
         EngineRef {
-            weak: Arc::downgrade(&self.inner),
+            weak: StdArc::downgrade(&self.inner),
         }
     }
 
@@ -151,7 +150,7 @@ impl<'a> Engine<'a> {
         self.inner.fs.try_lock().unwrap()
     }
 
-    pub fn insert_wrapped<T: Send + Sync + 'static>(&self, resource: Resource<T>) {
+    pub fn insert_wrapped<T: Send + Sync + 'static>(&self, resource: Shared<T>) {
         self.inner
             .resources
             .lock()
@@ -159,26 +158,26 @@ impl<'a> Engine<'a> {
             .insert(TypeId::of::<T>(), Box::new(resource));
     }
 
-    pub fn insert<T: Send + Sync + 'static>(&self, resource: T) -> Resource<T> {
-        let res = Arc::new(RwLock::new(resource));
+    pub fn insert<T: Send + Sync + 'static>(&self, resource: T) -> Shared<T> {
+        let res = Shared::new(resource);
         self.insert_wrapped(res.clone());
         res
     }
 
-    pub fn get<T: Send + Sync + 'static>(&self) -> Resource<T> {
+    pub fn get<T: Send + Sync + 'static>(&self) -> Shared<T> {
         self.inner.resources.lock().unwrap()[&TypeId::of::<T>()]
-            .downcast_ref::<Resource<T>>()
+            .downcast_ref::<Shared<T>>()
             .unwrap()
             .clone()
     }
 
-    pub fn try_get<T: Send + Sync + 'static>(&self) -> Option<Resource<T>> {
+    pub fn try_get<T: Send + Sync + 'static>(&self) -> Option<Shared<T>> {
         self.inner
             .resources
             .lock()
             .unwrap()
             .get(&TypeId::of::<T>())
-            .map(|entry| entry.downcast_ref::<Resource<T>>().unwrap().clone())
+            .map(|entry| entry.downcast_ref::<Shared<T>>().unwrap().clone())
     }
 
     pub fn show_mouse(&self, show: bool) {
@@ -202,7 +201,9 @@ impl Default for EngineRef {
 
 impl EngineRef {
     pub fn new() -> Self {
-        Self { weak: Weak::new() }
+        Self {
+            weak: StdWeak::new(),
+        }
     }
 
     pub fn try_upgrade(&self) -> Option<Engine> {
@@ -225,7 +226,7 @@ impl LuaResource for EngineRef {
 }
 
 pub struct EngineRefCache {
-    weak: Weak<EngineInner>,
+    weak: StdWeak<EngineInner>,
 }
 
 impl Default for EngineRefCache {
@@ -236,7 +237,9 @@ impl Default for EngineRefCache {
 
 impl EngineRefCache {
     pub fn new() -> Self {
-        Self { weak: Weak::new() }
+        Self {
+            weak: StdWeak::new(),
+        }
     }
 
     pub fn get<'lua>(&mut self, lua: &'lua Lua) -> Engine {
@@ -259,7 +262,7 @@ impl EngineRefCache {
 
 #[derive(Debug)]
 pub struct WeakResourceCache<T> {
-    weak: Weak<RwLock<T>>,
+    weak: Weak<T>,
 }
 
 impl<T> Clone for WeakResourceCache<T> {
@@ -281,15 +284,12 @@ impl<T> WeakResourceCache<T> {
         Self { weak: Weak::new() }
     }
 
-    pub fn get<F: FnOnce() -> Result<Resource<T>, E>, E>(
-        &mut self,
-        init: F,
-    ) -> Result<Resource<T>, E> {
-        match self.weak.upgrade() {
+    pub fn get<F: FnOnce() -> Result<Shared<T>, E>, E>(&mut self, init: F) -> Result<Shared<T>, E> {
+        match self.weak.try_upgrade() {
             Some(resource) => Ok(resource),
             None => {
                 let strong = init()?;
-                self.weak = Resource::downgrade(&strong);
+                self.weak = strong.downgrade();
                 Ok(strong)
             }
         }
@@ -487,7 +487,7 @@ impl mq::EventHandlerFree for Engine<'static> {
     fn quit_requested_event(&mut self) {}
 }
 
-impl<T: EventHandler> EventHandler for Arc<RwLock<T>> {
+impl<T: EventHandler> EventHandler for StdArc<RwLock<T>> {
     fn init(&mut self, engine: &Engine) -> Result<()> {
         self.borrow_mut().init(engine)
     }

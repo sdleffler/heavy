@@ -3,7 +3,6 @@ use hv_core::{
     engine::Engine,
     prelude::*,
     spaces::{Object, SpaceCache},
-    util::RwLockExt,
 };
 use serde::*;
 

@@ -1,6 +1,6 @@
 use hv_core::{
     conf::Conf,
-    engine::{Engine, EventHandler, LuaExt, Resource},
+    engine::{Engine, EventHandler, LuaExt},
     filesystem::Filesystem,
     input::{InputBinding, InputState, KeyCode, MouseButton},
     prelude::*,
@@ -8,12 +8,11 @@ use hv_core::{
         object_table::{ObjectTableComponent, ObjectTableRegistry, UpdateHookComponent},
         Space, Spaces,
     },
-    util::RwLockExt,
 };
 use hv_friends::{
     graphics::{
-        Canvas, ClearOptions, Color, DrawMode, Drawable, GraphicsLock, GraphicsLockExt, Instance,
-        Mesh, MeshBuilder,
+        Canvas, ClearOptions, Color, DrawMode, DrawableMut, GraphicsLock, GraphicsLockExt,
+        Instance, Mesh, MeshBuilder,
     },
     math::*,
     Position, Velocity,
@@ -47,10 +46,10 @@ fn default_input_binding() -> InputBinding<Axes, Buttons> {
 }
 
 struct Game {
-    space: Resource<Space>,
+    space: Shared<Space>,
     input_binding: InputBinding<Axes, Buttons>,
     input_state: InputState<Axes, Buttons>,
-    gfx_resource: Resource<GraphicsLock>,
+    gfx_resource: Shared<GraphicsLock>,
     mesh: Mesh,
     paused: bool,
     canvas: Canvas,
@@ -168,7 +167,7 @@ impl Game {
             gfx.apply_modelview();
 
             for (_, (Position(pos),)) in self.space.borrow_mut().query_mut::<(&Position,)>() {
-                self.mesh.draw(
+                self.mesh.draw_mut(
                     &mut gfx,
                     Instance::new()
                         .translate2(pos.translation.vector)

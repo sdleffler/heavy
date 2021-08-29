@@ -1,5 +1,5 @@
 use hv_core::{
-    engine::{Engine, EngineRef, LuaResource, Resource},
+    engine::{Engine, EngineRef, LuaResource},
     mq,
     prelude::*,
     swappable_cache::{CacheRef, Guard, Handle, Loader, SwappableCache},
@@ -210,11 +210,11 @@ impl LuaUserData for CachedTexture {
 
 pub struct FilesystemTextureLoader {
     engine_ref: EngineRef,
-    gfx_lock: Resource<GraphicsLock>,
+    gfx_lock: Shared<GraphicsLock>,
 }
 
 impl FilesystemTextureLoader {
-    pub fn new(engine: &Engine, gfx_lock: &Resource<GraphicsLock>) -> Self {
+    pub fn new(engine: &Engine, gfx_lock: &Shared<GraphicsLock>) -> Self {
         Self {
             engine_ref: engine.downgrade(),
             gfx_lock: gfx_lock.clone(),
@@ -242,7 +242,7 @@ impl LuaResource for TextureCache {
 }
 
 impl TextureCache {
-    pub fn new(engine: &Engine, gfx_lock: &Resource<GraphicsLock>) -> Self {
+    pub fn new(engine: &Engine, gfx_lock: &Shared<GraphicsLock>) -> Self {
         Self {
             inner: SwappableCache::new(FilesystemTextureLoader::new(engine, gfx_lock)),
         }

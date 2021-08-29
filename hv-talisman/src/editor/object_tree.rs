@@ -1,6 +1,5 @@
 use hv_core::{
     components::DynamicComponentConstructor,
-    engine::Resource,
     hecs::{Query, QueryItem, QueryOne, With},
     prelude::*,
     spaces::{Object, Space},
@@ -201,7 +200,7 @@ impl ObjectProperties {
 
     pub fn show_object(
         &mut self,
-        space: &Resource<Space>,
+        space: &Shared<Space>,
         object: Object,
         object_name: &str,
         lua: &Lua,
@@ -544,7 +543,7 @@ impl ObjectTree {
 
     fn show_node(
         &self,
-        space_resource: &Resource<Space>,
+        space_resource: &Shared<Space>,
         lua: &Lua,
         ui: &mut egui::Ui,
         undo_tracker: &mut UndoTracker,

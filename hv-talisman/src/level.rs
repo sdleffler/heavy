@@ -8,7 +8,7 @@ use std::{
 
 use bincode::Options;
 use hv_core::{
-    engine::{Engine, EngineRefCache, Resource},
+    engine::{Engine, EngineRefCache},
     filesystem::OpenOptions,
     hecs::{Archetype, ColumnBatchBuilder, ColumnBatchType, Component},
     prelude::*,
@@ -565,7 +565,7 @@ impl<'a> hv_core::hecs::serialize::column::DeserializeContext for SerdeContext<'
 
 pub struct Level {
     pub path: Option<String>,
-    pub space: Resource<Space>,
+    pub space: Shared<Space>,
 }
 
 impl Level {
@@ -576,7 +576,7 @@ impl Level {
     }
 
     pub fn deserialize_into<'de, D, E>(
-        space: Arc<RwLock<Space>>,
+        space: Shared<Space>,
         lua: &Lua,
         objects: D,
         lua_values: E,
@@ -699,7 +699,7 @@ impl Level {
     }
 
     pub fn deserialize_from_single_binary_chunk<R: Read>(
-        space: Arc<RwLock<Space>>,
+        space: Shared<Space>,
         lua: &Lua,
         reader: R,
     ) -> Result<Self> {

@@ -1,5 +1,5 @@
 use hv_core::{
-    engine::{Engine, EngineRef, Resource},
+    engine::{Engine, EngineRef},
     prelude::*,
     spaces::{
         object_table::{ObjectTableComponent, ObjectTableRegistry},
@@ -24,7 +24,7 @@ use crate::{scenes::editor::objects::Objects, INTERNAL_RESOLUTION};
 pub struct LevelEditor {
     path: Option<String>,
 
-    space: Resource<Space>,
+    space: Shared<Space>,
     objects: Objects,
     show_objects: bool,
 
@@ -91,8 +91,8 @@ impl LevelEditor {
 pub struct Editor {
     world_canvas: Canvas,
 
-    gfx_lock: Resource<GraphicsLock>,
-    egui: Resource<Egui>,
+    gfx_lock: Shared<GraphicsLock>,
+    egui: Shared<Egui>,
 
     belltower: LuaRegistryKey,
 

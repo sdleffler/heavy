@@ -1,5 +1,5 @@
 use hv_core::{
-    engine::{LuaExt, Resource, WeakResourceCache},
+    engine::{LuaExt, WeakResourceCache},
     mq,
     prelude::*,
 };
@@ -186,6 +186,7 @@ impl LuaUserData for BufferType {}
 #[derive(Debug)]
 pub struct OwnedBuffer {
     pub handle: mq::Buffer,
+    pub mutable: bool,
     pub buffer_type: BufferType,
     pub format: Option<BufferFormat>,
 }
@@ -195,6 +196,7 @@ impl OwnedBuffer {
         let handle = mq::Buffer::immutable(&mut gfx.mq, buffer_type.into(), data);
         Self {
             handle,
+            mutable: false,
             buffer_type,
             format: None,
         }
@@ -227,13 +229,14 @@ impl OwnedBuffer {
             }
         };
 
-        OwnedBuffer::from_inner(buffer, buffer_type, Some(format))
+        OwnedBuffer::from_inner(buffer, false, buffer_type, Some(format))
     }
 
     pub fn streaming(gfx: &mut Graphics, buffer_type: BufferType, size: usize) -> OwnedBuffer {
         let handle = mq::Buffer::stream(&mut gfx.mq, buffer_type.into(), size);
         Self {
             handle,
+            mutable: true,
             buffer_type,
             format: None,
         }
@@ -250,14 +253,16 @@ impl OwnedBuffer {
             buffer_type.into(),
             format.byte_size_with_padding() * len,
         );
-        OwnedBuffer::from_inner(buffer, buffer_type, Some(format))
+        OwnedBuffer::from_inner(buffer, true, buffer_type, Some(format))
     }
 
     pub fn update<T>(&self, gfx: &mut Graphics, data: &[T]) {
+        assert!(self.mutable, "attempted to update immutable buffer");
         self.handle.update(&mut gfx.mq, data);
     }
 
     pub fn update_formatted<T: AsRef<[u8]>>(&self, gfx: &mut Graphics, data: &T) {
+        assert!(self.mutable, "attempted to update immutable buffer");
         let bytes = data.as_ref();
         let format = self
             .format
@@ -288,11 +293,13 @@ impl OwnedBuffer {
 
     pub fn from_inner(
         mq_buf: mq::Buffer,
+        mutable: bool,
         buffer_type: BufferType,
         format: Option<BufferFormat>,
     ) -> Self {
         Self {
             handle: mq_buf,
+            mutable,
             buffer_type,
             format,
         }
@@ -346,7 +353,7 @@ impl LuaUserData for Buffer {
 
 pub(super) fn open<'lua>(
     lua: &'lua Lua,
-    gfx_lock: &Resource<GraphicsLock>,
+    gfx_lock: &Shared<GraphicsLock>,
 ) -> Result<LuaTable<'lua>, Error> {
     let buffer = lua.create_table()?;
 

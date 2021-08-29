@@ -5,7 +5,6 @@ use hv_core::{
     input::{KeyCode, KeyMods},
     plugins::Plugin,
     prelude::*,
-    util::RwLockExt,
 };
 
 pub extern crate nalgebra as na;
