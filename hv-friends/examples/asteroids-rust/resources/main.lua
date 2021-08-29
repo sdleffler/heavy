@@ -66,16 +66,13 @@ end
 
 function Ship:fire()
     -- From `Position` mixin.
-    local pos2 = self:position_get()
-    local x, y, angle = pos2.x, pos2.y, pos2.angle
+    local tx = self:position_get():to_transform()
     local bullet_speed = 500
-    local vx, vy = 
-        math.cos(angle) * bullet_speed,
-        math.sin(angle) * bullet_speed
 
+    -- Form the bullet using position and velocities relative to the ship.
     space:spawn(
-        Position(x, y, angle),
-        Velocity(vx, vy, 0),
+        Position(tx:transform_point2(20, 0)),
+        Velocity(tx:transform_vector2(bullet_speed, 0)),
         Circle(5, 0, 1, 0),
         BulletMarker(4)
     )

@@ -1079,6 +1079,10 @@ impl<T: RealField + Copy + for<'lua> FromLua<'lua> + for<'lua> ToLua<'lua>> LuaU
         crate::lua::simple(methods, "inverse_transform_position2", |this, pos2| {
             this.inverse_transform_position2(&pos2)
         });
+        crate::lua::simple(methods, "inverse_transform_vector2", |this, (x, y)| {
+            let out = this.inverse_transform_vector2(&Vector2::new(x, y));
+            (out.x, out.y)
+        });
         crate::lua::simple_mut(methods, "reset", |lhs, ()| lhs.reset());
         crate::lua::simple_mut(methods, "rotate2", |lhs, angle| *lhs = lhs.rotate2(angle));
         crate::lua::simple_mut(methods, "scale2", |lhs, (x, maybe_y): (T, Option<T>)| {
@@ -1091,6 +1095,10 @@ impl<T: RealField + Copy + for<'lua> FromLua<'lua> + for<'lua> ToLua<'lua>> LuaU
         });
         crate::lua::simple(methods, "transform_position2", |this, pos2| {
             this.transform_position2(&pos2)
+        });
+        crate::lua::simple(methods, "transform_vector2", |this, (x, y)| {
+            let out = this.transform_vector2(&Vector2::new(x, y));
+            (out.x, out.y)
         });
         crate::lua::simple_mut(methods, "translate2", |lhs, (x, y)| {
             *lhs = lhs.translate2(&Vector2::new(x, y))
