@@ -600,6 +600,8 @@ impl LuaUserData for Space {
         methods.add_meta_method(LuaMetaMethod::Len, spaces_len());
         methods.add_method_mut("spawn", spaces_spawn());
         methods.add_method_mut("insert", spaces_insert());
+        methods.add_method_mut("despawn", spaces_despawn());
+        methods.add_method_mut("clear", spaces_clear());
         methods.add_method("id", |_, this, ()| Ok(this.id));
     }
 }

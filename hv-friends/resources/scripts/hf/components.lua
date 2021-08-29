@@ -9,7 +9,7 @@ do
     local hf_create_position_constructor = hf_position.create_position_constructor
     setmetatable(Position, {
         __call = function(_, ...)
-            if type(select(1, ...)) == "userdata" then
+            if select(1, ...) ~= nil and type(select(1, ...)) == "userdata" then
                 return hf_create_position_constructor(select(1, ...))
             else
                 local x, y, angle = ...
@@ -20,10 +20,20 @@ do
     })
 
     local get_position2 = hf_position.get_position2
-    function Position:position(out)
+    function Position:get_position(out)
         local out = out or tmp:clone()
         get_position2(self, out)
         return out
+    end
+
+    function Position:get_position_center()
+        get_position2(self, tmp)
+        return tmp.x, tmp.y
+    end
+
+    function Position:get_position_angle()
+        get_position2(self, tmp)
+        return tmp.angle
     end
 
     local set_position2 = hf_position.set_position2
@@ -42,7 +52,7 @@ do
         set_position2(self, tmp)
     end
 
-    function Position:set_rotation(angle)
+    function Position:set_position_angle(angle)
         get_position2(self, tmp)
         tmp:set_rotation(angle)
         set_position2(self, tmp)
@@ -57,7 +67,7 @@ do
     local hf_create_velocity_constructor = hf_velocity.create_velocity_constructor
     setmetatable(Velocity, {
         __call = function(_, ...)
-            if type(select(1, ...)) == "userdata" then
+            if select(1, ...) ~= nil and type(select(1, ...)) == "userdata" then
                 return hf_create_velocity_constructor(select(1, ...))
             else
                 local x, y, angular = ...
@@ -88,6 +98,11 @@ do
         get_velocity2(self, tmp)
         tmp:set_linear(x, y)
         set_velocity2(self, tmp)
+    end
+
+    function Velocity:get_linear_velocity()
+        get_velocity2(self, tmp)
+        return tmp.x, tmp.y
     end
 
     function Velocity:set_angular_velocity(angular)

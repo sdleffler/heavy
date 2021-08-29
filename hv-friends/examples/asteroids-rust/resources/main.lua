@@ -1,14 +1,90 @@
 -- A simple port of https://simplegametutorials.github.io/love/asteroids/ for the purpose of testing
 -- Heavy as a Love2D-like engine.
 
+local class = require("std.class")
 local gfx = hf.graphics
+local ObjectTable = hv.components.ObjectTable
+local Position = hf.components.Position
+local Velocity = hf.components.Velocity
+
+-- From Rust, in our game init code.
+local Circle = asteroids_rust.make_circle
+local AsteroidMarker = asteroids_rust.make_asteroid
+local PlayerMarker = asteroids_rust.make_player
+local BulletMarker = asteroids_rust.make_bullet
+local space = asteroids_rust.space
+local arenaWidth, arenaHeight = asteroids_rust.arenaWidth, asteroids_rust.arenaHeight
+
+local Asteroid = class("Asteroid")
+    :with(Position)
+
+function Asteroid:init(x, y, angle, stage)
+    self.stage = stage
+    local stageTable = asteroidStages[stage]
+    local speed, radius = stageTable.speed, stageTable.radius
+    local vx, vy = math.cos(angle) * speed, math.sin(angle) * speed
+
+    space:spawn(
+        ObjectTable(self),
+        Position(x, y, angle),
+        Velocity(vx, vy),
+        Circle(asteroidStages[stage].radius, 1, 1, 0),
+        AsteroidMarker
+    )
+end
+
+function Asteroid:destroy()
+    local stage = self.stage
+
+    if stage > 1 then
+        -- From `Position` mixin.
+        local x, y = self:get_position_center()
+
+        local angle1 = math.random() * (2 * math.pi)
+        local angle2 = (angle1 - math.pi) % (2 * math.pi)
+
+        Asteroid:new(x, y, angle1, stage - 1)
+        Asteroid:new(x, y, angle2, stage - 1)
+    end
+
+    space:despawn(self)
+end
+
+local Ship = class("Ship")
+    :with(Position)
+    :with(Velocity)
+
+function Ship:init()
+    space:spawn(
+        ObjectTable(self),
+        Position(arenaWidth / 2, arenaHeight / 2, 0),
+        Velocity(0, 0, 0),
+        Circle(30, 0, 0, 1),
+        PlayerMarker
+    )
+end
+
+function Ship:fire()
+    local pos2 = self:get_position()
+    local x, y, angle = pos2.x, pos2.y, pos2.angle
+    local bullet_speed = 500
+    local vx, vy = 
+        math.cos(angle) * bullet_speed,
+        math.sin(angle) * bullet_speed
+
+    space:spawn(
+        Position(x, y, angle),
+        Velocity(vx, vy, 0),
+        Circle(5, 0, 1, 0),
+        BulletMarker(4)
+    )
+end
+
+function Ship:destroy()
+    reset()
+end
 
 function hv.load()
-    arenaWidth = 800
-    arenaHeight = 680
-
-    shipRadius = 30
-
     bulletTimerLimit = 0.5
     bulletRadius = 5
 
@@ -32,16 +108,13 @@ function hv.load()
     }
 
     function reset()
-        shipX = arenaWidth / 2
-        shipY = arenaHeight / 2
-        shipAngle = 0
-        shipSpeedX = 0
-        shipSpeedY = 0
+        space:clear()
 
-        bullets = {}
+        ship = Ship:new()
+
         bulletTimer = bulletTimerLimit
 
-        asteroids = {
+        local asteroids = {
             {
                 x = 100,
                 y = 100,
@@ -56,10 +129,8 @@ function hv.load()
             }
         }
 
-        for asteroidIndex, asteroid in ipairs(asteroids) do
-            -- asteroid.angle = love.math.random() * (2 * math.pi)
-            asteroid.angle = math.random() * (2 * math.pi)
-            asteroid.stage = #asteroidStages
+        for _, asteroid in ipairs(asteroids) do
+            Asteroid:new(asteroid.x, asteroid.y, math.random() * (2 * math.pi), #asteroidStages)
         end
     end
 
@@ -68,6 +139,8 @@ end
 
 function hv.update(dt)
     local turnSpeed = 10
+    
+    local shipAngle = ship:get_position_angle()
 
     if hf.keyboard.is_down('right') then
          shipAngle = shipAngle - turnSpeed * dt
@@ -81,131 +154,24 @@ function hv.update(dt)
 
     if hf.keyboard.is_down('up') then
         local shipSpeed = 100
-        shipSpeedX = shipSpeedX + math.cos(shipAngle) * shipSpeed * dt
-        shipSpeedY = shipSpeedY + math.sin(shipAngle) * shipSpeed * dt
+        local vx, vy = ship:get_linear_velocity()
+        vx = vx + math.cos(shipAngle) * shipSpeed * dt
+        vy = vy + math.sin(shipAngle) * shipSpeed * dt
+        ship:set_linear_velocity(vx, vy)
     end
 
-    shipX = (shipX + shipSpeedX * dt) % arenaWidth
-    shipY = (shipY + shipSpeedY * dt) % arenaHeight
-
-    local function areCirclesIntersecting(aX, aY, aRadius, bX, bY, bRadius)
-        return (aX - bX)^2 + (aY - bY)^2 <= (aRadius + bRadius)^2
-    end
-
-    for bulletIndex = #bullets, 1, -1 do
-        local bullet = bullets[bulletIndex]
-
-        bullet.timeLeft = bullet.timeLeft - dt
-        if bullet.timeLeft <= 0 then
-            table.remove(bullets, bulletIndex)
-        else
-            local bulletSpeed = 500
-            bullet.x = (bullet.x + math.cos(bullet.angle) * bulletSpeed * dt)
-                % arenaWidth
-            bullet.y = (bullet.y + math.sin(bullet.angle) * bulletSpeed * dt)
-                % arenaHeight
-
-            for asteroidIndex = #asteroids, 1, -1 do
-                local asteroid = asteroids[asteroidIndex]
-
-                if areCirclesIntersecting(
-                    bullet.x, bullet.y, bulletRadius,
-                    asteroid.x, asteroid.y,
-                    asteroidStages[asteroid.stage].radius
-                ) then
-                    table.remove(bullets, bulletIndex)
-
-                    if asteroid.stage > 1 then
-                        -- local angle1 = love.math.random() * (2 * math.pi)
-                        local angle1 = math.random() * (2 * math.pi)
-                        local angle2 = (angle1 - math.pi) % (2 * math.pi)
-
-                        table.insert(asteroids, {
-                            x = asteroid.x,
-                            y = asteroid.y,
-                            angle = angle1,
-                            stage = asteroid.stage - 1,
-                        })
-                        table.insert(asteroids, {
-                            x = asteroid.x,
-                            y = asteroid.y,
-                            angle = angle2,
-                            stage = asteroid.stage - 1,
-                        })
-                    end
-
-                    table.remove(asteroids, asteroidIndex)
-                    break
-                end
-            end
-        end
-    end
+    ship:set_position_angle(shipAngle)
 
     bulletTimer = bulletTimer + dt
 
     if hf.keyboard.is_down('s') then
         if bulletTimer >= bulletTimerLimit then
             bulletTimer = 0
-
-            table.insert(bullets, {
-                x = shipX + math.cos(shipAngle) * shipRadius,
-                y = shipY + math.sin(shipAngle) * shipRadius,
-                angle = shipAngle,
-                timeLeft = 4,
-            })
+            ship:fire()
         end
-    end
-
-    for asteroidIndex, asteroid in ipairs(asteroids) do
-        asteroid.x = (asteroid.x + math.cos(asteroid.angle)
-            * asteroidStages[asteroid.stage].speed * dt) % arenaWidth
-        asteroid.y = (asteroid.y + math.sin(asteroid.angle)
-            * asteroidStages[asteroid.stage].speed * dt) % arenaHeight
-
-        if areCirclesIntersecting(
-            shipX, shipY, shipRadius,
-            asteroid.x, asteroid.y, asteroidStages[asteroid.stage].radius
-        ) then
-            reset()
-            break
-        end
-    end
-
-    if #asteroids == 0 then
-        reset()
     end
 end
 
 function hv.draw()
-    gfx.origin()
-
-    for y = -1, 1 do
-        for x = -1, 1 do
-            gfx.origin()
-            gfx.translate(x * arenaWidth, y * arenaHeight)
-
-            gfx.set_color(0, 0, 1)
-            gfx.circle(gfx.DrawMode.Fill, shipX, shipY, shipRadius)
-
-            local shipCircleDistance = 20
-            gfx.set_color(0, 1, 1)
-            gfx.circle(
-                gfx.DrawMode.Fill,
-                shipX + math.cos(shipAngle) * shipCircleDistance,
-                shipY + math.sin(shipAngle) * shipCircleDistance,
-                5
-            )
-
-            for bulletIndex, bullet in ipairs(bullets) do
-                gfx.set_color(0, 1, 0)
-                gfx.circle(gfx.DrawMode.Fill, bullet.x, bullet.y, bulletRadius)
-            end
-
-            for asteroidIndex, asteroid in ipairs(asteroids) do
-                gfx.set_color(1, 1, 0)
-                gfx.circle(gfx.DrawMode.Fill, asteroid.x, asteroid.y,
-                    asteroidStages[asteroid.stage].radius)
-            end
-        end
-    end
+    -- All rendering is done speedily in Rust.
 end

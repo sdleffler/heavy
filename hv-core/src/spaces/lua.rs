@@ -53,6 +53,20 @@ pub fn spaces_insert(
     }
 }
 
+pub fn spaces_despawn() -> lua_fn!(FnMut<'lua>(&mut Space, Object) -> ()) {
+    |_, space, object| {
+        space.despawn(object).to_lua_err()?;
+        Ok(())
+    }
+}
+
+pub fn spaces_clear() -> lua_fn!(FnMut<'lua>(&mut Space, ()) -> ()) {
+    |_, space, ()| {
+        space.clear();
+        Ok(())
+    }
+}
+
 pub struct SpaceCache {
     weak_engine: EngineRef,
     weak_spaces: Weak<Spaces>,

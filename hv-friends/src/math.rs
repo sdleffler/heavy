@@ -87,6 +87,10 @@ impl<N: RealField + Copy> Position2<N> {
         self.translation *= integrated.translation;
         self.rotation *= integrated.rotation;
     }
+
+    pub fn center(&self) -> Point2<N> {
+        Point2::from(self.0.translation.vector)
+    }
 }
 
 /// A velocity structure combining both the linear and angular velocities of a point.
