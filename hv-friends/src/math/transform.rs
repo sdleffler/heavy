@@ -46,6 +46,10 @@ macro_rules! def_3d {
             self
         }
 
+        fn as_any_mut(&mut self) -> &mut dyn Any {
+            self
+        }
+
         mul_def! {
             transform3(Transform3<T>),
             projective3(Projective3<T>),
@@ -93,6 +97,10 @@ macro_rules! def_3d {
 macro_rules! def_2d {
     ($ty:ty as $as_3d:ty) => {
         fn as_any(&self) -> &dyn Any {
+            self
+        }
+
+        fn as_any_mut(&mut self) -> &mut dyn Any {
             self
         }
 
@@ -188,6 +196,9 @@ macro_rules! impl_convert_delegated {
 pub trait Transform<T: RealField + Copy>: fmt::Debug + Send + Sync + Any {
     #[doc(hidden)]
     fn as_any(&self) -> &dyn Any;
+
+    #[doc(hidden)]
+    fn as_any_mut(&mut self) -> &mut dyn Any;
 
     fn append_to(&self, to: &mut Tx<T>);
 
@@ -294,6 +305,10 @@ pub trait Transform<T: RealField + Copy>: fmt::Debug + Send + Sync + Any {
 impl<T: RealField + Copy> dyn Transform<T> {
     pub fn downcast_ref<U: Transform<T> + Copy>(&self) -> Option<&U> {
         self.as_any().downcast_ref()
+    }
+
+    pub fn downcast_mut<U: Transform<T> + Copy>(&mut self) -> Option<&mut U> {
+        self.as_any_mut().downcast_mut()
     }
 }
 
@@ -712,6 +727,10 @@ impl<T: RealField + Copy> Transform<T> for Identity {
         self
     }
 
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self
+    }
+
     fn append_to(&self, _to: &mut Tx<T>) {}
 
     fn inverse(&self) -> Tx<T> {
@@ -852,11 +871,23 @@ impl<T: RealField + Copy> Tx<T> {
     pub fn identity() -> Self {
         Self::new(Identity)
     }
+
+    pub fn downcast_ref<U: Transform<T> + Copy>(&self) -> Option<&U> {
+        self.0.downcast_ref()
+    }
+
+    pub fn downcast_mut<U: Transform<T> + Copy>(&mut self) -> Option<&mut U> {
+        self.0.downcast_mut()
+    }
 }
 
 impl<T: RealField + Copy> Transform<T> for Tx<T> {
     fn as_any(&self) -> &dyn Any {
         self.0.as_any()
+    }
+
+    fn as_any_mut(&mut self) -> &mut dyn Any {
+        self.0.as_any_mut()
     }
 
     fn append_to(&self, to: &mut Tx<T>) {
