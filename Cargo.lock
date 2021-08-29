@@ -1242,6 +1242,7 @@ dependencies = [
  "sapp-darwin",
  "sapp-dummy",
  "sapp-ios",
+ "sapp-linux",
  "sapp-wasm",
  "sapp-windows",
 ]
@@ -1843,6 +1844,15 @@ name = "sapp-jsutils"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bb8ababa867431fa6c0a178248bfe7e77b5d1de357c9848883ba8e3946bb21d4"
+
+[[package]]
+name = "sapp-linux"
+version = "0.1.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbdb2f8011955c62544d9e626a58333e788810d00bd7411d52b81611b92af142"
+dependencies = [
+ "libc",
+]
 
 [[package]]
 name = "sapp-wasm"
