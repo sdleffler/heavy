@@ -20,24 +20,24 @@ do
     })
 
     local get_position2 = hf_position.get_position2
-    function Position:get_position(out)
+    function Position:position_get(out)
         local out = out or tmp:clone()
         get_position2(self, out)
         return out
     end
 
-    function Position:get_position_center()
+    function Position:position_get_coords()
         get_position2(self, tmp)
         return tmp.x, tmp.y
     end
 
-    function Position:get_position_angle()
+    function Position:position_get_angle()
         get_position2(self, tmp)
         return tmp.angle
     end
 
     local set_position2 = hf_position.set_position2
-    function Position:set_position(...)
+    function Position:position_set(...)
         if type(select(1, ...)) == "userdata" then
             set_position2(self, select(1, ...))
         else
@@ -46,15 +46,21 @@ do
         end
     end
 
-    function Position:set_translation(x, y)
+    function Position:position_set_coords(x, y)
         get_position2(self, tmp)
-        tmp:set_translation(x, y)
+        tmp:set_coords(x, y)
         set_position2(self, tmp)
     end
 
-    function Position:set_position_angle(angle)
+    function Position:position_set_angle(angle)
         get_position2(self, tmp)
-        tmp:set_rotation(angle)
+        tmp:set_angle(angle)
+        set_position2(self, tmp)
+    end
+
+    function Position:position_add_angle(angle)
+        get_position2(self, tmp)
+        tmp:add_angle(angle)
         set_position2(self, tmp)
     end
 end
@@ -85,7 +91,7 @@ do
     end
 
     local set_velocity2 = hf_velocity.set_velocity2
-    function Velocity:set_velocity(...)
+    function Velocity:velocity_set(...)
         if type(select(1, ...)) == "userdata" then
             set_velocity2(self, select(1, ...))
         else
@@ -94,21 +100,32 @@ do
         end
     end
 
-    function Velocity:set_linear_velocity(x, y)
+    function Velocity:velocity_set_linear(x, y)
         get_velocity2(self, tmp)
         tmp:set_linear(x, y)
         set_velocity2(self, tmp)
     end
 
-    function Velocity:get_linear_velocity()
+    function Velocity:velocity_add_linear(x, y)
+        get_velocity2(self, tmp)
+        tmp:add_linear(x, y)
+        set_velocity2(self, tmp)
+    end
+
+    function Velocity:velocity_get_linear()
         get_velocity2(self, tmp)
         return tmp.x, tmp.y
     end
 
-    function Velocity:set_angular_velocity(angular)
+    function Velocity:velocity_set_angular(angular)
         get_velocity2(self, tmp)
         tmp:set_angular(angular)
         set_velocity2(self, tmp)
+    end
+    
+    function Velocity:velocity_get_angular()
+        get_velocity2(self, tmp)
+        return tmp.angular
     end
 end
 

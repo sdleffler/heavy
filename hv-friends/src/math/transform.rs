@@ -1,5 +1,4 @@
 use hv_core::{prelude::*, xsbox::CopyBox};
-
 use std::{
     any::Any,
     fmt,
@@ -220,7 +219,54 @@ pub trait Transform<T: RealField + Copy>: fmt::Debug + Send + Sync + Any {
             .xy()
     }
 
-    fn inverse_transform_point3(&self, pt: &Point3<T>) -> Point3<T>;
+    fn inverse_transform_point3(&self, pt: &Point3<T>) -> Point3<T> {
+        self.inverse_transform_point2(&pt.xy())
+            .coords
+            .push(pt.z)
+            .into()
+    }
+
+    fn transform_vector2(&self, v: &Vector2<T>) -> Vector2<T> {
+        self.transform_vector3(&v.push(T::zero())).xy()
+    }
+
+    fn transform_vector3(&self, v: &Vector3<T>) -> Vector3<T> {
+        self.to_homogeneous_mat4().transform_vector(v)
+    }
+
+    fn inverse_transform_vector2(&self, v: &Vector2<T>) -> Vector2<T> {
+        self.inverse_transform_vector3(&v.push(T::zero())).xy()
+    }
+
+    fn inverse_transform_vector3(&self, v: &Vector3<T>) -> Vector3<T> {
+        self.inverse_transform_vector2(&v.xy()).push(v.z)
+    }
+
+    fn transform_position2(&self, p: &Position2<T>) -> Position2<T> {
+        let new_tr = Translation2::from(self.transform_point2(&p.center()).coords);
+        let new_dir = self
+            .transform_vector2(&Vector2::new(
+                p.rotation.cos_angle(),
+                p.rotation.sin_angle(),
+            ))
+            .normalize();
+        let new_angle = UnitComplex::from_cos_sin_unchecked(new_dir.x, new_dir.y);
+
+        Position2::from(Isometry2::from_parts(new_tr, new_angle))
+    }
+
+    fn inverse_transform_position2(&self, p: &Position2<T>) -> Position2<T> {
+        let new_tr = Translation2::from(self.inverse_transform_point2(&p.center()).coords);
+        let new_dir = self
+            .inverse_transform_vector2(&Vector2::new(
+                p.rotation.cos_angle(),
+                p.rotation.sin_angle(),
+            ))
+            .normalize();
+        let new_angle = UnitComplex::from_cos_sin_unchecked(new_dir.x, new_dir.y);
+
+        Position2::from(Isometry2::from_parts(new_tr, new_angle))
+    }
 
     fn inverse(&self) -> Tx<T>;
     fn reset(&mut self);
@@ -270,6 +316,16 @@ impl<T: RealField + Copy> Transform<T> for Transform3<T> {
             .inverse_transform_point(pt)
     }
 
+    fn transform_vector3(&self, v: &Vector3<T>) -> Vector3<T> {
+        self.transform_vector(v)
+    }
+
+    fn inverse_transform_vector3(&self, v: &Vector3<T>) -> Vector3<T> {
+        na::try_convert_ref::<Self, Projective3<T>>(self)
+            .expect("uninvertible transform!")
+            .inverse_transform_vector(v)
+    }
+
     fn inverse(&self) -> Tx<T> {
         Tx::new(
             na::try_convert_ref::<Self, Projective3<T>>(self)
@@ -315,6 +371,14 @@ impl<T: RealField + Copy> Transform<T> for Projective3<T> {
         self.inverse_transform_point(pt)
     }
 
+    fn transform_vector3(&self, v: &Vector3<T>) -> Vector3<T> {
+        self.transform_vector(v)
+    }
+
+    fn inverse_transform_vector3(&self, v: &Vector3<T>) -> Vector3<T> {
+        self.inverse_transform_vector(v)
+    }
+
     fn inverse(&self) -> Tx<T> {
         Tx::new(Projective3::inverse(*self))
     }
@@ -356,6 +420,14 @@ impl<T: RealField + Copy> Transform<T> for Affine3<T> {
         self.inverse_transform_point(pt)
     }
 
+    fn transform_vector3(&self, v: &Vector3<T>) -> Vector3<T> {
+        self.transform_vector(v)
+    }
+
+    fn inverse_transform_vector3(&self, v: &Vector3<T>) -> Vector3<T> {
+        self.inverse_transform_vector(v)
+    }
+
     fn inverse(&self) -> Tx<T> {
         Tx::new(Affine3::inverse(*self))
     }
@@ -386,24 +458,24 @@ impl<T: RealField + Copy> Transform<T> for Transform2<T> {
         homogeneous_mat3_to_mat4(&self.to_homogeneous())
     }
 
-    fn transform_point3(&self, pt: &Point3<T>) -> Point3<T> {
-        let out2 = self.transform_point(&pt.xy());
-        Point3::new(out2.x, out2.y, pt.z)
-    }
-
     fn transform_point2(&self, pt: &Point2<T>) -> Point2<T> {
         self.transform_point(pt)
-    }
-
-    fn inverse_transform_point3(&self, pt: &Point3<T>) -> Point3<T> {
-        let out2 = self.inverse_transform_point2(&pt.xy());
-        Point3::new(out2.x, out2.y, pt.z)
     }
 
     fn inverse_transform_point2(&self, pt: &Point2<T>) -> Point2<T> {
         na::try_convert_ref::<Self, Projective2<T>>(self)
             .expect("uninvertible transform!")
             .inverse_transform_point(pt)
+    }
+
+    fn transform_vector2(&self, v: &Vector2<T>) -> Vector2<T> {
+        self.transform_vector(v)
+    }
+
+    fn inverse_transform_vector2(&self, v: &Vector2<T>) -> Vector2<T> {
+        na::try_convert_ref::<Self, Projective2<T>>(self)
+            .expect("uninvertible transform!")
+            .inverse_transform_vector(v)
     }
 
     fn inverse(&self) -> Tx<T> {
@@ -443,22 +515,20 @@ impl<T: RealField + Copy> Transform<T> for Projective2<T> {
         homogeneous_mat3_to_mat4(&self.to_homogeneous())
     }
 
-    fn transform_point3(&self, pt: &Point3<T>) -> Point3<T> {
-        let out2 = self.transform_point(&pt.xy());
-        Point3::new(out2.x, out2.y, pt.z)
-    }
-
     fn transform_point2(&self, pt: &Point2<T>) -> Point2<T> {
         self.transform_point(pt)
     }
 
-    fn inverse_transform_point3(&self, pt: &Point3<T>) -> Point3<T> {
-        let out2 = self.inverse_transform_point2(&pt.xy());
-        Point3::new(out2.x, out2.y, pt.z)
-    }
-
     fn inverse_transform_point2(&self, pt: &Point2<T>) -> Point2<T> {
         self.inverse_transform_point(pt)
+    }
+
+    fn transform_vector2(&self, v: &Vector2<T>) -> Vector2<T> {
+        self.transform_vector(v)
+    }
+
+    fn inverse_transform_vector2(&self, v: &Vector2<T>) -> Vector2<T> {
+        self.inverse_transform_vector(v)
     }
 
     fn inverse(&self) -> Tx<T> {
@@ -503,13 +573,16 @@ impl<T: RealField + Copy> Transform<T> for Affine2<T> {
         self.transform_point(pt)
     }
 
-    fn inverse_transform_point3(&self, pt: &Point3<T>) -> Point3<T> {
-        let out2 = self.inverse_transform_point2(&pt.xy());
-        Point3::new(out2.x, out2.y, pt.z)
-    }
-
     fn inverse_transform_point2(&self, pt: &Point2<T>) -> Point2<T> {
         self.inverse_transform_point(pt)
+    }
+
+    fn transform_vector2(&self, v: &Vector2<T>) -> Vector2<T> {
+        self.transform_vector(v)
+    }
+
+    fn inverse_transform_vector2(&self, v: &Vector2<T>) -> Vector2<T> {
+        self.inverse_transform_vector(v)
     }
 
     fn inverse(&self) -> Tx<T> {
@@ -545,22 +618,20 @@ impl<T: RealField + Copy> Transform<T> for Similarity2<T> {
         homogeneous_mat3_to_mat4(&self.to_homogeneous())
     }
 
-    fn transform_point3(&self, pt: &Point3<T>) -> Point3<T> {
-        let out2 = self.transform_point(&pt.xy());
-        Point3::new(out2.x, out2.y, pt.z)
-    }
-
     fn transform_point2(&self, pt: &Point2<T>) -> Point2<T> {
         self.transform_point(pt)
     }
 
-    fn inverse_transform_point3(&self, pt: &Point3<T>) -> Point3<T> {
-        let out2 = self.inverse_transform_point2(&pt.xy());
-        Point3::new(out2.x, out2.y, pt.z)
-    }
-
     fn inverse_transform_point2(&self, pt: &Point2<T>) -> Point2<T> {
         self.inverse_transform_point(pt)
+    }
+
+    fn transform_vector2(&self, v: &Vector2<T>) -> Vector2<T> {
+        self.transform_vector(v)
+    }
+
+    fn inverse_transform_vector2(&self, v: &Vector2<T>) -> Vector2<T> {
+        self.inverse_transform_vector(v)
     }
 
     fn inverse(&self) -> Tx<T> {
@@ -596,22 +667,20 @@ impl<T: RealField + Copy> Transform<T> for Isometry2<T> {
         homogeneous_mat3_to_mat4(&self.to_homogeneous())
     }
 
-    fn transform_point3(&self, pt: &Point3<T>) -> Point3<T> {
-        let out2 = self.transform_point(&pt.xy());
-        Point3::new(out2.x, out2.y, pt.z)
-    }
-
     fn transform_point2(&self, pt: &Point2<T>) -> Point2<T> {
         self.transform_point(pt)
     }
 
-    fn inverse_transform_point3(&self, pt: &Point3<T>) -> Point3<T> {
-        let out2 = self.inverse_transform_point2(&pt.xy());
-        Point3::new(out2.x, out2.y, pt.z)
-    }
-
     fn inverse_transform_point2(&self, pt: &Point2<T>) -> Point2<T> {
         self.inverse_transform_point(pt)
+    }
+
+    fn transform_vector2(&self, v: &Vector2<T>) -> Vector2<T> {
+        self.transform_vector(v)
+    }
+
+    fn inverse_transform_vector2(&self, v: &Vector2<T>) -> Vector2<T> {
+        self.inverse_transform_vector(v)
     }
 
     fn inverse(&self) -> Tx<T> {
@@ -717,6 +786,22 @@ impl<T: RealField + Copy> Transform<T> for Identity {
         *pt
     }
 
+    fn transform_vector2(&self, v: &Vector2<T>) -> Vector2<T> {
+        *v
+    }
+
+    fn transform_vector3(&self, v: &Vector3<T>) -> Vector3<T> {
+        *v
+    }
+
+    fn inverse_transform_vector2(&self, v: &Vector2<T>) -> Vector2<T> {
+        *v
+    }
+
+    fn inverse_transform_vector3(&self, v: &Vector3<T>) -> Vector3<T> {
+        *v
+    }
+
     fn to_transform2(&self) -> Option<Transform2<T>> {
         Some(Transform2::identity())
     }
@@ -804,6 +889,22 @@ impl<T: RealField + Copy> Transform<T> for Tx<T> {
 
     fn inverse_transform_point3(&self, pt: &Point3<T>) -> Point3<T> {
         self.0.inverse_transform_point3(pt)
+    }
+
+    fn transform_vector2(&self, v: &Vector2<T>) -> Vector2<T> {
+        self.0.transform_vector2(v)
+    }
+
+    fn transform_vector3(&self, v: &Vector3<T>) -> Vector3<T> {
+        self.0.transform_vector3(v)
+    }
+
+    fn inverse_transform_vector2(&self, v: &Vector2<T>) -> Vector2<T> {
+        self.0.inverse_transform_vector2(v)
+    }
+
+    fn inverse_transform_vector3(&self, v: &Vector3<T>) -> Vector3<T> {
+        self.0.inverse_transform_vector3(v)
     }
 
     fn inverse(&self) -> Tx<T> {
@@ -952,6 +1053,9 @@ impl<T: RealField + Copy + for<'lua> FromLua<'lua> + for<'lua> ToLua<'lua>> LuaU
             let out = this.inverse_transform_point2(&Point2::new(x, y));
             (out.x, out.y)
         });
+        crate::lua::simple(methods, "inverse_transform_position2", |this, pos2| {
+            this.inverse_transform_position2(&pos2)
+        });
         crate::lua::simple_mut(methods, "reset", |lhs, ()| lhs.reset());
         crate::lua::simple_mut(methods, "rotate2", |lhs, angle| *lhs = lhs.rotate2(angle));
         crate::lua::simple_mut(methods, "scale2", |lhs, (x, maybe_y): (T, Option<T>)| {
@@ -961,6 +1065,9 @@ impl<T: RealField + Copy + for<'lua> FromLua<'lua> + for<'lua> ToLua<'lua>> LuaU
         crate::lua::simple(methods, "transform_point2", |this, (x, y)| {
             let out = this.transform_point2(&Point2::new(x, y));
             (out.x, out.y)
+        });
+        crate::lua::simple(methods, "transform_position2", |this, pos2| {
+            this.transform_position2(&pos2)
         });
         crate::lua::simple_mut(methods, "translate2", |lhs, (x, y)| {
             *lhs = lhs.translate2(&Vector2::new(x, y))

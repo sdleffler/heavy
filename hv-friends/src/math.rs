@@ -61,8 +61,8 @@ impl<N: RealField + Copy> DerefMut for Position2<N> {
 }
 
 impl<N: RealField + Copy> Position2<N> {
-    pub fn new(translation: Vector2<N>, rotation: N) -> Self {
-        Self(Isometry2::new(translation, rotation))
+    pub fn new(coords: Point2<N>, angle: N) -> Self {
+        Self(Isometry2::new(coords.coords, angle))
     }
 
     pub fn translation(x: N, y: N) -> Self {
@@ -530,15 +530,31 @@ impl<T: RealField + Copy + for<'lua> ToLua<'lua> + for<'lua> FromLua<'lua>> LuaU
             t.0 = Isometry2::new(Vector2::new(x, y), a)
         });
 
-        simple_mut(methods, "set_translation", |t, (x, y)| {
+        simple_mut(methods, "set_coords", |t, (x, y)| {
             t.0.translation = Translation2::new(x, y)
         });
 
-        simple_mut(methods, "set_rotation", |t, a| {
+        simple_mut(methods, "set_angle", |t, a| {
             t.0.rotation = UnitComplex::new(a)
         });
 
+        simple_mut(methods, "add_coords", |t, (x, y)| {
+            t.0.translation *= Translation2::new(x, y)
+        });
+
+        simple_mut(methods, "add_angle", |t, angle| {
+            t.0.rotation *= UnitComplex::new(angle)
+        });
+
         simple(methods, "to_transform", |t, ()| Tx::new(t.0));
+
+        simple_mut(methods, "transform_mut", |t, tx: Tx<T>| {
+            *t = tx.transform_position2(t)
+        });
+
+        simple_mut(methods, "inverse_transform_mut", |t, tx: Tx<T>| {
+            *t = tx.inverse_transform_position2(t)
+        });
     }
 }
 
@@ -564,8 +580,18 @@ impl<T: RealField + Copy + for<'lua> ToLua<'lua> + for<'lua> FromLua<'lua>> LuaU
             Ok(())
         });
 
+        methods.add_method_mut("add_linear", |_, this, (x, y)| {
+            this.linear += Vector2::new(x, y);
+            Ok(())
+        });
+
         methods.add_method_mut("set_angular", |_, this, angular| {
             this.angular = angular;
+            Ok(())
+        });
+
+        methods.add_method_mut("add_angular", |_, this, angular| {
+            this.angular += angular;
             Ok(())
         });
     }

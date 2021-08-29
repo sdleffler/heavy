@@ -38,7 +38,7 @@ function Asteroid:destroy()
 
     if stage > 1 then
         -- From `Position` mixin.
-        local x, y = self:get_position_center()
+        local x, y = self:position_get_coords()
 
         local angle1 = math.random() * (2 * math.pi)
         local angle2 = (angle1 - math.pi) % (2 * math.pi)
@@ -65,7 +65,8 @@ function Ship:init()
 end
 
 function Ship:fire()
-    local pos2 = self:get_position()
+    -- From `Position` mixin.
+    local pos2 = self:position_get()
     local x, y, angle = pos2.x, pos2.y, pos2.angle
     local bullet_speed = 500
     local vx, vy = 
@@ -86,7 +87,6 @@ end
 
 function hv.load()
     bulletTimerLimit = 0.5
-    bulletRadius = 5
 
     asteroidStages = {
         {
@@ -140,27 +140,27 @@ end
 function hv.update(dt)
     local turnSpeed = 10
     
-    local shipAngle = ship:get_position_angle()
-
     if hf.keyboard.is_down('right') then
-         shipAngle = shipAngle - turnSpeed * dt
+        -- From `Position` mixin.
+        ship:position_add_angle(-turnSpeed * dt)
     end
 
     if hf.keyboard.is_down('left') then
-        shipAngle = shipAngle + turnSpeed * dt
+        -- From `Position` mixin.
+        ship:position_add_angle(turnSpeed * dt)
     end
 
-    shipAngle = shipAngle % (2 * math.pi)
+    -- From `Position` mixin.
+    shipAngle = ship:position_get_angle()
 
     if hf.keyboard.is_down('up') then
         local shipSpeed = 100
-        local vx, vy = ship:get_linear_velocity()
-        vx = vx + math.cos(shipAngle) * shipSpeed * dt
-        vy = vy + math.sin(shipAngle) * shipSpeed * dt
-        ship:set_linear_velocity(vx, vy)
+        -- From `Velocity` mixin.
+        ship:velocity_add_linear(
+            math.cos(shipAngle) * shipSpeed * dt,
+            math.sin(shipAngle) * shipSpeed * dt
+        )
     end
-
-    ship:set_position_angle(shipAngle)
 
     bulletTimer = bulletTimer + dt
 

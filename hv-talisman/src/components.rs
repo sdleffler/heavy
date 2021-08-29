@@ -345,7 +345,7 @@ mod object_properties {
                         state.dirty = true;
 
                         // Preview
-                        *pos = Position2::new(Vector2::new(state.x, state.y), state.theta);
+                        *pos = Position2::new(Point2::new(state.x, state.y), state.theta);
                     }
 
                     if state.dirty && (all_response.drag_released() || all_response.lost_focus()) {
