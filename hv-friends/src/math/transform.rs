@@ -871,14 +871,6 @@ impl<T: RealField + Copy> Tx<T> {
     pub fn identity() -> Self {
         Self::new(Identity)
     }
-
-    pub fn downcast_ref<U: Transform<T> + Copy>(&self) -> Option<&U> {
-        self.0.downcast_ref()
-    }
-
-    pub fn downcast_mut<U: Transform<T> + Copy>(&mut self) -> Option<&mut U> {
-        self.0.downcast_mut()
-    }
 }
 
 impl<T: RealField + Copy> Transform<T> for Tx<T> {
