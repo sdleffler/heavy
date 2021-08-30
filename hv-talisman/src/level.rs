@@ -564,7 +564,6 @@ impl<'a> hv_core::hecs::serialize::column::DeserializeContext for SerdeContext<'
 }
 
 pub struct Level {
-    pub path: Option<String>,
     pub space: Shared<Space>,
 }
 
@@ -572,7 +571,7 @@ impl Level {
     pub fn empty(engine: &Engine) -> Self {
         let space = engine.get::<Spaces>().borrow_mut().create_space();
 
-        Level { path: None, space }
+        Level { space }
     }
 
     pub fn deserialize_into<'de, D, E>(
@@ -639,7 +638,7 @@ impl Level {
 
         log::trace!("finished deserializing.");
 
-        Ok(Level { path: None, space })
+        Ok(Level { space })
     }
 
     pub fn serialize_into<S, T>(

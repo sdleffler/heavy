@@ -793,9 +793,9 @@ dependencies = [
 
 [[package]]
 name = "hecs"
-version = "0.6.1"
+version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "876e915f7c66d0013dc8d6f59de3625816b7c165853df499a7ce79c98f5f4584"
+checksum = "305b623fde757b47e98990474d3b1999ac2b60b5089dd413771033e0362144e2"
 dependencies = [
  "hashbrown",
  "serde",

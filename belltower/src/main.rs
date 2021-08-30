@@ -365,13 +365,13 @@ fn main() {
         ..Conf::default()
     };
 
-    // Engine::run(conf, GameHandler::new())
+    Engine::run(conf, GameHandler::new())
 
-    Engine::run(
-        conf,
-        SceneStack::with_init(|stack, engine| {
-            stack.push(DynamicScene::new(hv_talisman::EditorScene::new(engine)?));
-            Ok(())
-        }),
-    )
+    // Engine::run(
+    //     conf,
+    //     SceneStack::with_init(|stack, engine| {
+    //         stack.push(DynamicScene::new(hv_talisman::EditorScene::new(engine)?));
+    //         Ok(())
+    //     }),
+    // )
 }

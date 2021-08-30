@@ -5,14 +5,11 @@
 use hv_core::{engine::Engine, plugins::Plugin, prelude::*};
 
 pub mod components;
-pub mod editor;
+// pub mod editor;
 pub mod level;
-pub mod modes;
+// pub mod modes;
 
-pub use crate::{
-    editor::{Editor, EditorScene},
-    level::Level,
-};
+pub use crate::level::Level;
 
 struct TalismanPlugin;
 
@@ -29,13 +26,13 @@ impl Plugin for TalismanPlugin {
             )))?;
 
         let components = components::open(lua, engine)?;
-        let editor = editor::open(lua, engine)?;
+        // let editor = editor::open(lua, engine)?;
         let level = level::open(lua, engine)?;
 
         lua.load(mlua::chunk! {
             {
                 components = $components,
-                editor = $editor,
+                // editor = $editor,
                 level = $level,
             }
         })
