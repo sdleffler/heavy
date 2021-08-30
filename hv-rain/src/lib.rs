@@ -25,7 +25,7 @@ use crate::{
         ProjectileSprite, ProjectileSpriteBatch, ProjectileSpriteBatchId, ProjectileSpriteRegistry,
     },
     pattern::{Barrage, LuaComponentFunctionShotType, Parameters, ShotTypeRegistry},
-    sm::{SmState, StateIndex, StateRegistry},
+    sm::{StateIndex, StateMachine, StateRegistry},
 };
 
 pub mod graphics;
@@ -131,7 +131,7 @@ impl Danmaku {
         let sprite_registry_resource = lua.resource::<ProjectileSpriteRegistry>()?;
 
         for (_, (projectile, state_machine)) in
-            space.query_mut::<(&mut ProjectileState, &mut SmState)>()
+            space.query_mut::<(&mut ProjectileState, &mut StateMachine)>()
         {
             if !projectile.sm_init {
                 projectile.sm_init = true;
@@ -306,7 +306,7 @@ impl Plugin for HvRainPlugin {
 
         let state_machine_component_constructor = lua.create_function(|_, index: StateIndex| {
             Ok(DynamicComponentConstructor::new(move |_: &Lua, _| {
-                Ok(SmState::new(index))
+                Ok(StateMachine::new(index))
             }))
         })?;
 

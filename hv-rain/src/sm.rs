@@ -46,7 +46,7 @@ impl dyn ExtraSmState {
     }
 }
 
-pub struct SmState {
+pub struct StateMachine {
     pub index: StateIndex,
     pub time: f32,
 
@@ -56,7 +56,7 @@ pub struct SmState {
     pub extra: Option<SmallBox<dyn ExtraSmState, S4>>,
 }
 
-impl Clone for SmState {
+impl Clone for StateMachine {
     fn clone(&self) -> Self {
         Self {
             index: self.index,
@@ -68,7 +68,7 @@ impl Clone for SmState {
     }
 }
 
-impl SmState {
+impl StateMachine {
     pub fn new(initial_state: StateIndex) -> Self {
         Self {
             index: initial_state,
@@ -79,13 +79,6 @@ impl SmState {
         }
     }
 }
-
-#[derive(Debug, Clone, Copy)]
-pub(crate) struct StateMachine {
-    pub(crate) index: StateIndex,
-}
-
-impl LuaUserData for StateMachine {}
 
 pub enum Transition {
     To(StateIndex),
@@ -99,7 +92,7 @@ pub trait State: Send + Sync + 'static {
         _lua: &Lua,
         _machine: &StateRegistry,
         _state: &mut ProjectileState,
-        _fsm: &mut SmState,
+        _fsm: &mut StateMachine,
     ) {
     }
 
@@ -109,7 +102,7 @@ pub trait State: Send + Sync + 'static {
         _machine: &StateRegistry,
         _dt: f32,
         _projectile_state: &mut ProjectileState,
-        _fsm: &mut SmState,
+        _fsm: &mut StateMachine,
     ) -> Transition {
         Transition::None
     }
@@ -119,7 +112,7 @@ pub trait State: Send + Sync + 'static {
         _lua: &Lua,
         _machine: &StateRegistry,
         _state: &mut ProjectileState,
-        _fsm: &mut SmState,
+        _fsm: &mut StateMachine,
     ) {
     }
 }
@@ -173,7 +166,7 @@ impl StateRegistry {
         &self,
         lua: &Lua,
         projectile_state: &mut ProjectileState,
-        fsm_state: &mut SmState,
+        fsm_state: &mut StateMachine,
     ) {
         let machine_state = fsm_state.index;
         self.behaviors[machine_state.0].enter(lua, self, projectile_state, fsm_state);
@@ -184,7 +177,7 @@ impl StateRegistry {
         lua: &Lua,
         dt: f32,
         projectile_state: &mut ProjectileState,
-        fsm_state: &mut SmState,
+        fsm_state: &mut StateMachine,
     ) -> bool {
         loop {
             let machine_state = fsm_state.index;
@@ -294,7 +287,7 @@ impl State for LerpLinearSpeed {
         _: &Lua,
         _: &StateRegistry,
         projectile_state: &mut ProjectileState,
-        fsm: &mut SmState,
+        fsm: &mut StateMachine,
     ) {
         fsm.time = 0.;
         fsm.linear_velocity = projectile_state.linear_vel;
@@ -306,7 +299,7 @@ impl State for LerpLinearSpeed {
         _: &StateRegistry,
         dt: f32,
         projectile_state: &mut ProjectileState,
-        fsm: &mut SmState,
+        fsm: &mut StateMachine,
     ) -> Transition {
         if fsm.time >= self.duration {
             Transition::Done
@@ -333,7 +326,7 @@ impl State for LerpPolarLinearSpeed {
         _: &Lua,
         _: &StateRegistry,
         projectile_state: &mut ProjectileState,
-        fsm: &mut SmState,
+        fsm: &mut StateMachine,
     ) {
         fsm.time = 0.;
         fsm.polar_velocity.linear = projectile_state.polar_vel.linear;
@@ -345,7 +338,7 @@ impl State for LerpPolarLinearSpeed {
         _: &StateRegistry,
         dt: f32,
         projectile_state: &mut ProjectileState,
-        fsm: &mut SmState,
+        fsm: &mut StateMachine,
     ) -> Transition {
         if fsm.time >= self.duration {
             Transition::Done
@@ -372,7 +365,7 @@ impl State for LerpPolarAngularSpeed {
         _: &Lua,
         _: &StateRegistry,
         projectile_state: &mut ProjectileState,
-        fsm: &mut SmState,
+        fsm: &mut StateMachine,
     ) {
         fsm.time = 0.;
         fsm.polar_velocity.angular = projectile_state.polar_vel.angular;
@@ -384,7 +377,7 @@ impl State for LerpPolarAngularSpeed {
         _: &StateRegistry,
         dt: f32,
         projectile_state: &mut ProjectileState,
-        fsm: &mut SmState,
+        fsm: &mut StateMachine,
     ) -> Transition {
         if fsm.time >= self.duration {
             Transition::Done
@@ -405,7 +398,7 @@ pub struct Sequence {
 
 #[derive(Clone)]
 struct SequenceState {
-    fsm: SmState,
+    fsm: StateMachine,
     i: usize,
 }
 
@@ -415,10 +408,10 @@ impl State for Sequence {
         lua: &Lua,
         machine: &StateRegistry,
         projectile_state: &mut ProjectileState,
-        fsm: &mut SmState,
+        fsm: &mut StateMachine,
     ) {
         fsm.extra = self.sequential_states.first().map(|&index| {
-            let mut sub_fsm = SmState::new(index);
+            let mut sub_fsm = StateMachine::new(index);
             machine.enter(lua, projectile_state, &mut sub_fsm);
             smallbox!(SequenceState { fsm: sub_fsm, i: 0 })
         });
@@ -430,7 +423,7 @@ impl State for Sequence {
         machine: &StateRegistry,
         dt: f32,
         projectile_state: &mut ProjectileState,
-        fsm: &mut SmState,
+        fsm: &mut StateMachine,
     ) -> Transition {
         let extra_mut = match fsm.extra.as_mut() {
             Some(ex) => ex,
@@ -467,18 +460,18 @@ impl State for Parallel {
         lua: &Lua,
         machine: &StateRegistry,
         state: &mut ProjectileState,
-        fsm: &mut SmState,
+        fsm: &mut StateMachine,
     ) {
         let sub_fsms = self
             .parallel_states
             .iter()
             .copied()
             .map(|index| {
-                let mut sub_fsm = SmState::new(index);
+                let mut sub_fsm = StateMachine::new(index);
                 machine.enter(lua, state, &mut sub_fsm);
                 sub_fsm
             })
-            .collect::<Vec<SmState>>();
+            .collect::<Vec<StateMachine>>();
 
         fsm.extra = Some(smallbox!(sub_fsms));
     }
@@ -489,10 +482,10 @@ impl State for Parallel {
         machine: &StateRegistry,
         dt: f32,
         projectile_state: &mut ProjectileState,
-        fsm: &mut SmState,
+        fsm: &mut StateMachine,
     ) -> Transition {
         let extra_mut = fsm.extra.as_mut().unwrap();
-        let sub_fsms = extra_mut.downcast_mut::<Vec<SmState>>().unwrap();
+        let sub_fsms = extra_mut.downcast_mut::<Vec<StateMachine>>().unwrap();
         sub_fsms.drain_filter(|sub_fsm| machine.update(lua, dt, projectile_state, sub_fsm));
 
         if sub_fsms.is_empty() {
@@ -514,7 +507,7 @@ impl State for Wait {
         _: &Lua,
         _machine: &StateRegistry,
         _state: &mut ProjectileState,
-        fsm: &mut SmState,
+        fsm: &mut StateMachine,
     ) {
         fsm.time = 0.;
     }
@@ -525,7 +518,7 @@ impl State for Wait {
         _machine: &StateRegistry,
         dt: f32,
         _projectile_state: &mut ProjectileState,
-        fsm: &mut SmState,
+        fsm: &mut StateMachine,
     ) -> Transition {
         if fsm.time >= self.t {
             Transition::Done
@@ -545,7 +538,7 @@ impl State for Kill {
         _: &Lua,
         _machine: &StateRegistry,
         state: &mut ProjectileState,
-        _fsm: &mut SmState,
+        _fsm: &mut StateMachine,
     ) {
         state.kill = true;
     }
@@ -556,7 +549,7 @@ impl State for Kill {
         _machine: &StateRegistry,
         _dt: f32,
         _projectile_state: &mut ProjectileState,
-        _fsm: &mut SmState,
+        _fsm: &mut StateMachine,
     ) -> Transition {
         Transition::Done
     }
@@ -576,7 +569,7 @@ impl State for Sprite {
         _lua: &Lua,
         _machine: &StateRegistry,
         state: &mut ProjectileState,
-        _fsm: &mut SmState,
+        _fsm: &mut StateMachine,
     ) {
         state.sprite = self.sprite;
     }
@@ -587,7 +580,7 @@ impl State for Sprite {
         _machine: &StateRegistry,
         _dt: f32,
         projectile_state: &mut ProjectileState,
-        _fsm: &mut SmState,
+        _fsm: &mut StateMachine,
     ) -> Transition {
         if self.wait
             && matches!(projectile_state.sprite.as_ref(), Some(sprite) if !sprite.tag.is_paused)
