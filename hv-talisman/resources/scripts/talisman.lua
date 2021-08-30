@@ -17,8 +17,8 @@ do
         end
     })
 
-    Class.get_class = talisman.components.class.get
-    Class.set_class = talisman.components.class.set
+    Class.class_get = talisman.components.class.get
+    Class.class_set = talisman.components.class.set
 end
 
 local Name = {}
@@ -34,11 +34,9 @@ do
         end
     })
 
-    Name.get_name = talisman.components.name.get
-    Name.set_name = talisman.components.name.set
+    Name.name_get = talisman.components.name.get
+    Name.name_set = talisman.components.name.set
 end
-
-talisman.get_editor = hv.plugins.talisman.editor.get_editor
 
 local Level = space.Space:extend("Level")
 do
@@ -62,25 +60,6 @@ do
     function Level:load(path)
         return Level:new(hv.plugins.talisman.level.load_level_from_path(path))
     end
-end
-
-talisman.editor = {}
-
-local get_current_editor_level = hv.plugins.talisman.editor.get_current_level
-function talisman.editor.get_current_level()
-    return Level:new(get_current_editor_level())
-end
-
-function talisman.editor.get_current_space()
-    return Space:new(talisman.editor.get_current_level()._space)
-end
-
-function talisman.editor.save_current_level_to_path(path)
-    talisman.editor.get_current_level():save(path)
-end
-
-function talisman.editor.open_level_from_path(path)
-    hv.plugins.talisman.editor.open_level(Level:load(path)._level)
 end
 
 return talisman
