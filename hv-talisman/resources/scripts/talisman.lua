@@ -38,28 +38,4 @@ do
     Name.name_set = talisman.components.name.set
 end
 
-local Level = space.Space:extend("Level")
-do
-    talisman.Level = Level
-
-    function Level:new(level)
-        local this = Level:create()
-        this:init(level)
-        return this
-    end
-
-    function Level:init(level)
-        Level.super.init(self, level.space)
-        self._level = level
-    end
-
-    function Level:save(path)
-        self._level:save(path)
-    end
-
-    function Level:load(path)
-        return Level:new(hv.plugins.talisman.level.load_level_from_path(path))
-    end
-end
-
 return talisman
