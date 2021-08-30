@@ -161,9 +161,10 @@ impl Filesystem {
         // Set up VFS to merge resource path, root path, and zip path.
         let mut overlay = vfs::OverlayFS::new();
 
-        overlay.push_back(Box::new(vfs::ZipFs::from_read(io::Cursor::new(
-            include_bytes!("../resources/scripts.zip"),
-        ))?));
+        overlay.push_back(Box::new(vfs::ZipFs::from_read(
+            io::Cursor::new(include_bytes!("../resources/scripts.zip")),
+            Some(PathBuf::from("hv-core/resources/scripts")),
+        )?));
 
         let mut resources_path;
         let mut resources_zip_path;
@@ -364,8 +365,9 @@ impl Filesystem {
     pub fn add_zip_file<R: io::Read + io::Seek + Send + Sync + 'static>(
         &mut self,
         reader: R,
+        path: Option<PathBuf>,
     ) -> Result<()> {
-        let zipfs = vfs::ZipFs::from_read(reader)?;
+        let zipfs = vfs::ZipFs::from_read(reader, path)?;
         log::trace!("Adding zip file from reader");
         self.vfs.push_back(Box::new(zipfs));
         Ok(())

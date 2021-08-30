@@ -1,9 +1,9 @@
-local hv_danmaku = hv.plugins.danmaku
+local hv_rain = assert(hv.plugins.rain)
 
-local state_registry = hv_danmaku.get_state_registry()
+local state_registry = assert(hv_rain.get_state_registry())
 
 local bind = function(name)
-    local f = state_registry[name]
+    local f = assert(state_registry[name])
     return function(...)
         return f(state_registry, ...)
     end
@@ -19,5 +19,4 @@ return {
     sprite = bind("sprite"),
     sprite_sequence = bind("sprite_sequence"),
     wait = bind("wait"),
-    nil
 }

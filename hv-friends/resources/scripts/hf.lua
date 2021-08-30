@@ -8,5 +8,4 @@ return {
     keyboard = hf_keyboard,
     math = hf_math,
     graphics = hf_graphics,
-    nil
 }

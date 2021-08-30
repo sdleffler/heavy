@@ -47,9 +47,9 @@ pub fn load<'lua>(engine: &Engine, lua: &'lua Lua, module: &str) -> LuaResult<Lo
     // FIXME: better error reporting here; collect errors from individual module attempts
     // and log them?
     Err(anyhow!(
-        "module {} not found! tried paths: {}",
+        "module {} not found: {}\n",
         module,
-        tried.join(", "),
+        tried.join("\n"),
     ))
     .to_lua_err()
 }

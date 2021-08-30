@@ -1,9 +1,9 @@
-local hf_math = hv.plugins.friends.math
+local hf_math = assert(hv.plugins.friends.math)
 
 local Position2 = {}
 do
-    Position2.new = hf_math.create_position2_object
-    Position2.identity = hf_math.create_position2_object_from_identity
+    Position2.new = assert(hf_math.create_position2_object)
+    Position2.identity = assert(hf_math.create_position2_object_from_identity)
     
     function Position2.from_translation(x, y)
         return Position2.new(x, y, 0)
@@ -22,8 +22,8 @@ end
 
 local Velocity2 = {}
 do
-    Velocity2.new = hf_math.create_velocity2_object
-    Velocity2.zero = hf_math.create_velocity2_object_from_zero
+    Velocity2.new = assert(hf_math.create_velocity2_object)
+    Velocity2.zero = assert(hf_math.create_velocity2_object_from_zero)
     
     function Velocity2.from_linear(x, y)
         return Velocity2.new(x, y, 0)
@@ -42,7 +42,11 @@ end
 
 local Transform = {}
 do
-    Transform.new = hf_math.create_transform_object
+    Transform.new = assert(hf_math.create_transform_identity)
+    Transform.identity = assert(Transform.new)
+    Transform.isometry2 = assert(hf_math.create_transform_isometry2)
+    Transform.rotation2 = assert(hf_math.create_transform_rotation2)
+    Transform.translation2 = assert(hf_math.create_transform_translation2)
 end
 
 return {

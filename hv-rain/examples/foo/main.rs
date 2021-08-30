@@ -283,6 +283,20 @@ impl EventHandler for GameHandler {
             inner_mut.input_state.update_effect(effect, false);
         }
     }
+
+    fn char_event(
+        &mut self,
+        _engine: &Engine,
+        _character: char,
+        _keymods: hv_core::input::KeyMods,
+        _repeat: bool,
+    ) {
+        // quiet
+    }
+
+    fn mouse_motion_event(&mut self, _engine: &Engine, _x: f32, _y: f32) {
+        // quiet
+    }
 }
 
 fn main() {

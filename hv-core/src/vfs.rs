@@ -38,7 +38,7 @@
 
 use std::{
     collections::VecDeque,
-    fmt::{self, Debug},
+    fmt::{self, Debug, Display},
     fs,
     io::{self, Read, Seek, Write},
     path::{self, Path, PathBuf},
@@ -120,7 +120,7 @@ impl OpenOptions {
     }
 }
 
-pub trait Vfs: Debug + Send + Sync {
+pub trait Vfs: Debug + Display + Send + Sync {
     /// Open the file at this path with the given options
     fn open_options(&self, path: &Path, open_options: OpenOptions) -> Result<Box<dyn VFile>>;
     /// Open the file at this path for reading
@@ -293,6 +293,12 @@ impl Debug for PhysicalFs {
     }
 }
 
+impl Display for PhysicalFs {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.root.display())
+    }
+}
+
 impl Vfs for PhysicalFs {
     /// Open the file at this path with the given options
     fn open_options(&self, path: &Path, open_options: OpenOptions) -> Result<Box<dyn VFile>> {
@@ -423,6 +429,17 @@ pub struct OverlayFS {
     roots: VecDeque<Box<dyn Vfs>>,
 }
 
+impl Display for OverlayFS {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "Overlay:")?;
+        for root in &self.roots {
+            writeln!(f, "\t{}", root)?;
+        }
+
+        Ok(())
+    }
+}
+
 impl Default for OverlayFS {
     fn default() -> Self {
         Self::new()
@@ -457,22 +474,24 @@ impl OverlayFS {
 impl Vfs for OverlayFS {
     /// Open the file at this path with the given options
     fn open_options(&self, path: &Path, open_options: OpenOptions) -> Result<Box<dyn VFile>> {
-        let mut tried: Vec<(PathBuf, Error)> = vec![];
+        use std::fmt::Write;
+
+        let mut tried: Vec<(&Box<dyn Vfs>, Error)> = vec![];
 
         for vfs in &self.roots {
             match vfs.open_options(path, open_options) {
-                Err(e) => {
-                    if let Some(vfs_path) = vfs.to_path_buf() {
-                        tried.push((vfs_path, e));
-                    } else {
-                        tried.push((PathBuf::from("<invalid path>"), e));
-                    }
-                }
+                Err(e) => tried.push((vfs, e)),
                 f => return f,
             }
         }
-        let errmessage = String::from(convenient_path_to_str(path)?);
-        bail!("{} {:?}", errmessage, tried);
+
+        let string_path = String::from(convenient_path_to_str(path)?);
+        let mut tried_buf = String::new();
+        for (vfs, err) in tried {
+            writeln!(&mut tried_buf, "\t{}: {}", vfs, err)?;
+        }
+
+        bail!("could not open {}:\n{}", string_path, tried_buf);
     }
 
     /// Create a directory at the location by this path
@@ -612,6 +631,16 @@ pub struct ZipFs {
     index: Vec<String>,
 }
 
+impl Display for ZipFs {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(source) = &self.source {
+            write!(f, "<ZipFs({})>", source.display())
+        } else {
+            write!(f, "<ZipFs>")
+        }
+    }
+}
+
 impl ZipFs {
     pub fn new(filename: &Path) -> Result<Self> {
         let f = fs::File::open(filename)?;
@@ -620,13 +649,14 @@ impl ZipFs {
     }
 
     /// Creates a `ZipFS` from any `Read+Seek` object, most useful with an
-    /// in-memory `std::io::Cursor`.
-    pub fn from_read<R>(reader: R) -> Result<Self>
+    /// in-memory `std::io::Cursor`. The provided path is an optional debugging tool which will be
+    /// displayed with any errors to do with this `ZipFs`.
+    pub fn from_read<R>(reader: R, path: Option<PathBuf>) -> Result<Self>
     where
         R: Read + Seek + Send + Sync + 'static,
     {
         let archive = Box::new(zip::ZipArchive::new(reader)?);
-        ZipFs::from_boxed_archive(archive, None)
+        ZipFs::from_boxed_archive(archive, path)
     }
 
     fn from_boxed_archive(
@@ -983,7 +1013,7 @@ mod tests {
         };
 
         let _bytes = finished_zip_bytes.seek(io::SeekFrom::Start(0)).unwrap();
-        let zfs = ZipFs::from_read(finished_zip_bytes).unwrap();
+        let zfs = ZipFs::from_read(finished_zip_bytes, None).unwrap();
 
         assert!(zfs.exists(Path::new("/fake_file_name.txt")));
         assert!(!zfs.exists(Path::new("fake_file_name.txt")));

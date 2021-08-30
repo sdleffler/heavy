@@ -610,7 +610,15 @@ pub(crate) fn open<'lua>(lua: &'lua Lua, _engine: &Engine) -> Result<LuaTable<'l
         Ok(Velocity2::<f32>::new(Vector2::new(x, y), angular))
     })?;
 
-    let create_transform_object = lua.create_function(move |_lua, ()| Ok(Tx::<f32>::identity()))?;
+    let create_transform_identity =
+        lua.create_function(move |_lua, ()| Ok(Tx::<f32>::identity()))?;
+    let create_transform_isometry2 = lua.create_function(move |_lua, (x, y, angle)| {
+        Ok(Tx::<f32>::new(Isometry2::new(Vector2::new(x, y), angle)))
+    })?;
+    let create_transform_rotation2 =
+        lua.create_function(move |_lua, angle| Ok(Tx::<f32>::new(Isometry2::rotation(angle))))?;
+    let create_transform_translation2 =
+        lua.create_function(move |_lua, (x, y)| Ok(Tx::<f32>::new(Isometry2::translation(x, y))))?;
 
     Ok(lua
         .load(mlua::chunk! {
@@ -621,7 +629,10 @@ pub(crate) fn open<'lua>(lua: &'lua Lua, _engine: &Engine) -> Result<LuaTable<'l
                 create_velocity2_object = $create_velocity2_object,
                 create_velocity2_object_from_zero = $create_velocity2_object_from_zero,
 
-                create_transform_object = $create_transform_object,
+                create_transform_identity = $create_transform_identity,
+                create_transform_isometry2 = $create_transform_isometry2,
+                create_transform_rotation2 = $create_transform_rotation2,
+                create_transform_translation2 = $create_transform_translation2,
             }
         })
         .eval()?)

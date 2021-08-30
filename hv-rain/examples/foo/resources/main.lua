@@ -1,29 +1,29 @@
 local hf = require("hf")
-local danmaku = require("danmaku")
-local LinearVelocity = danmaku.LinearVelocity
-local PolarVelocity = danmaku.PolarVelocity
-local StateMachine = danmaku.StateMachine
+local rain = require("rain")
+local LinearVelocity = rain.LinearVelocity
+local PolarVelocity = rain.PolarVelocity
+local StateMachine = rain.StateMachine
 
-local danmaku_context = danmaku.Danmaku:new(space)
+local rain_context = rain.Danmaku:new(space)
 
-local barrage = danmaku.Barrage:new(danmaku_context)
+local barrage = rain.Barrage:new(rain_context)
 
-local sprite_batch = danmaku.load_colorless_sprite("/sprites/bullet.png", "/sprites/bullet.json")
+local sprite_batch = rain.load_colorless_sprite("/sprites/bullet.png", "/sprites/bullet.json")
 local sprites = {
-    ["small"] = danmaku.ProjectileSprite(sprite_batch, "small"),
-    ["small-spawn"] = danmaku.ProjectileSprite(sprite_batch, "small-spawn", false),
+    ["small"] = rain.ProjectileSprite(sprite_batch, "small"),
+    ["small-spawn"] = rain.ProjectileSprite(sprite_batch, "small-spawn", false),
     nil
 }
 
 local arc_attack
 do
-    local decelerator = danmaku.sm.lerp_linear_speed(6., 0.8, 0.35)
-    local shot = danmaku.shot_type.from_component_fn(function()
+    local decelerator = rain.sm.lerp_linear_speed(6., 0.8, 0.35)
+    local shot = rain.shot_type.from_component_fn(function()
         return LinearVelocity, PolarVelocity, StateMachine(decelerator)
     end)
 
-    local tx = hf.math.Isometry2.new(120, 120, math.pi)
-    local polar_tx = hf.math.Isometry2.new(10, 0, 0)
+    local tx = hf.math.Transform.isometry2(120, 120, math.pi)
+    local polar_tx = hf.math.Transform.isometry2(10, 0, 0)
     local linear_vel = hf.math.Velocity2.new(30, 0, 0)
     local count = 20
 
@@ -35,10 +35,10 @@ do
         barrage:fire()
     end
 
-    arc_attack = danmaku.Pattern:new(test_attack)
-        :of(danmaku.Arc:new(math.pi / 3, 15, count))
+    arc_attack = rain.Pattern:new(test_attack)
+        :of(rain.Arc:new(math.pi / 3, 15, count))
         :indexed(function(indexer)
-            return danmaku.Pattern:new(function(barrage)
+            return rain.Pattern:new(function(barrage)
                 local polar_vel = hf.math.Velocity2.new(0.2, 0, 4 * math.pi * (indexer.index / count))
                 local mod3, r, g, b = indexer.index % 3, 0.5, 0.5, 0.5
         
@@ -61,28 +61,27 @@ end
 
 local ring_attack
 do
-    local sprite_batch = danmaku.load_colorless_sprite("/sprites/bullet.png", "/sprites/bullet.json")
+    local sprite_batch = rain.load_colorless_sprite("/sprites/bullet.png", "/sprites/bullet.json")
     local sprites = {
-        ["small"] = danmaku.ProjectileSprite(sprite_batch, "small"),
-        ["small-spawn"] = danmaku.ProjectileSprite(sprite_batch, "small-spawn", false),
-        nil
+        ["small"] = rain.ProjectileSprite(sprite_batch, "small"),
+        ["small-spawn"] = rain.ProjectileSprite(sprite_batch, "small-spawn", false),
     }
 
-    local sm = StateMachine(danmaku.sm.parallel(
-        danmaku.sm.lerp_linear_speed(4., 1.5, 0.5),
-        danmaku.sm.lerp_polar_linear_speed(2., 0., 3.),
-        danmaku.sm.lerp_polar_angular_speed(2., 1., 3.),
-        danmaku.sm.sprite_sequence(
+    local sm = StateMachine(rain.sm.parallel(
+        rain.sm.lerp_linear_speed(4., 1.5, 0.5),
+        rain.sm.lerp_polar_linear_speed(2., 0., 3.),
+        rain.sm.lerp_polar_angular_speed(2., 1., 3.),
+        rain.sm.sprite_sequence(
             sprites["small-spawn"],
             sprites["small"]
         )
     ))
 
-    local shot = danmaku.shot_type.from_component_fn(function()
+    local shot = rain.shot_type.from_component_fn(function()
         return LinearVelocity, PolarVelocity, sm
     end)
 
-    local tx = hf.math.Isometry2.new(120, 120, 0)
+    local tx = hf.math.Transform.translation2(120, 120)
     local polar_vel = hf.math.Velocity2.new(16, 0, math.pi / 4)
     -- local polar_tx = hf.math.Isometry2.new(15, 0, 0)
     local linear_vel = hf.math.Velocity2.new(15, 0, math.pi * 1.5)
@@ -95,11 +94,11 @@ do
         barrage:fire()
     end
     
-    ring_attack = danmaku.Pattern:new(test_attack)
-        :of(danmaku.Ring:new(15, count))
+    ring_attack = rain.Pattern:new(test_attack)
+        :of(rain.Ring:new(15, count))
         :indexed(function(indexer)
-            return danmaku.Pattern:new(function(barrage)
-                local polar_offset = hf.math.Isometry2.new(15, 0, math.pi * (6 * indexer.index / count))
+            return rain.Pattern:new(function(barrage)
+                local polar_offset = hf.math.Transform.isometry2(15, 0, math.pi * (6 * indexer.index / count))
                 local mod3, r, g, b = indexer.index % 3, 0.5, 0.5, 0.5
         
                 if mod3 == 0 then
@@ -127,9 +126,9 @@ ring_attack:build(barrage)
 barrage:flush()
 
 function hv.update(dt)
-    danmaku_context:update(dt)
+    rain_context:update(dt)
 end
 
 function hv.draw()
-    danmaku_context:draw()
+    rain_context:draw()
 end

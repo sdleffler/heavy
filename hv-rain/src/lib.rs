@@ -25,7 +25,7 @@ use crate::{
         ProjectileSprite, ProjectileSpriteBatch, ProjectileSpriteBatchId, ProjectileSpriteRegistry,
     },
     pattern::{Barrage, LuaComponentFunctionShotType, Parameters, ShotTypeRegistry},
-    sm::{SmState, StateIndex, StateMachine, StateRegistry},
+    sm::{SmState, StateIndex, StateRegistry},
 };
 
 pub mod graphics;
@@ -238,19 +238,18 @@ impl LuaUserData for Danmaku {
     }
 }
 
-struct HvDanmakuPlugin;
+struct HvRainPlugin;
 
-impl Plugin for HvDanmakuPlugin {
+impl Plugin for HvRainPlugin {
     fn name(&self) -> &'static str {
-        "danmaku"
+        "rain"
     }
 
     fn open<'lua>(&self, lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lua>> {
-        engine
-            .fs()
-            .add_zip_file(std::io::Cursor::new(include_bytes!(
-                "../resources/scripts.zip"
-            )))?;
+        engine.fs().add_zip_file(
+            std::io::Cursor::new(include_bytes!("../resources/scripts.zip")),
+            Some(std::path::PathBuf::from("hv-rain/resources/scripts")),
+        )?;
 
         let shot_type_registry = engine.insert(ShotTypeRegistry::new());
         lua.register(shot_type_registry.clone())?;
@@ -307,7 +306,7 @@ impl Plugin for HvDanmakuPlugin {
 
         let state_machine_component_constructor = lua.create_function(|_, index: StateIndex| {
             Ok(DynamicComponentConstructor::new(move |_: &Lua, _| {
-                Ok(StateMachine { index })
+                Ok(SmState::new(index))
             }))
         })?;
 
@@ -380,8 +379,17 @@ impl Plugin for HvDanmakuPlugin {
             })
             .eval()?)
     }
+
+    fn load<'lua>(&self, lua: &'lua Lua, _engine: &Engine) -> Result<()> {
+        let chunk = mlua::chunk! {
+            rain = require("rain")
+        };
+        lua.load(chunk).exec()?;
+
+        Ok(())
+    }
 }
 
-hv_core::plugin!(HvDanmakuPlugin);
+hv_core::plugin!(HvRainPlugin);
 
 pub fn link_me() {}

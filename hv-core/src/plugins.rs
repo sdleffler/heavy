@@ -3,9 +3,31 @@ use crate::{engine::Engine, error::*, mlua::prelude::*};
 #[doc(hidden)]
 pub use crate::inventory::*;
 
+/// A plugin represents a Lua interface to be bound at the initialization time of the `Engine`.
+/// Specifically, when the `Engine` is first loaded, all plugins will have their `open` methods
+/// called, and the resulting tables will be stored in the global table `hv.plugins`, as values
+/// paired with their names as keys.
 pub trait Plugin: 'static {
+    /// The name of this plugin, used as a string key for the `hv.plugins` table.
     fn name(&self) -> &'static str;
-    fn open<'lua>(&self, lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lua>, Error>;
+
+    /// "Open" the plugin and retrieve a table to be stored in `hv.plugins[name]`. Excellent for
+    /// binding Rust functions to Lua functions to be exposed to Lua code bundled with a plugin.
+    fn open<'lua>(&self, lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lua>>;
+
+    /// Any initialization which needs to happen after all plugins are opened should go here. This
+    /// can include things like quickly running `require("my_library.whatever")` if there is Lua
+    /// initialization that this plugin needs done before the user's code begins to run.
+    ///
+    /// An example of initialization which might need to be done is any classes which need to be
+    /// registered with `binser`. If a class is not registered with binser before we attempt to
+    /// serialize or deserialize it, then binser will throw an error. As these classes are
+    /// registered usually right next to the definition of the class itself, it is a good idea to
+    /// use `require` to ensure that any Lua code bundled with your plugin has properly initialized
+    /// everything it needs to.
+    fn load<'lua>(&self, _lua: &'lua Lua, _engine: &Engine) -> Result<()> {
+        Ok(())
+    }
 }
 
 pub(crate) struct ModuleWrapper {
@@ -76,6 +98,15 @@ impl Plugin for PluginModule {
         }
 
         Ok(table)
+    }
+
+    fn load<'lua>(&self, lua: &'lua Lua, engine: &Engine) -> Result<()> {
+        for plugin in registered_plugins() {
+            log::trace!("loading registered plugin: `{}`", plugin.name());
+            plugin.load(lua, engine)?;
+        }
+
+        Ok(())
     }
 }
 

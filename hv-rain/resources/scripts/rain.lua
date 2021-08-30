@@ -1,23 +1,22 @@
-local class = require("std.class")
-local hf = require("hf")
-local Isometry2 = hf.math.Isometry2
+local class = std.class
+local Transform = hf.math.Transform
 local Velocity2 = hf.math.Velocity2
-local hv_danmaku = hv.plugins.danmaku
+local hv_rain = assert(hv.plugins.rain)
 
 local shot_type = {
-    from_component_fn = hv_danmaku.create_shot_type_from_component_fn
+    from_component_fn = assert(hv_rain.create_shot_type_from_component_fn)
 }
 
 local function load_sprite(img_path, sheet_path, pipeline)
     local texture = hf.graphics.load_texture_from_filesystem(img_path)
     local sheet = hf.graphics.load_sprite_sheet_from_filesystem(sheet_path)
-    return hv_danmaku.create_projectile_sprite_batch(texture, sheet, pipeline)
+    return hv_rain.create_projectile_sprite_batch(texture, sheet, pipeline)
 end
 
 local Danmaku = class("Danmaku")
 
 function Danmaku:init(space)
-    self._danmaku = hv_danmaku.create_danmaku_object(space)
+    self._danmaku = hv_rain.create_danmaku_object(space)
 end
 
 function Danmaku:update(dt)
@@ -186,13 +185,13 @@ do
         self._angle = angle
 
         if count > 1 then
-            self._initial = Isometry2.new(0, radius, -angle / 2.)
+            self._initial = Transform.isometry2(0, radius, -angle / 2.)
         else
-            self._initial = Isometry2.from_translation(0, radius)
+            self._initial = Transform.translation2(0, radius)
         end
         
         self._count = count
-        self._iso = Isometry2.from_rotation(0)
+        self._iso = Transform.rotation2(0)
     end
 
     function Arc:build(barrage)
@@ -217,8 +216,8 @@ do
     function Ring:init(radius, count)
         assert(count > 0, "arc must have a nonzero number of shots")
 
-        self._iso = Isometry2.from_rotation(0)
-        self._initial = Isometry2.from_translation(0, radius)
+        self._iso = Transform.rotation2(0)
+        self._initial = Transform.translation2(0, radius)
         self._count = count
     end
 
@@ -227,7 +226,8 @@ do
         barrage:append_origin(self._initial)
         local iso, count = self._iso, self._count
         for i=1,self._count do
-            iso.angle = ((i - 1) / count) * 2 * math.pi
+            iso:reset()
+            iso:rotate2(((i - 1) / count) * 2 * math.pi)
             barrage:push()
             barrage:append_origin(iso)
             barrage:fire()
@@ -239,7 +239,7 @@ end
 
 return {
     shot_type = shot_type,
-    sm = require("danmaku.sm"),
+    sm = require("rain.sm"),
 
     Danmaku = Danmaku,
 
@@ -249,15 +249,13 @@ return {
     Arc = Arc,
     Ring = Ring,
 
-    LinearVelocity = hv_danmaku.linear_velocity_component_constructor,
-    PolarVelocity = hv_danmaku.polar_velocity_component_constructor,
-    StateMachine = hv_danmaku.state_machine_component_constructor,
-    ProjectileSprite = hv_danmaku.projectile_sprite_component_constructor,
+    LinearVelocity = hv_rain.linear_velocity_component_constructor,
+    PolarVelocity = hv_rain.polar_velocity_component_constructor,
+    StateMachine = hv_rain.state_machine_component_constructor,
+    ProjectileSprite = hv_rain.projectile_sprite_component_constructor,
 
     load_sprite = load_sprite,
     load_colorless_sprite = function(img_path, sheet_path)
-        return load_sprite(img_path, sheet_path, hv_danmaku.get_color_bullet_pipeline())
+        return load_sprite(img_path, sheet_path, hv_rain.get_color_bullet_pipeline())
     end,
-
-    nil
 }

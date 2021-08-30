@@ -346,46 +346,45 @@ impl LuaUserData for Barrage {
             Ok(())
         });
 
-        methods.add_method_mut("prepend_origin", |_, this, tx: Position2<f32>| {
-            this.prepend_origin(&tx);
+        methods.add_method_mut("prepend_origin", |_, this, tx: Tx<f32>| {
+            this.prepend_origin(&tx.to_isometry2().expect("not a 2D isometry!"));
             Ok(())
         });
 
-        methods.add_method_mut("append_origin", |_, this, tx: Position2<f32>| {
-            this.append_origin(&tx);
+        methods.add_method_mut("append_origin", |_, this, tx: Tx<f32>| {
+            this.append_origin(&tx.to_isometry2().expect("not a 2D isometry!"));
             Ok(())
         });
 
-        methods.add_method_mut(
-            "append_rotation_to_origin",
-            |_, this, tx: Position2<f32>| {
-                this.append_rotation_to_origin(&tx.rotation);
-                Ok(())
-            },
-        );
-
-        methods.add_method_mut("prepend_linear_tx", |_, this, tx: Position2<f32>| {
-            this.prepend_linear_tx(&tx);
+        methods.add_method_mut("append_rotation_to_origin", |_, this, tx: Tx<f32>| {
+            this.append_rotation_to_origin(
+                &tx.to_isometry2().expect("not a 2D isometry!").rotation,
+            );
             Ok(())
         });
 
-        methods.add_method_mut("append_linear_tx", |_, this, tx: Position2<f32>| {
-            this.append_linear_tx(&tx);
+        methods.add_method_mut("prepend_linear_tx", |_, this, tx: Tx<f32>| {
+            this.prepend_linear_tx(&tx.to_isometry2().expect("not a 2D isometry!"));
             Ok(())
         });
 
-        methods.add_method_mut("set_linear_tx", |_, this, tx: Position2<f32>| {
-            this.set_linear_tx(&tx);
+        methods.add_method_mut("append_linear_tx", |_, this, tx: Tx<f32>| {
+            this.append_linear_tx(&tx.to_isometry2().expect("not a 2D isometry!"));
             Ok(())
         });
 
-        methods.add_method_mut("add_polar_tx", |_, this, tx: Position2<f32>| {
-            this.add_polar_tx(&tx);
+        methods.add_method_mut("set_linear_tx", |_, this, tx: Tx<f32>| {
+            this.set_linear_tx(&tx.to_isometry2().expect("not a 2D isometry!"));
             Ok(())
         });
 
-        methods.add_method_mut("set_polar_tx", |_, this, tx: Position2<f32>| {
-            this.set_polar_tx(&tx);
+        methods.add_method_mut("add_polar_tx", |_, this, tx: Tx<f32>| {
+            this.add_polar_tx(&tx.to_isometry2().expect("not a 2D isometry!"));
+            Ok(())
+        });
+
+        methods.add_method_mut("set_polar_tx", |_, this, tx: Tx<f32>| {
+            this.set_polar_tx(&tx.to_isometry2().expect("not a 2D isometry!"));
             Ok(())
         });
 

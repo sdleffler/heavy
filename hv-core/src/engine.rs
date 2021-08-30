@@ -97,12 +97,18 @@ impl Engine<'static> {
                 hv.set(module.name(), module.open(&lua, &this)?)?;
             }
 
-            lua.load(mlua::chunk! {
+            let chunk = mlua::chunk! {
                 function hv.load() end
                 function hv.update() end
                 function hv.draw() end
-            })
-            .exec()?;
+
+                std = require("std")
+            };
+            lua.load(chunk).exec()?;
+
+            for module in crate::plugins::registered_modules() {
+                module.load(&lua, &this)?;
+            }
         }
 
         this.handler().init(&this)?;

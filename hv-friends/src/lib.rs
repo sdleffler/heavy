@@ -138,11 +138,10 @@ impl Plugin for HvFriendsPlugin {
     }
 
     fn open<'lua>(&self, lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lua>> {
-        engine
-            .fs()
-            .add_zip_file(std::io::Cursor::new(include_bytes!(
-                "../resources/scripts.zip"
-            )))?;
+        engine.fs().add_zip_file(
+            std::io::Cursor::new(include_bytes!("../resources/scripts.zip")),
+            Some(std::path::PathBuf::from("hv-friends/resources/scripts")),
+        )?;
 
         let graphics = crate::graphics::open(lua, engine)?;
         let keyboard = crate::keyboard::open(lua, engine)?;
@@ -161,6 +160,15 @@ impl Plugin for HvFriendsPlugin {
                 }
             })
             .eval()?)
+    }
+
+    fn load<'lua>(&self, lua: &'lua Lua, _engine: &Engine) -> Result<()> {
+        let chunk = mlua::chunk! {
+            hf = require("hf")
+        };
+        lua.load(chunk).eval()?;
+
+        Ok(())
     }
 }
 
