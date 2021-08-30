@@ -835,8 +835,10 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "arc-swap",
+ "bincode",
  "const_format",
  "directories",
+ "erased-serde",
  "gilrs",
  "hecs",
  "hibitset",

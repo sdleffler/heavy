@@ -20,6 +20,7 @@ use serde::{Deserialize, Serialize};
 mod lua;
 
 pub mod object_table;
+pub mod serialize;
 
 pub use self::lua::SpaceCache;
 
