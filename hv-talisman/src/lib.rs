@@ -1,13 +1,6 @@
-#![feature(option_get_or_insert_default)]
-#![feature(entry_insert)]
-#![feature(toowned_clone_into)]
-
 use hv_core::{engine::Engine, plugins::Plugin, prelude::*};
 
 pub mod components;
-pub mod level;
-
-pub use crate::level::Level;
 
 struct TalismanPlugin;
 
@@ -23,12 +16,10 @@ impl Plugin for TalismanPlugin {
         )?;
 
         let components = components::open(lua, engine)?;
-        let level = level::open(lua, engine)?;
 
         lua.load(mlua::chunk! {
             {
                 components = $components,
-                level = $level,
             }
         })
         .eval()

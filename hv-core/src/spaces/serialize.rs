@@ -71,11 +71,11 @@ pub trait ErasedComponentSerde {
     ) -> Result<()>;
 }
 
-pub struct SerializableComponent {
+pub struct Serializable {
     inner: Box<dyn ErasedComponentSerde>,
 }
 
-inventory::collect!(SerializableComponent);
+inventory::collect!(Serializable);
 
 #[macro_export]
 macro_rules! serializable {
@@ -87,7 +87,7 @@ macro_rules! serializable {
     };
 }
 
-impl SerializableComponent {
+impl Serializable {
     pub fn lua<T: Component + for<'lua> FromLua<'lua>>(name: &'static str) -> Self
     where
         for<'a, 'lua> &'a T: ToLua<'lua>,
@@ -306,9 +306,7 @@ impl SerializableComponent {
     }
 }
 
-serializable!(SerializableComponent::lua::<ObjectTableComponent>(
-    "hv.ObjectTable"
-));
+serializable!(Serializable::lua::<ObjectTableComponent>("hv.ObjectTable"));
 
 impl<T: ComponentSerde> ErasedComponentSerde for T {
     fn name(&self) -> &'static str {
@@ -357,7 +355,7 @@ pub struct SerdeContext<'a> {
 
 impl<'a> SerdeContext<'a> {
     pub fn new(lua: &'a Lua) -> Result<Self> {
-        let serdes = inventory::iter::<SerializableComponent>
+        let serdes = inventory::iter::<Serializable>
             .into_iter()
             .map(|bsp| (bsp.inner.name(), &*bsp.inner))
             .collect();
