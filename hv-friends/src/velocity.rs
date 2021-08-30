@@ -20,6 +20,17 @@ pub(crate) fn open<'lua>(lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lu
         .create_function(|_, velocity| Ok(DynamicComponentConstructor::copy(Velocity(velocity))))?;
 
     let mut space_cache = SpaceCache::new(engine);
+    let has_velocity = lua.create_function_mut(move |_, object: Object| {
+        Ok(space_cache
+            .get_space(object.space())
+            .borrow()
+            .query_one::<&Velocity>(object)
+            .to_lua_err()?
+            .get()
+            .is_some())
+    })?;
+
+    let mut space_cache = SpaceCache::new(engine);
     let get_velocity2 =
         lua.create_function_mut(move |_, (obj, out): (Object, LuaAnyUserData)| {
             let space = space_cache.get_space(obj.space());
@@ -40,6 +51,7 @@ pub(crate) fn open<'lua>(lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lu
         .load(mlua::chunk! {
             {
                 create_velocity_constructor = $create_velocity_constructor,
+                has_velocity = $has_velocity,
                 get_velocity2 = $get_velocity2,
                 set_velocity2 = $set_velocity2,
             }

@@ -19,6 +19,11 @@ do
         end
     })
 
+    local has_position = hf_position.has_position
+    function Position:has_position()
+        return has_position(self)
+    end
+
     local get_position2 = hf_position.get_position2
     function Position:position_get(out)
         local out = out or tmp:clone()
@@ -82,6 +87,11 @@ do
             end
         end
     })
+    
+    local has_velocity = hf_position.has_velocity
+    function Velocity:has_velocity()
+        return has_velocity(self)
+    end
     
     local get_velocity2 = hf_velocity.get_velocity2
     function Velocity:velocity(out)

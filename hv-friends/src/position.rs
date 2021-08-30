@@ -20,6 +20,17 @@ pub(crate) fn open<'lua>(lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lu
         .create_function(|_, position| Ok(DynamicComponentConstructor::copy(Position(position))))?;
 
     let mut space_cache = SpaceCache::new(engine);
+    let has_position = lua.create_function_mut(move |_, object: Object| {
+        Ok(space_cache
+            .get_space(object.space())
+            .borrow()
+            .query_one::<&Position>(object)
+            .to_lua_err()?
+            .get()
+            .is_some())
+    })?;
+
+    let mut space_cache = SpaceCache::new(engine);
     let get_position2 =
         lua.create_function_mut(move |_, (obj, out): (Object, LuaAnyUserData)| {
             let space = space_cache.get_space(obj.space());
@@ -40,6 +51,7 @@ pub(crate) fn open<'lua>(lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lu
         .load(mlua::chunk! {
             {
                 create_position_constructor = $create_position_constructor,
+                has_position = $has_position,
                 get_position2 = $get_position2,
                 set_position2 = $set_position2,
             }
