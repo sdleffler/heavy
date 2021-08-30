@@ -2,7 +2,7 @@ use hv_core::{
     components::DynamicComponentConstructor,
     engine::Engine,
     prelude::*,
-    spaces::{Object, SpaceCache},
+    spaces::{serialize::Serializable, Object, SpaceCache},
 };
 use serde::*;
 
@@ -10,6 +10,8 @@ use crate::math::Position2;
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Position(pub Position2<f32>);
+
+hv_core::serializable!(Serializable::serde::<Position>("friends.Position"));
 
 impl LuaUserData for Position {}
 
