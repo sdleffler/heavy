@@ -32,7 +32,7 @@ mod compound_helper {
         let mut tuple_ser = serializer.serialize_seq(Some(shapes.len()))?;
         for (iso, shape) in shapes {
             let serializable_shape =
-                SerializableShape::try_from(shape).map_err(serde::ser::Error::custom)?;
+                ClosedShape::try_from(shape).map_err(serde::ser::Error::custom)?;
             tuple_ser.serialize_element(&(iso, serializable_shape))?;
         }
         tuple_ser.end()
@@ -67,7 +67,7 @@ mod compound_helper {
             {
                 let mut shapes = Vec::new();
                 while let Some((iso, serializable_shape)) =
-                    seq.next_element::<(Isometry2<N>, SerializableShape<N>)>()?
+                    seq.next_element::<(Isometry2<N>, ClosedShape<N>)>()?
                 {
                     shapes.push((iso, serializable_shape.into()));
                 }
@@ -91,7 +91,7 @@ mod shape_handle_helper {
         N: RealField + Copy + Serialize,
         S: Serializer,
     {
-        SerializableShape::try_from(shape_handle)
+        ClosedShape::try_from(shape_handle)
             .map_err(serde::ser::Error::custom)?
             .serialize(serializer)
     }
@@ -101,7 +101,7 @@ mod shape_handle_helper {
         N: RealField + Copy + Deserialize<'de>,
         D: Deserializer<'de>,
     {
-        SerializableShape::deserialize(deserializer).map(ShapeHandle::from)
+        ClosedShape::deserialize(deserializer).map(ShapeHandle::from)
     }
 }
 
@@ -167,8 +167,8 @@ mod collision_groups_helper {
     }
 }
 
-#[derive(Serialize, Deserialize)]
-enum SerializableShape<N: RealField + Copy> {
+#[derive(Clone, Serialize, Deserialize)]
+enum ClosedShape<N: RealField + Copy> {
     Ball(Ball<N>),
 
     #[serde(with = "compound_helper")]
@@ -181,43 +181,43 @@ enum SerializableShape<N: RealField + Copy> {
     Segment(Segment<N>),
 }
 
-impl<'a, N: RealField + Copy> TryFrom<&'a ShapeHandle<N>> for SerializableShape<N> {
+impl<'a, N: RealField + Copy> TryFrom<&'a ShapeHandle<N>> for ClosedShape<N> {
     type Error = Error;
 
     fn try_from(value: &'a ShapeHandle<N>) -> Result<Self, Self::Error> {
         if let Some(ball) = value.downcast_ref::<Ball<N>>().copied() {
-            Ok(SerializableShape::Ball(ball))
+            Ok(ClosedShape::Ball(ball))
         } else if let Some(compound) = value.downcast_ref::<Compound<N>>().cloned() {
-            Ok(SerializableShape::Compound(compound))
+            Ok(ClosedShape::Compound(compound))
         } else if let Some(cuboid) = value.downcast_ref::<Cuboid<N>>().copied() {
-            Ok(SerializableShape::Cuboid(cuboid))
+            Ok(ClosedShape::Cuboid(cuboid))
         } else if let Some(height_field) = value.downcast_ref::<HeightField<N>>().cloned() {
-            Ok(SerializableShape::HeightField(height_field))
+            Ok(ClosedShape::HeightField(height_field))
         } else if let Some(polygon) = value.downcast_ref::<ConvexPolygon<N>>().cloned() {
-            Ok(SerializableShape::Polygon(polygon))
+            Ok(ClosedShape::Polygon(polygon))
         } else if let Some(polyline) = value.downcast_ref::<Polyline<N>>().cloned() {
-            Ok(SerializableShape::Polyline(polyline))
+            Ok(ClosedShape::Polyline(polyline))
         } else if let Some(segment) = value.downcast_ref::<Segment<N>>().copied() {
-            Ok(SerializableShape::Segment(segment))
+            Ok(ClosedShape::Segment(segment))
         } else {
             Err(anyhow!("unsupported shape!"))
         }
     }
 }
 
-impl<N> From<SerializableShape<N>> for ShapeHandle<N>
+impl<N> From<ClosedShape<N>> for ShapeHandle<N>
 where
     N: RealField + Copy,
 {
-    fn from(shape: SerializableShape<N>) -> Self {
+    fn from(shape: ClosedShape<N>) -> Self {
         match shape {
-            SerializableShape::Ball(ball) => ShapeHandle::new(ball),
-            SerializableShape::Compound(compound) => ShapeHandle::new(compound),
-            SerializableShape::Cuboid(cuboid) => ShapeHandle::new(cuboid),
-            SerializableShape::HeightField(height_field) => ShapeHandle::new(height_field),
-            SerializableShape::Polygon(polygon) => ShapeHandle::new(polygon),
-            SerializableShape::Polyline(polyline) => ShapeHandle::new(polyline),
-            SerializableShape::Segment(segment) => ShapeHandle::new(segment),
+            ClosedShape::Ball(ball) => ShapeHandle::new(ball),
+            ClosedShape::Compound(compound) => ShapeHandle::new(compound),
+            ClosedShape::Cuboid(cuboid) => ShapeHandle::new(cuboid),
+            ClosedShape::HeightField(height_field) => ShapeHandle::new(height_field),
+            ClosedShape::Polygon(polygon) => ShapeHandle::new(polygon),
+            ClosedShape::Polyline(polyline) => ShapeHandle::new(polyline),
+            ClosedShape::Segment(segment) => ShapeHandle::new(segment),
         }
     }
 }
@@ -227,6 +227,8 @@ where
 pub struct Collider {
     #[serde(with = "shape_handle_helper")]
     shape: ShapeHandle<f32>,
+    #[serde(skip)]
+    closed: Option<ClosedShape<f32>>,
     local_tx: Isometry2<f32>,
     #[serde(with = "collision_groups_helper::CollisionGroupsDef")]
     collision_groups: CollisionGroups,
@@ -243,6 +245,7 @@ impl Collider {
     pub fn new(local_tx: Isometry2<f32>, shape: ShapeHandle<f32>) -> Self {
         Self {
             shape,
+            closed: None,
             local_tx,
             collision_groups: CollisionGroups::new(),
             query_type: GeometricQueryType::Proximity(0.1),
