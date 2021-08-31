@@ -2,7 +2,7 @@ use std::convert::TryFrom;
 
 use hv_core::{
     prelude::*,
-    spaces::{serialize, Object, Space},
+    spaces::{serialize, Object, Space, SpaceId},
 };
 use na::{Isometry2, RealField};
 use nc::{
@@ -256,23 +256,26 @@ impl Collider {
 }
 
 pub struct CollisionSpace {
-    space: Shared<Space>,
+    space_id: SpaceId,
     world: CollisionWorld<f32, Object>,
 }
 
 impl CollisionSpace {
-    pub fn new(space: Shared<Space>) -> Self {
+    pub fn new(space: &Space) -> Self {
         Self {
-            space,
+            space_id: space.id(),
             world: CollisionWorld::new(0.1),
         }
     }
 
-    pub fn update(&mut self, dt: f32) -> Result<()> {
-        for (object, (collider, Position(pos), maybe_velocity)) in self
-            .space
-            .borrow_mut()
-            .query_mut::<(&mut Collider, &Position, Option<&Velocity>)>()
+    pub fn update(&mut self, space: &mut Space, dt: f32) -> Result<()> {
+        ensure!(
+            space.id() == self.space_id,
+            "attempt to update `CollisionSpace` with the wrong space!"
+        );
+
+        for (object, (collider, Position(pos), maybe_velocity)) in
+            space.query_mut::<(&mut Collider, &Position, Option<&Velocity>)>()
         {
             let collision_object = match collider.handle {
                 Some(handle) => {
