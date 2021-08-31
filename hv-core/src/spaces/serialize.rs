@@ -32,7 +32,7 @@ pub trait ComponentSerde {
         column_batch_builder: &mut ColumnBatchBuilder,
         serde_ctx: &mut SerdeContext,
         deserializer: D,
-    ) -> Result<(), Error>
+    ) -> Result<()>
     where
         D: Deserializer<'de>,
         D::Error: Send + Sync + 'static;
@@ -42,9 +42,13 @@ pub trait ComponentSerde {
         archetype: &Archetype,
         serde_ctx: &mut SerdeContext,
         serialize: F,
-    ) -> Result<(), Error>
+    ) -> Result<()>
     where
-        F: FnOnce(&dyn erased_serde::Serialize) -> Result<(), Error>;
+        F: FnOnce(&dyn erased_serde::Serialize) -> Result<()>;
+
+    fn finalize(&self, _lua: &Lua, _space: &mut Space) -> Result<()> {
+        Ok(())
+    }
 }
 
 pub trait ErasedComponentSerde {
@@ -69,244 +73,9 @@ pub trait ErasedComponentSerde {
         serde_ctx: &mut SerdeContext,
         serializer: &mut dyn FnMut(&dyn erased_serde::Serialize) -> Result<()>,
     ) -> Result<()>;
+
+    fn finalize(&self, lua: &Lua, space: &mut Space) -> Result<()>;
 }
-
-pub struct Serializable {
-    inner: Box<dyn ErasedComponentSerde>,
-}
-
-inventory::collect!(Serializable);
-
-#[macro_export]
-macro_rules! serializable {
-    ($e:expr) => {
-        const _: () = {
-            use $crate::inventory;
-            $crate::inventory::submit!($e);
-        };
-    };
-}
-
-impl Serializable {
-    pub fn lua<T: Component + for<'lua> FromLua<'lua>>(name: &'static str) -> Self
-    where
-        for<'a, 'lua> &'a T: ToLua<'lua>,
-    {
-        struct LuaShim<T: Component + for<'lua> FromLua<'lua>>
-        where
-            for<'a, 'lua> &'a T: ToLua<'lua>,
-        {
-            name: &'static str,
-            _phantom: PhantomData<fn() -> T>,
-        }
-
-        impl<T: Component + for<'lua> FromLua<'lua>> ComponentSerde for LuaShim<T>
-        where
-            for<'a, 'lua> &'a T: ToLua<'lua>,
-        {
-            fn name(&self) -> &'static str {
-                self.name
-            }
-
-            type Component = T;
-
-            fn serialize_components<F>(
-                &self,
-                archetype: &Archetype,
-                serde_ctx: &mut SerdeContext,
-                serialize: F,
-            ) -> Result<(), Error>
-            where
-                F: FnOnce(&dyn erased_serde::Serialize) -> Result<(), Error>,
-            {
-                let strings = archetype
-                    .get::<T>()
-                    .expect("already checked")
-                    .iter()
-                    .map(|t| serde_ctx.serialize_lua_value(t.to_lua(serde_ctx.lua)?))
-                    .collect::<Result<Vec<_>>>()?;
-                serialize(&strings)
-            }
-
-            fn deserialize_components<'de, D>(
-                &self,
-                count: u32,
-                column_batch_builder: &mut ColumnBatchBuilder,
-                serde_ctx: &mut SerdeContext,
-                deserializer: D,
-            ) -> Result<(), Error>
-            where
-                D: Deserializer<'de>,
-                D::Error: Send + Sync + 'static,
-            {
-                let slots = Vec::<u32>::deserialize(deserializer)?;
-
-                assert_eq!(
-                    slots.len(),
-                    count as usize,
-                    "mismatch in expected component count"
-                );
-
-                log::trace!(
-                    "preparing to deserialize {} slots for Lua-encoded values of ID {}...",
-                    count,
-                    self.name,
-                );
-
-                let mut out = column_batch_builder.writer::<T>().expect("already checked");
-
-                for slot in slots {
-                    let value = serde_ctx.deserialize_lua_value(slot)?;
-                    let _ = out.push(T::from_lua(value, serde_ctx.lua)?);
-                }
-
-                log::trace!("done.");
-
-                Ok(())
-            }
-        }
-
-        Self {
-            inner: Box::new(LuaShim::<T> {
-                name,
-                _phantom: PhantomData,
-            }),
-        }
-    }
-
-    pub fn serde<T: Component + Serialize + for<'de> Deserialize<'de>>(name: &'static str) -> Self {
-        struct SerdeShim<T: Serialize + for<'de> Deserialize<'de>> {
-            name: &'static str,
-            _phantom: PhantomData<fn() -> T>,
-        }
-
-        impl<T: Component + Serialize + for<'de> Deserialize<'de>> ComponentSerde for SerdeShim<T> {
-            fn name(&self) -> &'static str {
-                self.name
-            }
-
-            type Component = T;
-
-            fn deserialize_components<'de, D>(
-                &self,
-                count: u32,
-                column_batch_builder: &mut ColumnBatchBuilder,
-                _serde_ctx: &mut SerdeContext,
-                deserializer: D,
-            ) -> Result<(), Error>
-            where
-                D: Deserializer<'de>,
-                D::Error: Send + Sync + 'static,
-            {
-                struct ColumnVisitor<'a, T> {
-                    object_count: u32,
-                    out: &'a mut ColumnBatchBuilder,
-                    _phantom: PhantomData<fn() -> T>,
-                }
-
-                impl<'de, 'a, T> serde::de::Visitor<'de> for ColumnVisitor<'a, T>
-                where
-                    T: Component + Deserialize<'de>,
-                {
-                    type Value = ();
-
-                    fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-                        write!(
-                            formatter,
-                            "a set of {} {} values",
-                            self.object_count,
-                            std::any::type_name::<T>()
-                        )
-                    }
-
-                    fn visit_seq<A>(self, mut seq: A) -> Result<(), A::Error>
-                    where
-                        A: serde::de::SeqAccess<'de>,
-                    {
-                        let mut out = self.out.writer::<T>().expect("unexpected component type");
-
-                        log::trace!(
-                            "preparing to deserialize {} components of serde-encodable type {}...",
-                            self.object_count,
-                            std::any::type_name::<T>()
-                        );
-
-                        while let Some(component) = seq.next_element()? {
-                            if out.push(component).is_err() {
-                                return Err(de::Error::invalid_value(
-                                    de::Unexpected::Other("extra component"),
-                                    &self,
-                                ));
-                            }
-                        }
-
-                        if out.fill() < self.object_count {
-                            return Err(de::Error::invalid_length(out.fill() as usize, &self));
-                        }
-
-                        log::trace!("done.");
-
-                        Ok(())
-                    }
-                }
-
-                Ok(deserializer.deserialize_tuple(
-                    count as usize,
-                    ColumnVisitor::<T> {
-                        object_count: count,
-                        out: column_batch_builder,
-                        _phantom: PhantomData,
-                    },
-                )?)
-            }
-
-            fn serialize_components<F>(
-                &self,
-                archetype: &Archetype,
-                _serde_ctx: &mut SerdeContext,
-                serialize: F,
-            ) -> Result<(), Error>
-            where
-                F: FnOnce(&dyn erased_serde::Serialize) -> Result<(), Error>,
-            {
-                use std::cell::RefCell;
-
-                struct SerializeColumn<I>(RefCell<I>);
-
-                impl<I> Serialize for SerializeColumn<I>
-                where
-                    I: ExactSizeIterator,
-                    I::Item: Serialize,
-                {
-                    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-                    where
-                        S: Serializer,
-                    {
-                        let mut iter = self.0.borrow_mut();
-                        let mut tuple = serializer.serialize_tuple(iter.len())?;
-                        for x in &mut *iter {
-                            tuple.serialize_element(&x)?;
-                        }
-                        tuple.end()
-                    }
-                }
-
-                serialize(&SerializeColumn(RefCell::new(
-                    archetype.get::<T>().expect("already checked").iter(),
-                )))
-            }
-        }
-
-        Self {
-            inner: Box::new(SerdeShim::<T> {
-                name,
-                _phantom: PhantomData,
-            }),
-        }
-    }
-}
-
-serializable!(Serializable::lua::<ObjectTableComponent>("hv.ObjectTable"));
 
 impl<T: ComponentSerde> ErasedComponentSerde for T {
     fn name(&self) -> &'static str {
@@ -340,7 +109,329 @@ impl<T: ComponentSerde> ErasedComponentSerde for T {
     ) -> Result<()> {
         T::serialize_components(self, archetype, serde_ctx, move |obj| serializer(obj))
     }
+
+    fn finalize(&self, lua: &Lua, space: &mut Space) -> Result<()> {
+        T::finalize(self, lua, space)
+    }
 }
+
+pub struct Serializable {
+    inner: Box<dyn ErasedComponentSerde>,
+}
+
+inventory::collect!(Serializable);
+
+impl Serializable {
+    pub fn new(cs: impl ComponentSerde + 'static) -> Self {
+        Self {
+            inner: Box::new(cs),
+        }
+    }
+}
+
+#[macro_export]
+macro_rules! serializable {
+    ($e:expr) => {
+        const _: () = {
+            use $crate::inventory;
+            $crate::inventory::submit!(
+                $crate::spaces::serialize::Serializable::new($e)
+            );
+        };
+    };
+}
+
+pub fn with_lua<T: Component + for<'lua> FromLua<'lua>>(
+    name: &'static str,
+) -> impl ComponentSerde<Component = T>
+where
+    for<'a, 'lua> &'a T: ToLua<'lua>,
+{
+    struct LuaShim<T: Component + for<'lua> FromLua<'lua>>
+    where
+        for<'a, 'lua> &'a T: ToLua<'lua>,
+    {
+        name: &'static str,
+        _phantom: PhantomData<fn() -> T>,
+    }
+
+    impl<T: Component + for<'lua> FromLua<'lua>> ComponentSerde for LuaShim<T>
+    where
+        for<'a, 'lua> &'a T: ToLua<'lua>,
+    {
+        fn name(&self) -> &'static str {
+            self.name
+        }
+
+        type Component = T;
+
+        fn serialize_components<F>(
+            &self,
+            archetype: &Archetype,
+            serde_ctx: &mut SerdeContext,
+            serialize: F,
+        ) -> Result<(), Error>
+        where
+            F: FnOnce(&dyn erased_serde::Serialize) -> Result<(), Error>,
+        {
+            let strings = archetype
+                .get::<T>()
+                .expect("already checked")
+                .iter()
+                .map(|t| serde_ctx.serialize_lua_value(t.to_lua(serde_ctx.lua)?))
+                .collect::<Result<Vec<_>>>()?;
+            serialize(&strings)
+        }
+
+        fn deserialize_components<'de, D>(
+            &self,
+            count: u32,
+            column_batch_builder: &mut ColumnBatchBuilder,
+            serde_ctx: &mut SerdeContext,
+            deserializer: D,
+        ) -> Result<(), Error>
+        where
+            D: Deserializer<'de>,
+            D::Error: Send + Sync + 'static,
+        {
+            let slots = Vec::<u32>::deserialize(deserializer)?;
+
+            assert_eq!(
+                slots.len(),
+                count as usize,
+                "mismatch in expected component count"
+            );
+
+            log::trace!(
+                "preparing to deserialize {} slots for Lua-encoded values of ID {}...",
+                count,
+                self.name,
+            );
+
+            let mut out = column_batch_builder.writer::<T>().expect("already checked");
+
+            for slot in slots {
+                let value = serde_ctx.deserialize_lua_value(slot)?;
+                let _ = out.push(T::from_lua(value, serde_ctx.lua)?);
+            }
+
+            log::trace!("done.");
+
+            Ok(())
+        }
+    }
+
+    LuaShim::<T> {
+        name,
+        _phantom: PhantomData,
+    }
+}
+
+pub fn with_serde<T: Component + Serialize + for<'de> Deserialize<'de>>(
+    name: &'static str,
+) -> impl ComponentSerde<Component = T> {
+    struct SerdeShim<T: Serialize + for<'de> Deserialize<'de>> {
+        name: &'static str,
+        _phantom: PhantomData<fn() -> T>,
+    }
+
+    impl<T: Component + Serialize + for<'de> Deserialize<'de>> ComponentSerde for SerdeShim<T> {
+        fn name(&self) -> &'static str {
+            self.name
+        }
+
+        type Component = T;
+
+        fn deserialize_components<'de, D>(
+            &self,
+            count: u32,
+            column_batch_builder: &mut ColumnBatchBuilder,
+            _serde_ctx: &mut SerdeContext,
+            deserializer: D,
+        ) -> Result<(), Error>
+        where
+            D: Deserializer<'de>,
+            D::Error: Send + Sync + 'static,
+        {
+            struct ColumnVisitor<'a, T> {
+                object_count: u32,
+                out: &'a mut ColumnBatchBuilder,
+                _phantom: PhantomData<fn() -> T>,
+            }
+
+            impl<'de, 'a, T> serde::de::Visitor<'de> for ColumnVisitor<'a, T>
+            where
+                T: Component + Deserialize<'de>,
+            {
+                type Value = ();
+
+                fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                    write!(
+                        formatter,
+                        "a set of {} {} values",
+                        self.object_count,
+                        std::any::type_name::<T>()
+                    )
+                }
+
+                fn visit_seq<A>(self, mut seq: A) -> Result<(), A::Error>
+                where
+                    A: serde::de::SeqAccess<'de>,
+                {
+                    let mut out = self.out.writer::<T>().expect("unexpected component type");
+
+                    log::trace!(
+                        "preparing to deserialize {} components of serde-encodable type {}...",
+                        self.object_count,
+                        std::any::type_name::<T>()
+                    );
+
+                    while let Some(component) = seq.next_element()? {
+                        if out.push(component).is_err() {
+                            return Err(de::Error::invalid_value(
+                                de::Unexpected::Other("extra component"),
+                                &self,
+                            ));
+                        }
+                    }
+
+                    if out.fill() < self.object_count {
+                        return Err(de::Error::invalid_length(out.fill() as usize, &self));
+                    }
+
+                    log::trace!("done.");
+
+                    Ok(())
+                }
+            }
+
+            Ok(deserializer.deserialize_tuple(
+                count as usize,
+                ColumnVisitor::<T> {
+                    object_count: count,
+                    out: column_batch_builder,
+                    _phantom: PhantomData,
+                },
+            )?)
+        }
+
+        fn serialize_components<F>(
+            &self,
+            archetype: &Archetype,
+            _serde_ctx: &mut SerdeContext,
+            serialize: F,
+        ) -> Result<(), Error>
+        where
+            F: FnOnce(&dyn erased_serde::Serialize) -> Result<(), Error>,
+        {
+            use std::cell::RefCell;
+
+            struct SerializeColumn<I>(RefCell<I>);
+
+            impl<I> Serialize for SerializeColumn<I>
+            where
+                I: ExactSizeIterator,
+                I::Item: Serialize,
+            {
+                fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+                where
+                    S: Serializer,
+                {
+                    let mut iter = self.0.borrow_mut();
+                    let mut tuple = serializer.serialize_tuple(iter.len())?;
+                    for x in &mut *iter {
+                        tuple.serialize_element(&x)?;
+                    }
+                    tuple.end()
+                }
+            }
+
+            serialize(&SerializeColumn(RefCell::new(
+                archetype.get::<T>().expect("already checked").iter(),
+            )))
+        }
+    }
+
+    SerdeShim::<T> {
+        name,
+        _phantom: PhantomData,
+    }
+}
+
+pub fn with_finalizer(
+    cs: impl ComponentSerde,
+    f: impl Fn(&Lua, &mut Space) -> Result<()>,
+) -> impl ComponentSerde {
+    struct FinalizedShim<S: ComponentSerde, F: Fn(&Lua, &mut Space) -> Result<()>> {
+        cs: S,
+        f: F,
+    }
+
+    impl<S: ComponentSerde, G: Fn(&Lua, &mut Space) -> Result<()>> ComponentSerde
+        for FinalizedShim<S, G>
+    {
+        type Component = S::Component;
+
+        fn name(&self) -> &'static str {
+            self.cs.name()
+        }
+
+        fn deserialize_components<'de, D>(
+            &self,
+            count: u32,
+            column_batch_builder: &mut ColumnBatchBuilder,
+            serde_ctx: &mut SerdeContext,
+            deserializer: D,
+        ) -> Result<()>
+        where
+            D: Deserializer<'de>,
+            D::Error: Send + Sync + 'static,
+        {
+            self.cs
+                .deserialize_components(count, column_batch_builder, serde_ctx, deserializer)
+        }
+
+        fn serialize_components<F>(
+            &self,
+            archetype: &Archetype,
+            serde_ctx: &mut SerdeContext,
+            serialize: F,
+        ) -> Result<()>
+        where
+            F: FnOnce(&dyn erased_serde::Serialize) -> Result<()>,
+        {
+            self.cs
+                .serialize_components(archetype, serde_ctx, serialize)
+        }
+
+        fn finalize(&self, lua: &Lua, space: &mut Space) -> Result<()> {
+            (self.f)(lua, space)
+        }
+    }
+
+    FinalizedShim { cs, f }
+}
+
+serializable!(with_finalizer(
+    with_lua::<ObjectTableComponent>("hv.ObjectTable"),
+    |lua, space| {
+        // While object tables can be serialized without issue, loading them back up incurs a
+        // problem: they are linked to object IDs, and not even hecs entity IDs are available at
+        // deserialization time. So we "partially" insert them when deserializing, and then
+        // link them to their respective objects after we're done loading everything else.
+        log::trace!(
+            "linking Lua object table entries from components to their owning Rust objects..."
+        );
+        let object_table_registry = lua.resource::<ObjectTableRegistry>()?;
+        for (object, otc) in space.query_mut::<&ObjectTableComponent>() {
+            object_table_registry
+                .borrow_mut()
+                .link_partial_entry_to_object(object, otc.index)?;
+        }
+
+        Ok(())
+    }
+));
 
 pub struct SerdeContext<'a> {
     pub serdes: BTreeMap<&'static str, &'static dyn ErasedComponentSerde>,
@@ -578,53 +669,48 @@ where
     D::Error: Send + Sync + 'static,
     E::Error: Send + Sync + 'static,
 {
-    struct DeserializeWorld<'lua> {
-        serde_ctx: SerdeContext<'lua>,
+    struct DeserializeWorld<'a, 'lua> {
+        serde_ctx: &'a mut SerdeContext<'lua>,
     }
 
-    impl<'de, 'lua> DeserializeSeed<'de> for DeserializeWorld<'lua> {
+    impl<'de, 'a, 'lua> DeserializeSeed<'de> for DeserializeWorld<'a, 'lua> {
         type Value = hecs::World;
 
-        fn deserialize<D>(mut self, deserializer: D) -> Result<Self::Value, D::Error>
+        fn deserialize<D>(self, deserializer: D) -> Result<Self::Value, D::Error>
         where
             D: Deserializer<'de>,
         {
-            hecs::serialize::column::deserialize(&mut self.serde_ctx, deserializer)
+            hecs::serialize::column::deserialize(self.serde_ctx, deserializer)
         }
     }
 
     let mut space_mut = space.borrow_mut();
-    let world = crate::spaces::with_space_id(space_mut.id(), || {
+    crate::spaces::with_space_id(space_mut.id(), || {
         log::trace!("deserializing Lua values in preparation for main space deserialization...");
-        let serde_ctx = SerdeContext::with_lua_objects(lua, lua_values)?;
+        let mut serde_ctx = SerdeContext::with_lua_objects(lua, lua_values)?;
         log::trace!(
             "deserialized Lua values ({} slots deserialized)",
             serde_ctx.lua_objects.len()
         );
 
-        let world = DeserializeWorld { serde_ctx }.deserialize(objects)?;
-        Ok::<_, Error>(world)
-    })?;
+        let world = DeserializeWorld {
+            serde_ctx: &mut serde_ctx,
+        }
+        .deserialize(objects)?;
+        space_mut.ecs = world;
 
-    log::trace!("deserialized {} objects.", world.len());
+        log::trace!(
+            "deserialized {} objects. running finalizers...",
+            space_mut.len()
+        );
 
-    space_mut.ecs = world;
+        for cs in &serde_ctx.components {
+            cs.finalize(lua, &mut space_mut)?;
+        }
 
-    // While object tables can be serialized without issue, loading them back up incurs a
-    // problem: they are linked to object IDs, and not even hecs entity IDs are available at
-    // deserialization time. So we "partially" insert them when deserializing, and then
-    // link them to their respective objects after we're done loading everything else.
-    log::trace!("linking Lua object table entries from components to their owning Rust objects...");
-    let object_table_registry = lua.resource::<ObjectTableRegistry>()?;
-    for (object, otc) in space_mut.query_mut::<&ObjectTableComponent>() {
-        object_table_registry
-            .borrow_mut()
-            .link_partial_entry_to_object(object, otc.index)?;
-    }
-
-    log::trace!("finished deserializing.");
-
-    Ok(())
+        log::trace!("finished deserializing.");
+        Ok(())
+    })
 }
 
 pub fn serialize_separate<S, T>(

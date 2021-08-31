@@ -2,7 +2,7 @@ use hv_core::{
     components::DynamicComponentConstructor,
     engine::Engine,
     prelude::*,
-    spaces::{serialize::Serializable, Object, SpaceCache},
+    spaces::{serialize, Object, SpaceCache},
 };
 use hv_friends::math::*;
 use serde::*;
@@ -11,18 +11,18 @@ use serde::*;
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Hidden;
 
-hv_core::serializable!(Serializable::serde::<Hidden>("talisman.Hidden"));
+hv_core::serializable!(serialize::with_serde::<Hidden>("talisman.Hidden"));
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Visible(pub bool);
 
-hv_core::serializable!(Serializable::serde::<Visible>("talisman.Visible"));
+hv_core::serializable!(serialize::with_serde::<Visible>("talisman.Visible"));
 
 /// Object name component.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Name(pub String);
 
-hv_core::serializable!(Serializable::serde::<Name>("talisman.Name"));
+hv_core::serializable!(serialize::with_serde::<Name>("talisman.Name"));
 
 #[derive(Debug)]
 pub struct Class {
@@ -45,17 +45,12 @@ impl<'lua> FromLua<'lua> for Class {
     }
 }
 
-hv_core::serializable!(Serializable::lua::<Class>("talisman.Class"));
+hv_core::serializable!(serialize::with_lua::<Class>("talisman.Class"));
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Parent(pub Object);
 
-hv_core::serializable!(Serializable::serde::<Parent>("talisman.Parent"));
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Children(pub Vec<Object>);
-
-hv_core::serializable!(Serializable::serde::<Children>("talisman.Children"));
+hv_core::serializable!(serialize::with_serde::<Parent>("talisman.Parent"));
 
 #[derive(Debug)]
 pub struct Sprite {

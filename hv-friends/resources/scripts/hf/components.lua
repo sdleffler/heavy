@@ -88,7 +88,7 @@ do
         end
     })
     
-    local has_velocity = hf_position.has_velocity
+    local has_velocity = hf_velocity.has_velocity
     function Velocity:has_velocity()
         return has_velocity(self)
     end

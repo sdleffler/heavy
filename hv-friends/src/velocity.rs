@@ -2,7 +2,7 @@ use hv_core::{
     components::DynamicComponentConstructor,
     engine::Engine,
     prelude::*,
-    spaces::{serialize::Serializable, Object, SpaceCache},
+    spaces::{serialize, Object, SpaceCache},
 };
 use serde::*;
 
@@ -11,7 +11,7 @@ use crate::math::*;
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct Velocity(pub Velocity2<f32>);
 
-hv_core::serializable!(Serializable::serde::<Velocity>("friends.Velocity"));
+hv_core::serializable!(serialize::with_serde::<Velocity>("friends.Velocity"));
 
 impl LuaUserData for Velocity {}
 
