@@ -18,6 +18,7 @@ mod position;
 mod velocity;
 
 pub mod camera;
+pub mod collision;
 pub mod graphics;
 pub mod math;
 pub mod scene;

@@ -82,6 +82,11 @@ impl<N: RealField + Copy> Position2<N> {
         self.integrate_mut(velocity, dt);
     }
 
+    pub fn integrate(mut self, velocity: &Velocity2<N>, dt: N) -> Self {
+        self.integrate_mut(velocity, dt);
+        self
+    }
+
     pub fn integrate_mut(&mut self, velocity: &Velocity2<N>, dt: N) {
         let integrated = velocity.integrate(dt);
         self.translation *= integrated.translation;
