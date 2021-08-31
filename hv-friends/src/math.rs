@@ -280,8 +280,8 @@ pub struct Box2<N: Numeric> {
     pub maxs: Point2<N>,
 }
 
-impl<N: Numeric + RealField> From<ncollide2d::bounding_volume::AABB<N>> for Box2<N> {
-    fn from(aabb: ncollide2d::bounding_volume::AABB<N>) -> Self {
+impl From<parry2d::bounding_volume::AABB> for Box2<f32> {
+    fn from(aabb: parry2d::bounding_volume::AABB) -> Self {
         Self {
             mins: aabb.mins,
             maxs: aabb.maxs,
@@ -337,14 +337,6 @@ impl<N: Numeric> Box2<N> {
     #[inline]
     pub fn center(&self) -> Point2<N> {
         self.mins + self.half_extents()
-    }
-
-    #[inline]
-    pub fn to_aabb(&self) -> ncollide2d::bounding_volume::AABB<N>
-    where
-        N: RealField,
-    {
-        ncollide2d::bounding_volume::AABB::new(self.mins, self.maxs)
     }
 
     #[inline]
@@ -454,6 +446,13 @@ impl<N: Numeric> Box2<N> {
             tx.transform_point(&br).xy(),
             tx.transform_point(&bl).xy(),
         ])
+    }
+}
+
+impl Box2<f32> {
+    #[inline]
+    pub fn to_aabb(&self) -> parry2d::bounding_volume::AABB {
+        parry2d::bounding_volume::AABB::new(self.mins, self.maxs)
     }
 }
 

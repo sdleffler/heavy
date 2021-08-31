@@ -39,17 +39,14 @@
 //!   if you want the subject to view the place at any other angle, this parameter sets the
 //!   resulting orientation of the calculated transform whenever this focus is the "hot focus" that
 //!   the subject is currently "inside".
-use crate::{
-    math::*,
-    nc::{query::PointQuery, shape::ShapeHandle},
-};
+use crate::{math::*, parry2d::shape::SharedShape};
 
 use hv_core::mlua::prelude::*;
 use thunderdome::{Arena, Index};
 
 #[derive(Clone)]
 pub struct Focus {
-    pub collider: ShapeHandle<f32>,
+    pub collider: SharedShape,
     pub collider_tx: Isometry2<f32>,
     pub override_scale: Option<f32>,
     pub weight_against_subject: f32,
@@ -58,7 +55,7 @@ pub struct Focus {
 }
 
 impl Focus {
-    pub fn new(collider: ShapeHandle<f32>, collider_tx: Isometry2<f32>) -> Self {
+    pub fn new(collider: SharedShape, collider_tx: Isometry2<f32>) -> Self {
         Self {
             collider,
             collider_tx,
@@ -102,7 +99,7 @@ impl Focus {
         // It shouldn't matter if we rotate the shape w.r.t. its center or w.r.t. the focus's center
         // because we don't care about the translation of the AABB, only its dimensions.
         local_tx.append_rotation_wrt_center_mut(&UnitComplex::new(self.orientation));
-        let aabb = self.collider.aabb(&local_tx);
+        let aabb = self.collider.compute_aabb(&local_tx);
         let focus_dimensions = aabb.extents();
 
         // We calculate the ratio of focus dimension to screen dimension, and then choose the

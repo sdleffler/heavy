@@ -1,4 +1,4 @@
-use hv_friends::{math::*, nc::shape::Cuboid};
+use hv_friends::{math::*, parry2d::shape::Cuboid};
 use std::ops;
 use thunderdome::{Arena, Index};
 
@@ -7,7 +7,7 @@ pub struct BoxIndex(Index);
 
 #[derive(Debug, Clone, Copy)]
 pub struct BoxCollider<T> {
-    pub cuboid: Cuboid<f32>,
+    pub cuboid: Cuboid,
     pub tx: Isometry2<f32>,
     pub properties: T,
 }

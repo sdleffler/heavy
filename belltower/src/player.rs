@@ -4,7 +4,7 @@ use hv_core::{
     components::DynamicComponentConstructor, engine::Engine, input::InputState, inventory,
     plugins::Plugin, prelude::*,
 };
-use hv_friends::{math::*, nc::shape::Cuboid, Position, Velocity};
+use hv_friends::{math::*, parry2d::shape::Cuboid, Position, Velocity};
 
 use crate::{
     box_geometry::{BoxCollider, BoxIndex},

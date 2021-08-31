@@ -8,7 +8,7 @@ use hv_core::{
 };
 
 pub extern crate nalgebra as na;
-pub extern crate ncollide2d as nc;
+pub extern crate parry2d;
 
 #[macro_use]
 mod lua;

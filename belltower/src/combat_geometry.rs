@@ -9,7 +9,7 @@ use hv_core::{
 use hv_friends::{
     graphics::{Color, DrawMode, MeshBuilder},
     math::*,
-    nc::shape::Cuboid,
+    parry2d::shape::Cuboid,
 };
 use serde::*;
 
@@ -47,12 +47,7 @@ impl CombatGeometry {
         &mut self.geometry
     }
 
-    pub fn add(
-        &mut self,
-        cuboid: Cuboid<f32>,
-        tx: Isometry2<f32>,
-        properties: BoxType,
-    ) -> &mut Self {
+    pub fn add(&mut self, cuboid: Cuboid, tx: Isometry2<f32>, properties: BoxType) -> &mut Self {
         self.geometry.insert(BoxCollider {
             cuboid,
             tx,
@@ -61,15 +56,15 @@ impl CombatGeometry {
         self
     }
 
-    pub fn hitbox(&mut self, cuboid: Cuboid<f32>, tx: Isometry2<f32>) -> &mut Self {
+    pub fn hitbox(&mut self, cuboid: Cuboid, tx: Isometry2<f32>) -> &mut Self {
         self.add(cuboid, tx, BoxType::Hit)
     }
 
-    pub fn hurtbox(&mut self, cuboid: Cuboid<f32>, tx: Isometry2<f32>) -> &mut Self {
+    pub fn hurtbox(&mut self, cuboid: Cuboid, tx: Isometry2<f32>) -> &mut Self {
         self.add(cuboid, tx, BoxType::Hurt)
     }
 
-    pub fn parrybox(&mut self, cuboid: Cuboid<f32>, tx: Isometry2<f32>) -> &mut Self {
+    pub fn parrybox(&mut self, cuboid: Cuboid, tx: Isometry2<f32>) -> &mut Self {
         self.add(cuboid, tx, BoxType::Parry)
     }
 
@@ -94,7 +89,7 @@ impl CombatGeometry {
 }
 
 impl BoxCollider<BoxType> {
-    pub fn hurt(cuboid: Cuboid<f32>, tx: Isometry2<f32>) -> Self {
+    pub fn hurt(cuboid: Cuboid, tx: Isometry2<f32>) -> Self {
         BoxCollider {
             cuboid,
             tx,
@@ -102,7 +97,7 @@ impl BoxCollider<BoxType> {
         }
     }
 
-    pub fn parry(cuboid: Cuboid<f32>, tx: Isometry2<f32>) -> Self {
+    pub fn parry(cuboid: Cuboid, tx: Isometry2<f32>) -> Self {
         BoxCollider {
             cuboid,
             tx,
