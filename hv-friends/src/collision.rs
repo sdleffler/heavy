@@ -136,8 +136,8 @@ impl From<ClosedShape> for SharedShape {
 #[must_use = "colliders will be leaked if not removed from their collision space!"]
 pub struct Collider {
     #[serde(with = "shape_handle_helper")]
-    shape: SharedShape,
-    local_tx: Isometry2<f32>,
+    pub shape: SharedShape,
+    pub local_tx: Isometry2<f32>,
 }
 
 hv_core::serializable!(serialize::with_serde::<Collider>("friends.Collider"));
