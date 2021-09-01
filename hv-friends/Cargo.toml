@@ -25,7 +25,6 @@ log = "0.4.14"
 rusttype = "0.9.2"
 ordered-float = "2.7.0"
 smallbox = { version = "0.8.0", features = ["coerce"] }
-rapier2d = { version = "0.11.0", features = ["simd-stable"] }
 
 [build-dependencies]
 walkdir = "2.3.2"
