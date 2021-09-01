@@ -2,6 +2,7 @@
 
 #![feature(coerce_unsized, unsize)]
 #![feature(ptr_metadata)]
+#![warn(missing_docs)]
 
 pub extern crate hecs;
 pub extern crate inventory;
