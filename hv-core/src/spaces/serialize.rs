@@ -1,3 +1,11 @@
+//! Serialization functionality for [`Space`]s. Not all components in a space have to be
+//! serializable in order to serialize the space, but just know that those unserializable components
+//! (or components not registered w/ a [`ComponentSerde`] instance) will simply not be stored and
+//! will not be present when the space is deserialized.
+//!
+//! For common cases, [`ComponentSerde`]s can be constructed with the [`with_lua`] and
+//! [`with_serde`] functions, and then registered with the [`serializable`] macro.
+
 use std::{
     collections::{BTreeMap, VecDeque},
     fmt,

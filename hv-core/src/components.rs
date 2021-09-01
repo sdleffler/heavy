@@ -1,3 +1,11 @@
+//! Functionality for working with components across the Rust/Lua boundary.
+//!
+//! If you need to add a component to an object from Lua, you'll want a
+//! [`DynamicComponentConstructor`]. This is essentially the data necessary to add the component but
+//! wrapped in an extra layer which tells Rust *how* to add the component. For unfortunate technical
+//! reasons, the component type itself cannot be the Lua userdata passed to functions like
+//! `Space::spawn`.
+
 use smallbox::{space::S4, SmallBox};
 
 use crate::{

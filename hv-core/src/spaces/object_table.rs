@@ -1,3 +1,12 @@
+//! Object tables are how [`Object`]s go from Rust to Lua and back. An `Object` can only be
+//! converted to a Lua value if it has an [`ObjectTableComponent`], which represents a unique Lua
+//! table representing the object in Lua. The conversion both ways is automatic, and is implemented
+//! in the [`FromLua`] and [`ToLua`] implementations for [`Object`]. There are no restrictions on
+//! object tables; any table can be one, and if the table is serializable with `binser`, then it is
+//! even possible for the table to be serialized and deserialized with the rest of the [`Space`].
+//!
+//! [`Space`]: crate::spaces::Space
+
 use std::collections::{HashMap, HashSet};
 
 use crate::{

@@ -1,3 +1,5 @@
+//! Lua interface to the Rust [`log`] crate.
+
 use crate::{
     engine::Engine,
     error::*,

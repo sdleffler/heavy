@@ -1,3 +1,8 @@
+//! Heavy's Lua plugin registry, used for registering your Rust-to-Lua bindings. Plugins generate
+//! Lua tables which are automatically loaded into an `Engine`'s Lua context, as entries under the
+//! global table `hv.plugins`. You usually will not access plugins directly, but instead through
+//! using the bundled Lua APIs that come with whatever library registered them.
+
 use crate::{engine::Engine, error::*, mlua::prelude::*};
 
 #[doc(hidden)]

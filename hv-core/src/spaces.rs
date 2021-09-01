@@ -1,3 +1,7 @@
+//! An entity-component system built with the focus of having multiple "worlds" ([`Space`]s) in the
+//! same running program. It is built on the [`hecs`] ECS, but adds space IDs to [`Object`]s so that
+//! they cannot be used with the wrong `Space`.
+
 use std::{cell::RefCell, fmt};
 
 use crate::{

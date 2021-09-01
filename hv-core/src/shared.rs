@@ -1,3 +1,5 @@
+//! A convenient reference-counted smart pointer type w/ support for concurrent interior mutability.
+
 use std::{
     fmt,
     ops::{Deref, DerefMut},

@@ -1,3 +1,5 @@
+//! Configuration options for starting an `Engine`.
+
 use crate::filesystem::Filesystem;
 
 #[derive(Debug)]

@@ -1,3 +1,5 @@
+//! Lua module loading through the [`Filesystem`](crate::filesystem::Filesystem).
+
 use std::io::Read;
 
 use crate::{

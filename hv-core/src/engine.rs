@@ -1,3 +1,7 @@
+//! The core type, representing an instance of the Heavy framework with a Lua context,
+//! window/graphics context, and more. I can't imagine a case where you'd need more than one of
+//! these. Use [`Engine::run`] to start your event loop.
+
 use {
     miniquad as mq,
     send_wrapper::SendWrapper,

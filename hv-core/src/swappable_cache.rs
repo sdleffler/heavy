@@ -1,3 +1,5 @@
+//! A hot-swappable resource cache with smart pointer types to access values in it.
+
 use arc_swap::{ArcSwap, Cache};
 use std::{
     collections::{hash_map::Entry, HashMap},
