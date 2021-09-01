@@ -133,7 +133,6 @@ impl From<ClosedShape> for SharedShape {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-#[must_use = "colliders will be leaked if not removed from their collision space!"]
 pub struct Collider {
     #[serde(with = "shape_handle_helper")]
     pub shape: SharedShape,
