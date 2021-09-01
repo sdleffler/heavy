@@ -1,29 +1,22 @@
-//! This is a lightly modified version of the `ggez` crate's `filesystem` module;
-//! see source for (MIT) licensing info.
-//!
 //! A cross-platform interface to the filesystem.
+//!
+//! Heavily based on the `ggez` crate's `filesystem` module; see source for (MIT) licensing info.
 //!
 //! This module provides access to files in specific places:
 //!
-//! * The `resources/` subdirectory in the same directory as the
-//! program executable, if any,
-//! * The `resources.zip` file in the same
-//! directory as the program executable, if any,
-//! * The root folder of the  game's "save" directory which is in a
-//! platform-dependent location,
-//! such as `~/.local/share/<gameid>/` on Linux.
-//! Some platforms such as Windows also incorporate the `author` string into
-//! the path.
+//! * The `resources/` subdirectory in the same directory as the program executable, if any,
+//! * The `resources.zip` file in the same directory as the program executable, if any,
+//! * The root folder of the  game's "save" directory which is in a platform-dependent location,
+//!   such as `~/.local/share/<gameid>/` on Linux. Some platforms such as Windows also incorporate
+//!   the `author` string into the path.
 //!
-//! These locations will be searched for files in the order listed, and the first file
-//! found used.  That allows game assets to be easily distributed as an archive
-//! file, but locally overridden for testing or modding simply by putting
-//! altered copies of them in the game's `resources/` directory.  It
-//! is loosely based off of the `PhysicsFS` library.
+//! These locations will be searched for files in the order listed, and the first file found used.
+//! That allows game assets to be easily distributed as an archive file, but locally overridden for
+//! testing or modding simply by putting altered copies of them in the game's `resources/`
+//! directory.  It is loosely based off of the `PhysicsFS` library.
 //!
-//! Note that the file lookups WILL follow symlinks!  This module's
-//! directory isolation is intended for convenience, not security, so
-//! don't assume it will be secure.
+//! Note that the file lookups WILL follow symlinks!  This module's directory isolation is intended
+//! for convenience, not security, so don't assume it will be secure.
 
 /*
  * The MIT License (MIT)

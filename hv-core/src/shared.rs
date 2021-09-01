@@ -2,7 +2,8 @@
 
 use std::{
     fmt,
-    ops::{Deref, DerefMut},
+    marker::Unsize,
+    ops::{CoerceUnsized, Deref, DerefMut},
     sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
@@ -15,6 +16,8 @@ pub struct Shared<T: ?Sized> {
 pub struct Weak<T: ?Sized> {
     inner: std::sync::Weak<RwLock<T>>,
 }
+
+impl<T: ?Sized + Unsize<U>, U: ?Sized> CoerceUnsized<Shared<U>> for Shared<T> {}
 
 impl<T: ?Sized + fmt::Debug> fmt::Debug for Shared<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -87,6 +90,11 @@ impl<T: ?Sized> Shared<T> {
         Weak {
             inner: Arc::downgrade(&self.inner),
         }
+    }
+
+    #[inline]
+    pub fn get_mut(&mut self) -> Option<&mut T> {
+        Arc::get_mut(&mut self.inner).map(|rwlock| rwlock.get_mut().unwrap())
     }
 
     #[inline]

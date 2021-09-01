@@ -3,7 +3,7 @@ use std::path::Path;
 use hv_core::{
     components::DynamicComponentConstructor,
     conf::Conf,
-    engine::{Engine, EventHandler, LazyHandler},
+    engine::{Engine, EventHandler},
     filesystem::Filesystem,
     prelude::*,
     spaces::{Object, Space, Spaces},
@@ -311,5 +311,5 @@ fn main() {
         ..Conf::default()
     };
 
-    Engine::run(conf, LazyHandler::new(Asteroids::new))
+    Engine::run(conf, Asteroids::new)
 }

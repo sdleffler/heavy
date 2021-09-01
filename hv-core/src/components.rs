@@ -17,6 +17,9 @@ use crate::{
     spaces::{Object, Space},
 };
 
+/// Describes how to construct a component, given the object it will be attached to and access to
+/// the Lua context. Most of the time you'll be fine just constructing this as a closure, and
+/// honestly I can't see any reason you'd want to do anything else, so it may go away in the future.
 pub trait ComponentConstructor: Send + 'static {
     type Component: Component;
 
@@ -69,29 +72,38 @@ impl<T: ComponentConstructor> ErasedComponentConstructor for T {
     }
 }
 
+/// A type which adds a component of some sort to an entity. This is the main way of adding
+/// components to [`Object`]s from Lua.
 pub struct DynamicComponentConstructor {
     erased: SmallBox<dyn ErasedComponentConstructor, S4>,
 }
 
 impl DynamicComponentConstructor {
+    /// Create a new [`DynamicComponentConstructor`] from a full [`ComponentConstructor`] value.
     pub fn new(constructor: impl ComponentConstructor) -> Self {
         Self {
             erased: smallbox::smallbox!(constructor),
         }
     }
 
+    /// Create a simple [`DynamicComponentConstructor`] which simply copies the provided value to
+    /// construct it as a component.
     pub fn copy<T: Component + Copy>(value: T) -> Self {
         Self::new(move |_: &Lua, _| Ok(value))
     }
 
+    /// Create a simple [`DynamicComponentConstructor`] which simply clones the provided value to
+    /// construct it as a component.
     pub fn clone<T: Component + Clone>(value: T) -> Self {
         Self::new(move |_: &Lua, _| Ok(value.clone()))
     }
 
+    /// Add this component's type to a [`ColumnBatchType`].
     pub fn add_to_column_batch_type(&self, column_batch_type: &mut ColumnBatchType) {
         self.erased.add_to_column_batch_type(column_batch_type);
     }
 
+    /// Add this component to an [`EntityBuilder`].
     pub fn add_to_object_builder(
         &self,
         lua: &Lua,
@@ -101,6 +113,7 @@ impl DynamicComponentConstructor {
         self.erased.add_to_object_builder(lua, object, builder)
     }
 
+    /// Insert this component on an [`Object`].
     pub fn insert_on_object(&self, lua: &Lua, object: Object, space: &mut Space) -> Result<()> {
         self.erased.insert_on_object(lua, object, space)
     }
@@ -119,16 +132,6 @@ impl ComponentWrapper {
             object: Box::new(plugin),
         }
     }
-}
-
-#[macro_export]
-macro_rules! component {
-    ($e:expr) => {
-        const _: () = {
-            use $crate::inventory;
-            $crate::inventory::submit!($crate::components::ComponentWrapper::new($e));
-        };
-    };
 }
 
 inventory::collect!(ComponentWrapper);

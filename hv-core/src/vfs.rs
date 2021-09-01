@@ -45,7 +45,7 @@ use std::{
     sync::RwLock,
 };
 
-use crate::{error::*, path_clean::PathClean, util::RwLockExt};
+use crate::{error::*, path_clean::PathClean};
 
 fn convenient_path_to_str(path: &path::Path) -> Result<&str> {
     path.to_str()
@@ -785,8 +785,10 @@ impl Vfs for ZipFs {
                 self
             );
         }
-        let mut stupid_archive_borrow = self.archive.borrow_mut();
-        //.expect("Couldn't borrow ZipArchive in ZipFS::open_options(); should never happen!");
+        let mut stupid_archive_borrow = self
+            .archive
+            .try_write()
+            .expect("Couldn't borrow ZipArchive in ZipFS::open_options(); should never happen!");
         let mut f = stupid_archive_borrow.by_name(path)?;
         let zipfile = ZipFileWrapper::new(&mut f)?;
         Ok(Box::new(zipfile) as Box<dyn VFile>)
@@ -817,9 +819,10 @@ impl Vfs for ZipFs {
     }
 
     fn exists(&self, path: &Path) -> bool {
-        let mut stupid_archive_borrow = self.archive.borrow_mut();
-        // .try_borrow_mut()
-        // .expect("Couldn't borrow ZipArchive in ZipFS::exists(); should never happen!");
+        let mut stupid_archive_borrow = self
+            .archive
+            .try_write()
+            .expect("Couldn't borrow ZipArchive in ZipFS::exists(); should never happen!");
         if let Ok(path) = convenient_path_to_str(path) {
             stupid_archive_borrow.by_name(path).is_ok()
         } else {
@@ -829,9 +832,10 @@ impl Vfs for ZipFs {
 
     fn metadata(&self, path: &Path) -> Result<Box<dyn VMetadata>> {
         let path = convenient_path_to_str(path)?;
-        let mut stupid_archive_borrow = self.archive.borrow_mut();
-        // .try_borrow_mut()
-        // .expect("Couldn't borrow ZipArchive in ZipFS::metadata(); should never happen!");
+        let mut stupid_archive_borrow = self
+            .archive
+            .try_write()
+            .expect("Couldn't borrow ZipArchive in ZipFS::metadata(); should never happen!");
         match ZipMetadata::new(path, &mut **stupid_archive_borrow) {
             None => bail!("Metadata not found in zip file for {}", path),
             Some(md) => Ok(Box::new(md) as Box<dyn VMetadata>),

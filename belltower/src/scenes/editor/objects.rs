@@ -56,7 +56,7 @@ impl Objects {
         let mut label_buf = String::new();
         ScrollArea::auto_sized().show(ui, |ui| {
             for (object, table_component) in space.query_mut::<&ObjectTableComponent>() {
-                let index = table_component.index;
+                let index = table_component.index();
                 let entry: LuaTable = match self.object_table_resource.borrow().by_index(index) {
                     Some(e) => lua.registry_value(e.key())?,
                     None => continue,

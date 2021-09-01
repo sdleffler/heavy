@@ -1,5 +1,6 @@
-//! The "eXtra Small Box"! A purely stack-allocated box intended for holding trait objects. Heavily
-//! drawn from the `smallbox` crate.
+//! The "eXtra Small Box", a solution for holding small trait objects on the stack.
+//!
+//! Heavily drawn from the `smallbox` crate.
 
 use std::{
     any::Any,
@@ -12,6 +13,7 @@ use std::{
     ptr::{self, Pointee},
 };
 
+/// Create a potentially unsized [`XsBox`].
 #[macro_export]
 macro_rules! xsbox {
     ( $e: expr ) => {{

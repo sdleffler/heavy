@@ -1,10 +1,94 @@
-//! Serialization functionality for [`Space`]s. Not all components in a space have to be
-//! serializable in order to serialize the space, but just know that those unserializable components
-//! (or components not registered w/ a [`ComponentSerde`] instance) will simply not be stored and
-//! will not be present when the space is deserialized.
+//! Serialization functionality for [`Space`]s.
+//!
+//! Not all components in a space have to be serializable in order to serialize the space, but just
+//! know that those unserializable components (or components not registered w/ a [`ComponentSerde`]
+//! instance) will simply not be stored and will not be present when the space is deserialized.
 //!
 //! For common cases, [`ComponentSerde`]s can be constructed with the [`with_lua`] and
-//! [`with_serde`] functions, and then registered with the [`serializable`] macro.
+//! [`with_serde`] functions, and then registered with the [`serializable!`] macro.
+//!
+//! ## Registering serde-compatible components with the serializer
+//!
+//! Registering serde-compatible components is very simple and just needs a single call to the
+//! [`serializable!`] macro:
+//!
+//! ```rust
+//! # use hv_core::{spaces::serialize::{serializable, self}, na::Vector2};
+//! # use serde::*;
+//!
+//! #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+//! pub struct Coordinates(pub Vector2<f32>);
+//!
+//! // The string name here can be whatever you want, but it's a good idea to have it be something
+//! // "my_plugin_or_module_or_crate_or_whatever.ComponentType", as that's the convention that most
+//! // Heavy crates use.
+//! serializable!(serialize::with_serde::<Coordinates>("my.CoordinatesComponent"));
+//! ```
+//!
+//! ## Registering Lua-convertible components with the serializer
+//!
+//! Registering Lua-convertible components (types which implement [`ToLua`] and [`FromLua`]) is also
+//! very easy:
+//!
+//! ```rust
+//! # use hv_core::{spaces::serialize::{serializable, self}, prelude::*};
+//!
+//! #[derive(Debug)]
+//! pub struct SomeLuaTable(pub LuaRegistryKey);
+//!
+//! impl<'lua> ToLua<'lua> for SomeLuaTable {
+//!     fn to_lua(&self, lua: &'lua Lua) -> LuaResult<LuaValue<'lua>> {
+//!         lua.registry_value(&self.0)
+//!     }
+//! }
+//!
+//! impl<'lua> FromLua<'lua> for SomeLuaTable {
+//!     fn from_lua(lua_value: LuaValue<'lua>, lua: &'lua Lua) -> LuaResult<Self> {
+//!         lua.create_registry_value(lua_value).map(Self)
+//!     }
+//! }
+//!
+//! serializable!(serialize::with_lua::<SomeLuaTable>("my.SomeLuaTableComponent"));
+//! ```
+//!
+//! If your Lua value contains references to other Lua values being serialized in the same space,
+//! those references *will* be preserved! The underlying serialization used is from `binser`, which
+//! can be found in the Lua module [`std.binser`](crate::api). If there are unserializable Lua
+//! values such as C functions or userdata or resources which shouldn't be serialized but instead
+//! taken from global constants once deserialized, `binser` provides functionality to deal with
+//! this.
+//!
+//! ## Registering components requiring finalization
+//!
+//! Finalization allows you to run a function on the entire [`Space`] being deserialized after all
+//! the deserialized components are added to it (but not necessarily finalized themselves.)  For
+//! example, here is how Heavy serializes [`ObjectTableComponent`]s; not the use of
+//! [`with_finalizer`] to re-iterate over all the objects w/ [`ObjectTableComponent`]s later, to
+//! finish linking them up (note that the implementation of [`FromLua`] for [`ObjectTableComponent`]
+//! creates a partial entry automatically, which is difficult to show here, but should at least
+//! provide an example of how finalization can be useful with a deserializer.)
+//!
+//! ```rust
+//! # use hv_core::{spaces::{serialize::*, object_table::*}, prelude::*};
+//!
+//! serializable!(with_finalizer(
+//!     with_lua::<ObjectTableComponent>("hv.ObjectTable"),
+//!     |lua, space| {
+//!         // While object tables can be serialized without issue, loading them back up incurs a
+//!         // problem: they are linked to object IDs, and not even hecs entity IDs are available at
+//!         // deserialization time. So we "partially" insert them when deserializing, and then
+//!         // link them to their respective objects after we're done loading everything else.
+//!         let object_table_registry = lua.resource::<ObjectTableRegistry>()?;
+//!         for (object, otc) in space.query_mut::<&ObjectTableComponent>() {
+//!             object_table_registry
+//!                 .borrow_mut()
+//!                 .link_partial_entry_to_object(object, otc.index())?;
+//!         }
+//!
+//!         Ok(())
+//!     }
+//! ));
+//! ```
 
 use std::{
     collections::{BTreeMap, VecDeque},
@@ -29,11 +113,29 @@ use bincode::Options;
 use serde::{de::DeserializeSeed, ser::SerializeTuple, *};
 use thunderdome::Arena;
 
+/// Describes the interface required to register a component type to be serialized. Most of the time
+/// you will not need to implement this trait yourself; it will be enough to use one of the
+/// convenience functions provided in this module:
+///
+/// - [`with_serde`], if your component implements [`Serialize`] and [`Deserialize`]
+/// - [`with_lua`], if your object implements [`ToLua`] and [`FromLua`]
+/// - [`with_finalizer`], if you want to add a finalizer to a constructed [`ComponentSerde`] which
+///   doesn't have one (such as one made with [`with_serde`] or [`with_lua`].)
+///
+/// [`ComponentSerde`] instances can be registered with the [`serializable!`] macro.
 pub trait ComponentSerde {
+    /// A unique string name identifying this component type. This value *is* serialized and is used
+    /// to look up a component type on deserialization, so it should not be carelessly thought out.
     fn name(&self) -> &'static str;
 
+    /// The component type itself, used for determining whether or not this [`ComponentSerde`]
+    /// applies to a given set of components or not. If an [`Archetype`] doesn't have the
+    /// corresponding component, then this [`ComponentSerde`] won't be run on it.
     type Component: Component;
 
+    /// Deserialize all components of this type for a given "column" (archetype.) The deserializer
+    /// must hold a tuple of length `count` containing all serialized components of this type for
+    /// the given archetype.
     fn deserialize_components<'de, D>(
         &self,
         count: u32,
@@ -45,6 +147,8 @@ pub trait ComponentSerde {
         D: Deserializer<'de>,
         D::Error: Send + Sync + 'static;
 
+    /// Serialize all components of this type for a given "column" (archetype.) The components
+    /// should be serialized as a tuple of the same number of entities in the archetype.
     fn serialize_components<F>(
         &self,
         archetype: &Archetype,
@@ -54,12 +158,17 @@ pub trait ComponentSerde {
     where
         F: FnOnce(&dyn erased_serde::Serialize) -> Result<()>;
 
+    /// Called once a space is fully deserialized for all components. If you have any little bits of
+    /// linkage to finish up with deserialized components, this is the place. For example,
+    /// [`ObjectTableComponent`]s are deserialized into "partial" object table entries, so the
+    /// [`ComponentSerde::finalize`] implementation for [`ObjectTableComponent`] completes those
+    /// entries with [`ObjectTableRegistry::link_partial_entry_to_object`].
     fn finalize(&self, _lua: &Lua, _space: &mut Space) -> Result<()> {
         Ok(())
     }
 }
 
-pub trait ErasedComponentSerde {
+trait ErasedComponentSerde {
     fn name(&self) -> &'static str;
     fn contained_in(&self, archetype: &Archetype) -> bool;
     fn add_to_column_batch_type(&self, column_batch_type: &mut ColumnBatchType);
@@ -123,6 +232,7 @@ impl<T: ComponentSerde> ErasedComponentSerde for T {
     }
 }
 
+#[doc(hidden)]
 pub struct Serializable {
     inner: Box<dyn ErasedComponentSerde>,
 }
@@ -137,6 +247,11 @@ impl Serializable {
     }
 }
 
+/// Register a [`ComponentSerde`] instance.
+///
+/// Under the hood, this macro uses [`inventory::submit!`], so it does not actually generate code
+/// that needs to run or be placed in a function! It is enough to place a [`serializable!`] call at
+/// the top level of a module.
 #[macro_export]
 macro_rules! serializable {
     ($e:expr) => {
@@ -149,6 +264,10 @@ macro_rules! serializable {
     };
 }
 
+/// Construct a [`ComponentSerde`] instance for a type which can be freely converted to and from a
+/// Lua value. On serialization, the type will be converted to Lua and then serialized using
+/// along with all other Lua objects in the [`SerdeContext`], preserving any references to other
+/// tables or Lua objects being serialized in the same space.
 pub fn with_lua<T: Component + for<'lua> FromLua<'lua>>(
     name: &'static str,
 ) -> impl ComponentSerde<Component = T>
@@ -182,13 +301,13 @@ where
         where
             F: FnOnce(&dyn erased_serde::Serialize) -> Result<(), Error>,
         {
-            let strings = archetype
+            let slots = archetype
                 .get::<T>()
                 .expect("already checked")
                 .iter()
                 .map(|t| serde_ctx.serialize_lua_value(t.to_lua(serde_ctx.lua)?))
                 .collect::<Result<Vec<_>>>()?;
-            serialize(&strings)
+            serialize(&slots)
         }
 
         fn deserialize_components<'de, D>(
@@ -235,6 +354,8 @@ where
     }
 }
 
+/// Serialize this object with its serde [`Serialize`] and [`Deserialize`] implementations. Most of
+/// the time this will be what you want for adding serialization to your components.
 pub fn with_serde<T: Component + Serialize + for<'de> Deserialize<'de>>(
     name: &'static str,
 ) -> impl ComponentSerde<Component = T> {
@@ -366,6 +487,8 @@ pub fn with_serde<T: Component + Serialize + for<'de> Deserialize<'de>>(
     }
 }
 
+/// Add a finalizer function to a [`ComponentSerde`]. Most useful when you need to make one more
+/// pass over every object containing your component in the world, with the object ID available.
 pub fn with_finalizer(
     cs: impl ComponentSerde,
     f: impl Fn(&Lua, &mut Space) -> Result<()>,
@@ -441,10 +564,13 @@ serializable!(with_finalizer(
     }
 ));
 
+/// Context and state available to serializers and deserializers. The [`SerdeContext`] handles
+/// serialization/deserialization of Lua objects and also provides access to the Lua context, which
+/// can be useful for grabbing stored global resources such as the [`ObjectTableRegistry`].
 pub struct SerdeContext<'a> {
-    pub serdes: BTreeMap<&'static str, &'static dyn ErasedComponentSerde>,
-    pub lua: &'a Lua,
-    pub lua_objects: Arena<LuaRegistryKey>,
+    serdes: BTreeMap<&'static str, &'static dyn ErasedComponentSerde>,
+    lua: &'a Lua,
+    lua_objects: Arena<LuaRegistryKey>,
 
     components: VecDeque<&'static dyn ErasedComponentSerde>,
 
@@ -453,6 +579,10 @@ pub struct SerdeContext<'a> {
 }
 
 impl<'a> SerdeContext<'a> {
+    /// Construct an empty [`SerdeContext`] for serialization. During serialization, all components
+    /// are serialized first before any Lua values, which populates the [`SerdeContext`] with all
+    /// the Lua data; then, the [`SerdeContext`] puts all that Lua data into a single Lua table and
+    /// serializes it all at once, preserving references between Lua objects.
     pub fn new(lua: &'a Lua) -> Result<Self> {
         let serdes = inventory::iter::<Serializable>
             .into_iter()
@@ -475,6 +605,9 @@ impl<'a> SerdeContext<'a> {
         })
     }
 
+    /// Construct a [`SerdeContext`] for deserialization, populating it with Lua values from a
+    /// serialized table. This must be used before deserializing Rust component data, as otherwise
+    /// the Rust components will not be able to look up any Lua values they contain.
     pub fn with_lua_objects<'de, D: Deserializer<'de>>(
         lua: &'a Lua,
         deserializer: D,
@@ -501,6 +634,13 @@ impl<'a> SerdeContext<'a> {
         Ok(this)
     }
 
+    /// Reference to the internal Lua context.
+    pub fn lua(&self) -> &'a Lua {
+        self.lua
+    }
+
+    /// Serialize all Lua objects in this context by adding them all to a single Lua table and
+    /// serializing that table with `binser`.
     pub fn dump_lua_objects<S: Serializer>(&self, serializer: S) -> Result<S::Ok>
     where
         S::Error: Send + Sync + 'static,
@@ -527,6 +667,7 @@ impl<'a> SerdeContext<'a> {
         Ok(lua_string.as_bytes().serialize(serializer)?)
     }
 
+    /// Add a Lua value to be serialized, receiving an index with which to deserialize it later.
     pub fn serialize_lua_value(&mut self, value: LuaValue<'a>) -> Result<u32> {
         Ok(self
             .lua_objects
@@ -534,6 +675,7 @@ impl<'a> SerdeContext<'a> {
             .slot())
     }
 
+    /// Retrieve a deserialized Lua value with the index it was serialized with.
     pub fn deserialize_lua_value(&mut self, slot: u32) -> Result<LuaValue<'a>> {
         Ok(self
             .lua
@@ -665,6 +807,9 @@ impl<'a> hecs::serialize::column::DeserializeContext for SerdeContext<'a> {
     }
 }
 
+/// Deserialize a space from two separate deserializers containing the Rust objects and Lua values.
+/// Most useful if you're doing something which requires storing serialized [`Space`]s in memory, as
+/// otherwise serializing/deserializing from a single chunk of bytes is less efficient.
 pub fn deserialize_separate<'de, D, E>(
     space: &Shared<Space>,
     lua: &Lua,
@@ -721,6 +866,8 @@ where
     })
 }
 
+/// Serialize a space to two separate serializers, one for Rust objects and the other for Lua
+/// values.
 pub fn serialize_separate<S, T>(
     shared_space: &Shared<Space>,
     lua: &Lua,
@@ -753,6 +900,7 @@ where
     Ok((ok_s, ok_t))
 }
 
+/// Serialize a space to a writer as a single chunk of bytes.
 pub fn serialize_whole<W: Write>(space: &Shared<Space>, lua: &Lua, writer: W) -> Result<()> {
     let mut lua_object_buf = Vec::new();
     let mut ecs_object_buf = Vec::new();
@@ -773,6 +921,7 @@ pub fn serialize_whole<W: Write>(space: &Shared<Space>, lua: &Lua, writer: W) ->
     Ok(())
 }
 
+/// Deserialize a space as a single chunk of bytes, from a reader.
 pub fn deserialize_whole<R: Read>(space: &Shared<Space>, lua: &Lua, reader: R) -> Result<()> {
     let (ecs_object_buf, lua_object_buf): (Vec<u8>, Vec<u8>) = bincode::deserialize_from(reader)?;
 

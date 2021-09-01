@@ -21,7 +21,6 @@ use hv_core::{
     engine::{Engine, EngineRef, EventHandler},
     input::{KeyCode, KeyMods, MouseButton},
     prelude::*,
-    util::RwLockExt,
 };
 
 /*
@@ -48,13 +47,9 @@ use hv_core::{
  * SOFTWARE.
  */
 
-use std::{
-    borrow::Cow,
-    fmt,
-    sync::{Arc, RwLock},
-};
+use std::{borrow::Cow, fmt};
 
-pub struct DynamicScene<C, Ev>(Arc<RwLock<dyn Scene<C, Ev>>>);
+pub struct DynamicScene<C, Ev>(Shared<dyn Scene<C, Ev>>);
 
 impl<C, Ev> Clone for DynamicScene<C, Ev> {
     fn clone(&self) -> Self {
@@ -75,15 +70,15 @@ impl<C, Ev> DynamicScene<C, Ev> {
     where
         T: Scene<C, Ev> + 'static,
     {
-        Self(Arc::new(RwLock::new(scene)))
+        Self(Shared::new(scene))
     }
 
     fn map_mut_inner<F, R>(&mut self, f: F) -> R
     where
         F: FnOnce(&mut dyn Scene<C, Ev>) -> R,
     {
-        match Arc::get_mut(&mut self.0) {
-            Some(m) => f(m.get_mut().unwrap()),
+        match self.0.get_mut() {
+            Some(m) => f(m),
             None => f(&mut *self.0.borrow_mut()),
         }
     }
@@ -322,7 +317,7 @@ where
     }
 }
 
-impl<C, E, T: Scene<C, E>> Scene<C, E> for Arc<RwLock<T>> {
+impl<C, E, T: Scene<C, E>> Scene<C, E> for Shared<T> {
     fn update(&mut self, scene_stack: &mut SceneStack<C, E>, ctx: &mut C) -> Result<()> {
         self.borrow_mut().update(scene_stack, ctx)
     }

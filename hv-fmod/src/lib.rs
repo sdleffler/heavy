@@ -16,14 +16,13 @@ use {
         ffi::CString,
         ptr, str,
         sync::mpsc::{Receiver, Sender},
-        sync::Arc,
     },
 };
 
 pub mod bank;
 pub mod event;
 
-use std::sync::{Mutex, RwLock};
+use std::sync::Mutex;
 
 pub use bank::*;
 pub use event::*;
@@ -317,7 +316,7 @@ impl FmodSystemBuilder {
         let fmod = Fmod {
             ptr: self.system,
             callbacks: Mutex::new(Arena::new()),
-            cleanup: Arc::new(RwLock::new(AtomicBitSet::new())),
+            cleanup: Shared::new(AtomicBitSet::new()),
             cq_recv,
             cq_send,
         };
@@ -334,7 +333,7 @@ pub struct Fmod {
     pub(crate) ptr: *mut FMOD_STUDIO_SYSTEM,
 
     callbacks: Mutex<Arena<LuaRegistryKey>>,
-    cleanup: Arc<RwLock<AtomicBitSet>>,
+    cleanup: Shared<AtomicBitSet>,
 
     pub(crate) cq_recv: Receiver<(Index, EventInstance, EventCallbackInfo)>,
     pub(crate) cq_send: Sender<(Index, EventInstance, EventCallbackInfo)>,
@@ -546,13 +545,13 @@ impl LuaResource for Fmod {
 
 #[derive(Debug)]
 pub(crate) struct CallbackDropGuard {
-    cleanup: Arc<RwLock<AtomicBitSet>>,
+    cleanup: Shared<AtomicBitSet>,
     index: Index,
 }
 
 impl Drop for CallbackDropGuard {
     fn drop(&mut self) {
-        self.cleanup.read().unwrap().add_atomic(self.index.slot());
+        self.cleanup.borrow().add_atomic(self.index.slot());
     }
 }
 

@@ -9,15 +9,21 @@ use crate::{
     plugins::{ModuleWrapper, Plugin},
 };
 
+/// The Lua registry key holding the package module table.
 pub const HV_PACKAGE: &str = "HV_PACKAGE";
+
+/// The default value for `hv.package.path`.
 pub const HV_DEFAULT_PATH: &str = "/?.lua:/?/init.lua:/scripts/?.lua:/scripts/?/init.lua";
 
+/// A `LoadedModule` contains the path to the module as well as a function to complete the loading
+/// process. Calling the function executes the loaded module file.
 #[derive(Debug, Clone)]
 pub struct LoadedModule<'lua> {
     pub path: String,
     pub loaded: LuaFunction<'lua>,
 }
 
+/// Load a Lua file as a function.
 pub fn load<'lua>(engine: &Engine, lua: &'lua Lua, module: &str) -> LuaResult<LoadedModule<'lua>> {
     let package = lua.named_registry_value::<_, LuaTable>(HV_PACKAGE)?;
     let package_path = package.get::<_, LuaString>("path")?;
@@ -58,6 +64,9 @@ pub fn load<'lua>(engine: &Engine, lua: &'lua Lua, module: &str) -> LuaResult<Lo
 
 /// Lua-exposed function for loading a module from sludge's `Filesystem`.
 ///
+/// Unlike [`load`], this function will not re-load/execute a module which is already loaded and
+/// present in the module cache.
+///
 /// Similar to Lua's built-in `require`, this will search along paths found in
 /// `sludge.package.path`, which is expected to be a colon-separated list of
 /// paths to search, where any `?` characters found are replaced by the module
@@ -79,7 +88,7 @@ pub fn require<'lua>(engine: &Engine, lua: &'lua Lua, module: String) -> LuaResu
     }
 }
 
-pub struct PackageModule;
+struct PackageModule;
 
 impl Plugin for PackageModule {
     fn name(&self) -> &'static str {

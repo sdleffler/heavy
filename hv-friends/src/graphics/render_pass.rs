@@ -1,9 +1,6 @@
 use hibitset::{AtomicBitSet, DrainableBitSet};
-use hv_core::{mlua::prelude::*, mq, util::RwLockExt};
-use std::{
-    ops::Deref,
-    sync::{Arc, RwLock},
-};
+use hv_core::{mq, prelude::*};
+use std::{ops::Deref, sync::Arc};
 use thunderdome::{Arena, Index};
 
 use crate::graphics::{Graphics, SharedTexture};
@@ -11,14 +8,14 @@ use crate::graphics::{Graphics, SharedTexture};
 #[derive(Debug)]
 pub(crate) struct RenderPassRegistry {
     registry: Arena<mq::RenderPass>,
-    cleanup: Arc<RwLock<AtomicBitSet>>,
+    cleanup: Shared<AtomicBitSet>,
 }
 
 impl RenderPassRegistry {
     pub(crate) fn new() -> Self {
         Self {
             registry: Arena::new(),
-            cleanup: Arc::new(RwLock::new(AtomicBitSet::new())),
+            cleanup: Shared::new(AtomicBitSet::new()),
         }
     }
 
@@ -47,7 +44,7 @@ impl RenderPassRegistry {
 pub struct OwnedRenderPass {
     pub handle: mq::RenderPass,
     registry_index: Index,
-    registry_cleanup: Arc<RwLock<AtomicBitSet>>,
+    registry_cleanup: Shared<AtomicBitSet>,
 }
 
 impl Drop for OwnedRenderPass {

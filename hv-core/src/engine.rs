@@ -1,3 +1,5 @@
+//! Event handling, window/graphics context creation and the main game loop.
+//!
 //! The core type, representing an instance of the Heavy framework with a Lua context,
 //! window/graphics context, and more. I can't imagine a case where you'd need more than one of
 //! these. Use [`Engine::run`] to start your event loop.
@@ -9,7 +11,7 @@ use {
         any::{Any, TypeId},
         collections::HashMap,
         marker::PhantomData,
-        sync::{Arc as StdArc, Mutex, MutexGuard, RwLock, Weak as StdWeak},
+        sync::{Arc as StdArc, Mutex, MutexGuard, Weak as StdWeak},
     },
 };
 
@@ -22,15 +24,19 @@ use crate::{
     input::{CursorIcon, GamepadAxis, GamepadButton, KeyCode, KeyMods, MouseButton},
     mlua::prelude::*,
     shared::{Shared, Weak},
-    util::RwLockExt,
 };
 
+/// Currently miniquad's update rate is fixed to 60 frames per second.
 pub const MINIQUAD_DT: f32 = 1. / 60.;
 
+/// A [`LuaResource`] can be fetched from the Lua context, similarly to how a regular resource can
+/// be fetched from [`Engine::get`]. Most of the time a resource can be fetched from both locations.
 pub trait LuaResource: LuaUserData + Send + Sync + 'static {
     const REGISTRY_KEY: &'static str;
 }
 
+/// An extension trait implemented on the [`Lua`] context type, allowing for easily registering and
+/// retrieving shared resources.
 pub trait LuaExt {
     fn resource<T: LuaResource>(&self) -> LuaResult<Shared<T>>;
     fn register<T: LuaResource>(&self, resource: Shared<T>) -> LuaResult<()>;
@@ -57,17 +63,31 @@ struct EngineInner {
     resources: Mutex<HashMap<TypeId, Box<dyn Any + Send + Sync>>>,
 }
 
+/// A "weak" shared reference to the [`Engine`].
+///
+/// It's unlikely that you care about leaking an [`Engine`], but if you do, weak references should
+/// be used to break cycles. In addition, they can be initialized as "empty", unlike strong
+/// references, and so you can use them when you can't immediately get an [`Engine`] in some
+/// context. The [`EngineRefCache`] also exists to help with this, mostly in the context of Rust
+/// code which has nothing to interact with but the Lua context.
+///
+/// Can be upgraded to a strong reference temporarily with [`EngineRef::upgrade`].
 #[derive(Clone)]
 pub struct EngineRef {
     weak: StdWeak<EngineInner>,
 }
 
+/// A "strong" shared reference to the running "engine" and all its resources.
 pub struct Engine<'a> {
     _restrictor: PhantomData<&'a ()>,
     inner: StdArc<EngineInner>,
 }
 
 impl Engine<'static> {
+    /// Create a new engine from its parts.
+    ///
+    /// ***Normally you will never call this yourself!*** You will almost always want to use
+    /// [`Engine::run`] instead!!
     pub fn new(fs: Filesystem, mq: mq::Context, handler: impl EventHandler) -> Result<Self> {
         use mlua::StdLib;
         let lua = Lua::new_with(
@@ -120,7 +140,16 @@ impl Engine<'static> {
         Ok(this)
     }
 
-    pub fn run(conf: Conf, handler: impl EventHandler) {
+    /// Construct an [`Engine`], initialize an [`EventHandler`] from it, and start the main event
+    /// loop.
+    ///
+    /// 99.9% of the time this is your entrypoint to Heavy, and the last thing in your `main`
+    /// function.
+    pub fn run<H: EventHandler>(
+        conf: Conf,
+        handler_constructor: impl FnOnce(&Engine) -> Result<H> + Send + Sync + 'static,
+    ) {
+        let handler = LazyHandler::new(handler_constructor);
         mq::start(
             mq::conf::Conf {
                 window_title: conf.window_title.clone(),
@@ -134,32 +163,39 @@ impl Engine<'static> {
 }
 
 impl<'a> Engine<'a> {
+    /// Get a weak reference from this strong reference.
     pub fn downgrade(&self) -> EngineRef {
         EngineRef {
             weak: StdArc::downgrade(&self.inner),
         }
     }
 
+    /// Acquire a lock on the event handler.
     pub fn handler(&self) -> MutexGuard<Box<dyn EventHandler>> {
         self.inner.handler.try_lock().unwrap()
     }
 
+    /// Acquire a lock on the Lua context.
     pub fn lua(&self) -> MutexGuard<Lua> {
         self.inner.lua.try_lock().unwrap()
     }
 
+    /// Acquire a lock on the miniquad context.
     pub fn mq(&self) -> MutexGuard<mq::Context> {
         self.inner.mq.try_lock().unwrap()
     }
 
+    /// Acquire a lock on the GilRs context.
     pub fn gilrs(&self) -> MutexGuard<SendWrapper<Gilrs>> {
         self.inner.gilrs.try_lock().unwrap()
     }
 
+    /// Acquire a lock on the [`Filesystem`].
     pub fn fs(&self) -> MutexGuard<Filesystem> {
         self.inner.fs.try_lock().unwrap()
     }
 
+    /// Insert a resource already wrapped in a [`Shared`].
     pub fn insert_wrapped<T: Send + Sync + 'static>(&self, resource: Shared<T>) {
         self.inner
             .resources
@@ -168,12 +204,14 @@ impl<'a> Engine<'a> {
             .insert(TypeId::of::<T>(), Box::new(resource));
     }
 
+    /// Insert a resource into the internal type-to-value resource map.
     pub fn insert<T: Send + Sync + 'static>(&self, resource: T) -> Shared<T> {
         let res = Shared::new(resource);
         self.insert_wrapped(res.clone());
         res
     }
 
+    /// Get a resource from the internal resource map. Will panic if the resource is not present.
     pub fn get<T: Send + Sync + 'static>(&self) -> Shared<T> {
         self.inner.resources.lock().unwrap()[&TypeId::of::<T>()]
             .downcast_ref::<Shared<T>>()
@@ -181,6 +219,7 @@ impl<'a> Engine<'a> {
             .clone()
     }
 
+    /// Get a resource from the internal resource map if present, returning `None` if it is missing.
     pub fn try_get<T: Send + Sync + 'static>(&self) -> Option<Shared<T>> {
         self.inner
             .resources
@@ -190,14 +229,17 @@ impl<'a> Engine<'a> {
             .map(|entry| entry.downcast_ref::<Shared<T>>().unwrap().clone())
     }
 
+    /// Set whether the mouse is shown on-screen.
     pub fn show_mouse(&self, show: bool) {
         self.mq().show_mouse(show);
     }
 
+    /// Set whether the mouse is "grabbed" (locked in place and hidden.)
     pub fn set_mouse_grabbed(&self, grabbed: bool) {
         self.mq().set_cursor_grab(grabbed);
     }
 
+    /// Set the mouse cursor icon.
     pub fn set_mouse_cursor(&self, icon: CursorIcon) {
         self.mq().set_mouse_cursor(icon.into());
     }
@@ -210,12 +252,14 @@ impl Default for EngineRef {
 }
 
 impl EngineRef {
+    /// Create a new empty [`EngineRef`] that points to nothing.
     pub fn new() -> Self {
         Self {
             weak: StdWeak::new(),
         }
     }
 
+    /// Try to upgrade to a strong reference.
     pub fn try_upgrade(&self) -> Option<Engine> {
         self.weak.upgrade().map(|inner| Engine {
             _restrictor: PhantomData,
@@ -223,6 +267,7 @@ impl EngineRef {
         })
     }
 
+    /// Upgrade to a strong reference and panic if we can't.
     pub fn upgrade(&self) -> Engine {
         self.try_upgrade()
             .expect("failed to upgrade weak reference!")
@@ -270,6 +315,8 @@ impl EngineRefCache {
     }
 }
 
+/// A simple cache for holding resources that may or may not be initialized when the cache is
+/// created.
 #[derive(Debug)]
 pub struct WeakResourceCache<T> {
     weak: Weak<T>,
@@ -290,10 +337,14 @@ impl<T> Default for WeakResourceCache<T> {
 }
 
 impl<T> WeakResourceCache<T> {
+    /// Create a new empty `WeakResourceCache`.
     pub fn new() -> Self {
         Self { weak: Weak::new() }
     }
 
+    /// If the cache's internal [`Weak`] is valid, upgrade it to a strong reference and return it;
+    /// otherwise, call the provided `init` closure, create a downgraded copy of the returned strong
+    /// value and store it in the cache, and then return the strong value.
     pub fn get<F: FnOnce() -> Result<Shared<T>, E>, E>(&mut self, init: F) -> Result<Shared<T>, E> {
         match self.weak.try_upgrade() {
             Some(resource) => Ok(resource),
@@ -306,12 +357,12 @@ impl<T> WeakResourceCache<T> {
     }
 }
 
+/// The main event handler interface for Heavy. This is how your main game loop gets driven.
 pub trait EventHandler: Send + Sync + 'static {
-    fn init(&mut self, _engine: &Engine) -> Result<()> {
-        Ok(())
-    }
-
+    /// Called once per frame; use this to run your update code.
     fn update(&mut self, engine: &Engine, dt: f32) -> Result<()>;
+
+    /// Called once per frame; use this to run your rendering/drawing code.
     fn draw(&mut self, engine: &Engine) -> Result<()>;
 
     fn key_down_event(
@@ -394,6 +445,14 @@ pub trait EventHandler: Send + Sync + 'static {
 
     fn gamepad_disconnected_event(&mut self, _engine: &Engine) {
         log::trace!("unhandled gamepad_disconnected_event()");
+    }
+
+    /// Called after the [`Engine`] is created. Normally you won't need this, as [`Engine::run`]
+    /// lets you construct an [`EventHandler`] directly from a strong reference to the engine.
+    /// Internally however that call uses a [`LazyHandler`], which runs your constructor closure in
+    /// its own `init` method.
+    fn init(&mut self, _engine: &Engine) -> Result<()> {
+        Ok(())
     }
 }
 
@@ -497,7 +556,7 @@ impl mq::EventHandlerFree for Engine<'static> {
     fn quit_requested_event(&mut self) {}
 }
 
-impl<T: EventHandler> EventHandler for StdArc<RwLock<T>> {
+impl<T: EventHandler> EventHandler for Shared<T> {
     fn init(&mut self, engine: &Engine) -> Result<()> {
         self.borrow_mut().init(engine)
     }
@@ -569,9 +628,12 @@ enum LazyHandlerState {
     Empty,
 }
 
+/// An event handler which lazily initializes another handler inside it and then delegates all
+/// events to it.
 pub struct LazyHandler(LazyHandlerState);
 
 impl LazyHandler {
+    /// Create a new lazy handler from a closure used to initialize the internal handler.
     pub fn new<H: EventHandler>(
         f: impl FnOnce(&Engine) -> Result<H> + Send + Sync + 'static,
     ) -> Self {

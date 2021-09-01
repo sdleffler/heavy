@@ -4,7 +4,6 @@ use hv_core::{
     plugins::Plugin,
     prelude::*,
     spaces::{Object, SpaceCache},
-    util::RwLockExt,
 };
 use hv_friends::{
     graphics::{Color, DrawMode, MeshBuilder},
@@ -167,4 +166,4 @@ impl Plugin for CombatGeometryComponentPlugin {
     }
 }
 
-hv_core::component!(CombatGeometryComponentPlugin);
+// hv_core::component!(CombatGeometryComponentPlugin);

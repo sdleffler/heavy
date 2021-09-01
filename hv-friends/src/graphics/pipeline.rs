@@ -1,9 +1,6 @@
 use hibitset::{AtomicBitSet, DrainableBitSet};
-use hv_core::{mq, prelude::*, util::RwLockExt};
-use std::{
-    ops,
-    sync::{Arc, RwLock},
-};
+use hv_core::{mq, prelude::*};
+use std::{ops, sync::Arc};
 use thunderdome::{Arena, Index};
 
 use crate::graphics::{BlendMode, Graphics, GraphicsLock, GraphicsLockExt};
@@ -305,14 +302,14 @@ impl LuaUserData for ShaderLayout {}
 #[derive(Debug)]
 pub(crate) struct ShaderRegistry {
     registry: Arena<mq::Shader>,
-    cleanup: Arc<RwLock<AtomicBitSet>>,
+    cleanup: Shared<AtomicBitSet>,
 }
 
 impl ShaderRegistry {
     pub fn new() -> Self {
         Self {
             registry: Arena::new(),
-            cleanup: Arc::new(RwLock::new(AtomicBitSet::new())),
+            cleanup: Shared::new(AtomicBitSet::new()),
         }
     }
 
@@ -341,7 +338,7 @@ impl ShaderRegistry {
 pub struct OwnedShader {
     pub handle: mq::Shader,
     registry_index: Index,
-    registry_cleanup: Arc<RwLock<AtomicBitSet>>,
+    registry_cleanup: Shared<AtomicBitSet>,
 }
 
 impl Drop for OwnedShader {
@@ -410,14 +407,14 @@ impl LuaUserData for PipelineParams {}
 #[derive(Debug)]
 pub(crate) struct PipelineRegistry {
     registry: Arena<mq::Pipeline>,
-    cleanup: Arc<RwLock<AtomicBitSet>>,
+    cleanup: Shared<AtomicBitSet>,
 }
 
 impl PipelineRegistry {
     pub fn new() -> Self {
         Self {
             registry: Arena::new(),
-            cleanup: Arc::new(RwLock::new(AtomicBitSet::new())),
+            cleanup: Shared::new(AtomicBitSet::new()),
         }
     }
 
@@ -456,7 +453,7 @@ pub struct OwnedPipeline {
     pub layout: PipelineLayout,
     pub shader: Shader,
     registry_index: Index,
-    registry_cleanup: Arc<RwLock<AtomicBitSet>>,
+    registry_cleanup: Shared<AtomicBitSet>,
 }
 
 #[derive(Debug, Clone)]

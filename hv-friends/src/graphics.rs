@@ -4,7 +4,7 @@ use std::{
     sync::{Arc, Mutex, MutexGuard, RwLock},
 };
 
-use hv_core::{components::DynamicComponentConstructor, engine::{Engine, EngineRef, LuaExt, LuaResource}, mq::{self, PassAction}, prelude::*, shared::{Shared, RefMut}, util::RwLockExt};
+use hv_core::{components::DynamicComponentConstructor, engine::{Engine, EngineRef, LuaExt, LuaResource}, mq::{self, PassAction}, prelude::*, shared::{Shared, RefMut}};
 use serde::*;
 
 use crate::{graphics::{bindings::Bindings, lua::{LuaDrawMode, LuaGraphicsState}, pipeline::{Pipeline, PipelineRegistry, ShaderRegistry}, render_pass::RenderPassRegistry, sprite::{CachedSpriteSheet, SpriteAnimationState, SpriteSheetCache}, texture::TextureCache}, math::*};
@@ -246,7 +246,7 @@ impl<T: DrawableMut + ?Sized> DrawableMut for RwLock<T> {
 
 impl<T: DrawableMut + ?Sized> Drawable for RwLock<T> {
     fn draw(&self, ctx: &mut Graphics, instance: Instance) {
-        self.borrow_mut().draw_mut(ctx, instance)
+        self.try_write().unwrap().draw_mut(ctx, instance)
     }
 }
 

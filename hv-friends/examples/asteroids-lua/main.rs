@@ -16,5 +16,5 @@ fn main() {
         ..Conf::default()
     };
 
-    Engine::run(conf, SimpleHandler::new("main"))
+    Engine::run(conf, |_| Ok(SimpleHandler::new("main")))
 }

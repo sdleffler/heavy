@@ -1,22 +1,18 @@
-//! This is a lightly modified version of the `ggez-goodies`
-//! crate's `input.rs` module; please see the source for the
+//! Abstractions for handling input and creating input key/button/etc. bindings.
+//!
+//! Heavily based on the `ggez-goodies` crate's `input.rs` module; please see the source for the
 //! license notification.
 //!
-//! An abstract input state object that gets fed user
-//! events and updates itself based on a set of key
-//! bindings.
+//! An abstract input state object that gets fed user events and updates itself based on a set of
+//! key bindings.
 //!
 //! The goals are:
 //!
-//! * Have a layer of abstract key bindings rather than
-//! looking at concrete event types
-//! * Use this to be able to abstract away differences
-//! between keyboards, joysticks and game controllers
-//! (rather based on Unity3D),
-//! * Do some tweening of input axes and stuff just for
-//! fun.
-//! * Present event- or state-based API so you can do
-//! whichever you want.
+//! * Have a layer of abstract key bindings rather than looking at concrete event types
+//! * Use this to be able to abstract away differences between keyboards, joysticks and game
+//!   controllers (rather based on Unity3D),
+//! * Do some tweening of input axes and stuff just for fun.
+//! * Present event- or state-based API so you can do whichever you want.
 
 /*
  * MIT License

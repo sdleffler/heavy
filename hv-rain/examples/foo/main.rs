@@ -316,5 +316,5 @@ fn main() {
         ..Conf::default()
     };
 
-    Engine::run(conf, GameHandler::new())
+    Engine::run(conf, |_| Ok(GameHandler::new()))
 }

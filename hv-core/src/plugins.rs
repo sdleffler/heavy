@@ -1,7 +1,11 @@
-//! Heavy's Lua plugin registry, used for registering your Rust-to-Lua bindings. Plugins generate
-//! Lua tables which are automatically loaded into an `Engine`'s Lua context, as entries under the
-//! global table `hv.plugins`. You usually will not access plugins directly, but instead through
-//! using the bundled Lua APIs that come with whatever library registered them.
+//! Lua plugin registry, for registering Rust-to-Lua bindings.
+//!
+//! Plugins generate Lua tables which are automatically loaded into an `Engine`'s Lua context, as
+//! entries under the global table `hv.plugins`. You usually will not access plugins directly, but
+//! instead through using the bundled Lua APIs that come with whatever library registered them.
+//!
+//! Plugins can be implemented using the [`Plugin`] trait, and then registered using the [`plugin!`]
+//! macro.
 
 use crate::{engine::Engine, error::*, mlua::prelude::*};
 
@@ -12,6 +16,9 @@ pub use crate::inventory::*;
 /// Specifically, when the `Engine` is first loaded, all plugins will have their `open` methods
 /// called, and the resulting tables will be stored in the global table `hv.plugins`, as values
 /// paired with their names as keys.
+///
+/// Plugins must be registered with the [`plugin!`] macro, otherwise they won't be loaded at
+/// runtime.
 pub trait Plugin: 'static {
     /// The name of this plugin, used as a string key for the `hv.plugins` table.
     fn name(&self) -> &'static str;
@@ -62,6 +69,7 @@ impl PluginWrapper {
     }
 }
 
+/// Register a [`Plugin`] instance.
 #[macro_export]
 macro_rules! plugin {
     ($e:expr) => {

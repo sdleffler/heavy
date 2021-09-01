@@ -1,5 +1,6 @@
 //! The core functionality of the Heavy game framework.
 
+#![feature(coerce_unsized, unsize)]
 #![feature(ptr_metadata)]
 
 pub extern crate hecs;
@@ -11,7 +12,6 @@ pub extern crate nalgebra as na;
 mod logger;
 mod package;
 mod path_clean;
-pub mod util;
 mod vfs;
 
 pub mod components;
@@ -26,15 +26,19 @@ pub mod swappable_cache;
 pub mod xsbox;
 
 pub mod error {
-    //! This module reexports the `anyhow` crate as a standard solution for error representation,
-    //! for crates in the Heavy family.
+    //! Reexport of the [`mod@anyhow`] crate.
+    //!
+    //! This is your standard solution for error handling/representation in the Heavy crate family,
+    //! and helps ensure compatibility between error types and makes throwing and handling errors
+    //! much smoother than having unique error types everywhere.
 
     pub use anyhow::*;
 }
 
 pub mod prelude {
-    //! Common types which you'll use almost everywhere when working with Heavy. If you're willing
-    //! to use glob imports, a `use hv_core::prelude::*;` won't hurt.
+    //! Common types which you'll use almost everywhere when working with Heavy.
+    //!
+    //! If you're willing to use glob imports, a `use hv_core::prelude::*;` won't hurt.
 
     pub use crate::{
         engine::LuaExt,
@@ -42,7 +46,6 @@ pub mod prelude {
         inventory,
         mlua::{self, prelude::*, Variadic as LuaVariadic},
         shared::Shared,
-        util::RwLockExt,
     };
 }
 

@@ -1,4 +1,4 @@
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use hv_core::{engine::WeakResourceCache, prelude::*};
 
@@ -143,7 +143,7 @@ pub(crate) struct LuaGraphicsState {
 }
 
 impl LuaGraphicsState {
-    pub fn new(gfx: &mut Graphics) -> Arc<RwLock<Self>> {
+    pub fn new(gfx: &mut Graphics) -> Shared<Self> {
         let font = CachedFontAtlas::new_uncached(
             FontAtlas::from_reader(
                 gfx,
@@ -156,7 +156,7 @@ impl LuaGraphicsState {
         let text_layout = TextLayout::new(font);
         let text = Text::new(gfx);
 
-        Arc::new(RwLock::new(Self {
+        Shared::new(Self {
             line_width: 1.,
             point_size: 1.,
             color: Color::WHITE,
@@ -166,7 +166,7 @@ impl LuaGraphicsState {
             // font,
             text_layout,
             text,
-        }))
+        })
     }
 
     pub fn circle(
@@ -278,7 +278,7 @@ impl LuaGraphicsState {
 }
 
 pub(crate) fn circle(
-    lgs: Arc<RwLock<LuaGraphicsState>>,
+    lgs: Shared<LuaGraphicsState>,
     gfx_lock: Shared<GraphicsLock>,
 ) -> lua_fn!(Fn<'lua>((LuaDrawMode, f32, f32, f32)) -> ()) {
     move |_, (mode, x, y, radius)| {
@@ -289,7 +289,7 @@ pub(crate) fn circle(
 }
 
 pub(crate) fn line(
-    lgs: Arc<RwLock<LuaGraphicsState>>,
+    lgs: Shared<LuaGraphicsState>,
     gfx_lock: Shared<GraphicsLock>,
 ) -> lua_fn!(Fn<'lua>(PointBuffer) -> ()) {
     move |_, point_buffer| {
@@ -300,7 +300,7 @@ pub(crate) fn line(
 }
 
 pub(crate) fn points(
-    lgs: Arc<RwLock<LuaGraphicsState>>,
+    lgs: Shared<LuaGraphicsState>,
     gfx_lock: Shared<GraphicsLock>,
 ) -> lua_fn!(Fn<'lua>(PointBuffer) -> ()) {
     move |_, point_buffer| {
@@ -311,7 +311,7 @@ pub(crate) fn points(
 }
 
 pub(crate) fn polygon(
-    lgs: Arc<RwLock<LuaGraphicsState>>,
+    lgs: Shared<LuaGraphicsState>,
     gfx_lock: Shared<GraphicsLock>,
 ) -> lua_fn!(Fn<'lua>((LuaDrawMode, PointBuffer)) -> ()) {
     move |_, (mode, point_buffer)| {
@@ -322,7 +322,7 @@ pub(crate) fn polygon(
 }
 
 pub(crate) fn print(
-    lgs: Arc<RwLock<LuaGraphicsState>>,
+    lgs: Shared<LuaGraphicsState>,
     gfx_lock: Shared<GraphicsLock>,
 ) -> lua_fn!(Fn<'lua>((LuaString<'lua>, LuaVariadic<f32>)) -> ()) {
     move |_, (text, params): (LuaString, LuaVariadic<f32>)| {
@@ -352,7 +352,7 @@ pub(crate) fn print(
 }
 
 pub(crate) fn clear(
-    lgs: Arc<RwLock<LuaGraphicsState>>,
+    lgs: Shared<LuaGraphicsState>,
     gfx_lock: Shared<GraphicsLock>,
 ) -> lua_fn!(Fn<'lua>(LuaMultiValue<'lua>) -> ()) {
     move |lua, values: LuaMultiValue| {
@@ -384,7 +384,7 @@ pub(crate) fn present(gfx_lock: Shared<GraphicsLock>) -> lua_fn!(Fn<'lua>(()) ->
 }
 
 pub(crate) fn set_color(
-    lgs: Arc<RwLock<LuaGraphicsState>>,
+    lgs: Shared<LuaGraphicsState>,
 ) -> lua_fn!(Fn<'lua>((f32, f32, f32, Option<f32>)) -> ()) {
     move |_, (r, g, b, maybe_a)| {
         lgs.borrow_mut().color = Color::new(r, g, b, maybe_a.unwrap_or(1.));

@@ -181,7 +181,7 @@ impl Game {
             {
                 let maybe_table = object_table_registry
                     .borrow()
-                    .by_index(object_table.index)
+                    .by_index(object_table.index())
                     .map(|entry| lua.registry_value::<LuaTable>(entry.key()))
                     .transpose()?;
 
@@ -365,7 +365,7 @@ fn main() {
         ..Conf::default()
     };
 
-    Engine::run(conf, GameHandler::new())
+    Engine::run(conf, |_| Ok(GameHandler::new()))
 
     // Engine::run(
     //     conf,

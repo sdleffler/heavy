@@ -418,4 +418,4 @@ impl Plugin for PlayerControllerComponentPlugin {
     }
 }
 
-hv_core::component!(PlayerControllerComponentPlugin);
+// hv_core::component!(PlayerControllerComponentPlugin);
