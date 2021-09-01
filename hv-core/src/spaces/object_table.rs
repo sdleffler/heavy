@@ -21,9 +21,24 @@ use crate::{
 
 use thunderdome::{Arena, Index};
 
+/// An `ObjectTableComponent` connects an [`Object`] to its corresponding Lua table (its "object
+/// table".) Constructing an `ObjectTableComponent` can be done without linking the Lua side to the
+/// Rust side, by constructing an entry in the [`ObjectTableRegistry`] with a `None` object; so, as
+/// long as you have a Lua table, you can construct an `ObjectTableComponent`, but until the object
+/// field in the [`ObjectTableEntry`] is properly set, conversions from Lua to Rust will fail.
+#[derive(Debug)]
 pub struct ObjectTableComponent {
-    pub index: ObjectTableIndex,
-    pub weak_ref: Weak<ObjectTableRegistry>,
+    index: ObjectTableIndex,
+    weak_ref: Weak<ObjectTableRegistry>,
+}
+
+impl ObjectTableComponent {
+    /// The index of the entry in the [`ObjectTableRegistry`]. You can use this or the relevant
+    /// [`Object`] to index the [`ObjectTableRegistry`], though the latter will only work if it has
+    /// a "full" entry (object field in the entry is set.)
+    pub fn index(&self) -> ObjectTableIndex {
+        self.index
+    }
 }
 
 impl Drop for ObjectTableComponent {
@@ -102,21 +117,51 @@ impl<'lua> FromLua<'lua> for Object {
     }
 }
 
+/// An `ObjectTableEntry` links an [`ObjectTableComponent`] to its corresponding Lua value, as well
+/// as the [`Object`] it belongs to (if set.) If an entry doesn't have its `object` field set, it is
+/// considered a "partial" entry, and converting the corresponding Lua table back to Rust will fail.
+#[derive(Debug)]
 pub struct ObjectTableEntry {
     key: LuaRegistryKey,
     object: Option<Object>,
 }
 
 impl ObjectTableEntry {
+    /// The registry key for the Lua table this entry corresponds to.
     pub fn key(&self) -> &LuaRegistryKey {
         &self.key
     }
 
+    /// The object this entry corresponds to, if set.
     pub fn object(&self) -> Option<Object> {
         self.object
     }
 }
 
+/// The [`ObjectTableRegistry`] handles mapping Lua "object tables" to [`Object`]s. There are
+/// actually two data structures that handle this mapping: the first is the [`ObjectTableRegistry`],
+/// which maps [`Object`]s to [`ObjectTableIndex`]s and [`ObjectTableIndex`]s to
+/// [`ObjectTableEntry`]s, and then [`ObjectTableEntry`]s contain [`LuaRegistryKey`]s which map to
+/// the actual Lua object tables themselves. The *second* data structure is a Lua table which lives
+/// in the Lua registry under a string key `"HV_LUA_OBJECT_TABLE"`; this maps Lua tables to
+/// [`ObjectTableIndex`]s which are stored as light userdata. In total, the path to go from
+/// [`Object`] to Lua table and back takes two steps each way:
+///
+/// ### Rust to Lua
+///
+/// 1. [`Object`] is checked in its corresponding [`Space`] for an [`ObjectTableComponent`], and
+///    extracts its corresponding [`ObjectTableIndex`].
+/// 2. The extracted [`ObjectTableIndex`] is looked up in the [`ObjectTableRegistry`], and gets the
+///    corresponding [`LuaRegistryKey`] from its [`ObjectTableEntry`], which is then converted to
+///    the Lua object table.
+///
+/// ### Lua to Rust
+///
+/// 1. The table is looked up in the `"HV_LUA_OBJECT_TABLE"` and mapped to its corresponding
+///    [`ObjectTableIndex`], if present.
+/// 2. The extracted [`ObjectTableIndex`] is looked up in the [`ObjectTableRegistry`], and if its
+///    [`ObjectTableEntry`] contains a corresponding [`Object`], then the conversion succeeds.
+#[derive(Debug)]
 pub struct ObjectTableRegistry {
     objects: Arena<ObjectTableEntry>,
     tables: HashMap<Object, ObjectTableIndex>,
@@ -130,6 +175,9 @@ impl LuaResource for ObjectTableRegistry {
     const REGISTRY_KEY: &'static str = "HV_RUST_OBJECT_TABLE";
 }
 
+/// An index of an [`ObjectTableEntry`]. Conversion between Rust and Lua is achieved by converting
+/// first to an [`ObjectTableIndex`], no matter which way the conversion is going (see also
+/// [`ObjectTableRegistry`].)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ObjectTableIndex(Index);
 
@@ -158,6 +206,7 @@ impl ObjectTableRegistry {
         this
     }
 
+    /// Create a "full" object table entry, linking both ways (Rust to Lua and Lua to Rust.)
     pub fn insert<'lua>(
         &mut self,
         lua: &'lua Lua,
@@ -169,6 +218,7 @@ impl ObjectTableRegistry {
         Ok(otc)
     }
 
+    /// Create a "partial" object table entry, linking Rust to Lua (but not the other way around.)
     pub fn insert_partial_entry<'lua>(
         &mut self,
         lua: &'lua Lua,
@@ -191,6 +241,7 @@ impl ObjectTableRegistry {
         })
     }
 
+    /// Complete a "partial" entry, linking Lua back to Rust.
     pub fn link_partial_entry_to_object(
         &mut self,
         object: Object,
@@ -202,10 +253,14 @@ impl ObjectTableRegistry {
         Ok(())
     }
 
+    /// Look up an object table by its index.
     pub fn by_index(&self, index: ObjectTableIndex) -> Option<&ObjectTableEntry> {
         self.objects.get(index.0)
     }
 
+    /// Look up an object table by its [`Object`] - this takes an extra step through a table mapping
+    /// [`Object`]s directly to [`ObjectTableIndex`]s, but has the advantage that if you don't have
+    /// the corresponding [`Space`] nearby to access, you can still grab the Lua object table.
     pub fn by_object(&self, object: Object) -> Option<&ObjectTableEntry> {
         self.tables
             .get(&object)
@@ -272,6 +327,8 @@ crate::component!(ObjectTableComponentPlugin);
 
 impl LuaUserData for ObjectTableComponent {}
 
+/// A convenient component for requiring an "update" call on an object with an
+/// [`ObjectTableComponent`]. This is currently just a marker component.
 #[derive(Debug, Clone, Copy)]
 pub struct UpdateHookComponent;
 

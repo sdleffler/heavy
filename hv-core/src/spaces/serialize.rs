@@ -434,7 +434,7 @@ serializable!(with_finalizer(
         for (object, otc) in space.query_mut::<&ObjectTableComponent>() {
             object_table_registry
                 .borrow_mut()
-                .link_partial_entry_to_object(object, otc.index)?;
+                .link_partial_entry_to_object(object, otc.index())?;
         }
 
         Ok(())
