@@ -172,7 +172,7 @@ impl Game {
 
         {
             let lua = engine.lua();
-            let object_table_registry = lua.resource::<ObjectTableRegistry>()?;
+            let object_table_registry = lua.get_resource::<ObjectTableRegistry>()?;
             for (object, (object_table,)) in self
                 .space
                 .borrow_mut()

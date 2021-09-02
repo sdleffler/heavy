@@ -26,24 +26,36 @@ macro_rules! xsbox {
     }};
 }
 
+/// Type alias for an [`XsBox`] with copyable space.
 pub type CopyBox<T, Space> = XsBox<T, Copyable<T, Space>>;
 
+/// Trait describing how to store a value inside some given storage space. Highly unsafe and you
+/// should not need to implement this yourself.
 pub trait Storable<T: ?Sized, U: ?Sized>: Storage<T> {
+    /// Construct this storage space from a value and a potentially unsize-coerced pointer to the
+    /// same value. The pointer is used to carry "fat pointer" metadata.
     #[allow(clippy::missing_safety_doc)]
     unsafe fn new_copy(val: &U, ptr: *const T) -> Self;
 
+    /// The resulting downcasted type.
     type Downcast: Storage<U>;
+
+    /// Downcast an owned space to a different value without checking to ensure the types match up.
     #[allow(clippy::missing_safety_doc)]
     unsafe fn downcast_unchecked(self) -> Self::Downcast
     where
         U: Any + Sized;
 }
 
+/// Trait describing storage for a given type.
 pub trait Storage<T: ?Sized> {
+    /// Get an immutable pointer to a `T` stored inside this storage.
     fn as_ptr(&self) -> *const T;
+    /// Get a mutable pointer to a `T` stored inside this storage.
     fn as_mut_ptr(&mut self) -> *mut T;
 }
 
+/// Non-copyable storage for an [`XsBox`].
 pub struct NonCopyable<T: ?Sized, Space> {
     metadata: <T as Pointee>::Metadata,
     space: ManuallyDrop<Space>,
@@ -119,6 +131,7 @@ impl<T: ?Sized, Space> Drop for NonCopyable<T, Space> {
     }
 }
 
+/// Copyable storage for an [`XsBox`] which only allows copy types to be stored in it.
 pub struct Copyable<T: ?Sized, Space: Copy> {
     metadata: <T as Pointee>::Metadata,
     space: ManuallyDrop<Space>,
@@ -205,12 +218,17 @@ impl<T: ?Sized, Space: Storage<T> + Clone> Clone for XsBox<T, Space> {
 
 impl<T: ?Sized, Space: Storage<T> + Copy> Copy for XsBox<T, Space> {}
 
+/// An "extra small box"! Stack-allocated storage for dynamically typed/"fat" objects.
+///
+/// In addition, if the storage space type is [`Copyable`], then the `XsBox` can only store
+/// [`Copy`] types but will itself be [`Copy`], even if it holds a `dyn Trait` object.
 pub struct XsBox<T: ?Sized, Space: Storage<T>> {
     space: Space,
     _phantom: PhantomData<T>,
 }
 
 impl<T: ?Sized, Space: Storage<T>> XsBox<T, Space> {
+    /// Construct a new [`XsBox`].
     #[inline(always)]
     pub fn new(val: T) -> Self
     where
@@ -249,16 +267,19 @@ impl<T: ?Sized, Space: Storage<T>> XsBox<T, Space> {
         }
     }
 
+    /// Get an immutable pointer to the value inside the [`XsBox`].
     #[inline]
     pub fn as_ptr(&self) -> *const T {
         self.space.as_ptr()
     }
 
+    /// Get a mutable pointer to the value inside the [`XsBox`].
     #[inline]
     pub fn as_mut_ptr(&mut self) -> *mut T {
         self.space.as_mut_ptr()
     }
 
+    /// Consume the [`XsBox`] and return the value which was stored inside.
     #[inline]
     pub fn into_inner(self) -> T
     where
@@ -271,6 +292,7 @@ impl<T: ?Sized, Space: Storage<T>> XsBox<T, Space> {
 }
 
 impl<Space: Storage<dyn Any>> XsBox<dyn Any, Space> {
+    /// Attempt to downcast the [`XsBox`] into a type which was stored inside it, by-value.
     #[inline]
     pub fn downcast<T: Any>(self) -> Result<XsBox<T, Space::Downcast>, Self>
     where
@@ -285,6 +307,7 @@ impl<Space: Storage<dyn Any>> XsBox<dyn Any, Space> {
 }
 
 impl<Space: Storage<dyn Any + Send>> XsBox<dyn Any + Send, Space> {
+    /// Attempt to downcast the [`XsBox`] into a type which was stored inside it, by-value.
     #[inline]
     pub fn downcast<T: Any>(self) -> Result<XsBox<T, Space::Downcast>, Self>
     where

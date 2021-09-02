@@ -2,6 +2,7 @@
 
 use crate::filesystem::Filesystem;
 
+/// Miscellaneous configuration options for [`Engine`](crate::engine::Engine).
 #[derive(Debug)]
 pub struct Conf {
     /// The filesystem object to be used by the [`Engine`](crate::engine::Engine). Setting this with

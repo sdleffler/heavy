@@ -90,7 +90,7 @@ impl LuaUserData for MeshBuilder {
 
         let mut weak_resource_cache = WeakResourceCache::<GraphicsLock>::new();
         methods.add_method_mut("build", move |lua, this, ()| {
-            let gfx_lock = weak_resource_cache.get(|| lua.resource::<GraphicsLock>())?;
+            let gfx_lock = weak_resource_cache.get(|| lua.get_resource::<GraphicsLock>())?;
             let mesh = this.build(&mut gfx_lock.lock());
             Ok(mesh)
         });

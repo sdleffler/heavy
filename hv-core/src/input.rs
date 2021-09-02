@@ -64,6 +64,8 @@ use std::{collections::HashMap, hash::Hash};
 //
 // Easy way?  Hash map of event -> axis/button bindings.
 
+/// Supported key codes.
+#[allow(missing_docs)]
 #[derive(Debug, Copy, Clone, PartialEq, Hash, Eq, strum::EnumString, Serialize, Deserialize)]
 #[strum(ascii_case_insensitive)]
 #[repr(u32)]
@@ -322,11 +324,16 @@ impl From<miniquad::KeyCode> for KeyCode {
     }
 }
 
+/// Key modifiers which could be active when a key is pressed.
 #[derive(Debug, Copy, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct KeyMods {
+    /// The left/right "shift" keys.
     pub shift: bool,
+    /// The "control" key.
     pub ctrl: bool,
+    /// The "alt" key.
     pub alt: bool,
+    /// The "command" or "clover"/Apple key on a mac.
     pub logo: bool,
 }
 
@@ -341,7 +348,9 @@ impl From<miniquad::KeyMods> for KeyMods {
     }
 }
 
+/// Supported mouse buttons.
 #[derive(Debug, Hash, Eq, PartialEq, Copy, Clone, Serialize, Deserialize)]
+#[allow(missing_docs)]
 pub enum MouseButton {
     Left,
     Right,
@@ -362,7 +371,9 @@ impl From<miniquad::MouseButton> for MouseButton {
     }
 }
 
+/// Supported gamepad buttons.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[allow(missing_docs)]
 pub enum GamepadButton {
     South,
     East,
@@ -413,7 +424,9 @@ impl From<gilrs::Button> for GamepadButton {
     }
 }
 
+/// Supported gamepad axes. The DPads of a gamepad can also be read as axes with this input module.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[allow(missing_docs)]
 pub enum GamepadAxis {
     LeftStickX,
     LeftStickY,
@@ -450,14 +463,20 @@ enum InputType {
     MouseButton(MouseButton),
 }
 
+/// An `InputEffect` represents a single input event acting on a parameterizable set of axes and
+/// buttons.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum InputEffect<Axes, Buttons>
 where
     Axes: Eq + Hash + Clone,
     Buttons: Eq + Hash + Clone,
 {
+    /// An event setting an axis's position.
     Axis(Axes, f32),
+    /// An event indicating a button was pressed or released, along with a possible associated point
+    /// (if it's a mouse click or such.)
     Button(Buttons, Option<Point2<f32>>),
+    /// An event indicating the mouse was moved, and where it was moved to.
     Cursor(Point2<f32>),
 }
 
@@ -507,15 +526,12 @@ impl Default for CursorState {
 struct AxisState {
     // Where the axis currently is, in [-1, 1]
     position: f32,
-    // Where the axis is moving towards.  Possible
-    // values are -1, 0, +1
-    // (or a continuous range for analog devices I guess)
+    // Where the axis is moving towards.  Possible values are -1, 0, +1 (or a continuous range for
+    // analog devices I guess)
     direction: f32,
-    // Speed in units per second that the axis
-    // moves towards the target value.
+    // Speed in units per second that the axis moves towards the target value.
     acceleration: f32,
-    // Speed in units per second that the axis will
-    // fall back toward 0 if the input stops.
+    // Speed in units per second that the axis will fall back toward 0 if the input stops.
     gravity: f32,
 }
 
@@ -537,17 +553,15 @@ struct ButtonState {
     event_location: Option<Point2<f32>>,
 }
 
-/// A struct that contains a mapping from physical input events
-/// (currently just `KeyCode`s) to whatever your logical Axis/Button
-/// types are.
+/// A struct that contains a mapping from physical input events (currently just `KeyCode`s) to
+/// whatever your logical Axis/Button types are.
 pub struct InputBinding<Axes, Buttons>
 where
     Axes: Hash + Eq + Clone,
     Buttons: Hash + Eq + Clone,
 {
-    // Once EnumSet is stable it should be used for these
-    // instead of BTreeMap. ♥?
-    // Binding of keys to input values.
+    // Once EnumSet is stable it should be used for these instead of BTreeMap. ♥? Binding of keys to
+    // input values.
     bindings: HashMap<InputType, InputEffect<Axes, Buttons>>,
 }
 
@@ -566,28 +580,29 @@ where
     Axes: Hash + Eq + Clone,
     Buttons: Hash + Eq + Clone,
 {
+    /// Create an empty set of input bindings.
     pub fn new() -> Self {
         InputBinding {
             bindings: HashMap::new(),
         }
     }
 
-    /// Adds a key binding connecting the given keycode to the given
-    /// logical axis.
+    /// Adds a key binding connecting the given keycode to the given logical axis.
     pub fn bind_key_to_axis(mut self, keycode: KeyCode, axis: Axes, position: f32) -> Self {
         self.bindings
             .insert(InputType::Key(keycode), InputEffect::Axis(axis, position));
         self
     }
 
-    /// Adds a key binding connecting the given keycode to the given
-    /// logical button.
+    /// Adds a key binding connecting the given keycode to the given logical button.
     pub fn bind_key_to_button(mut self, keycode: KeyCode, button: Buttons) -> Self {
         self.bindings
             .insert(InputType::Key(keycode), InputEffect::Button(button, None));
         self
     }
 
+    /// Adds a gamepad button binding connecting the given gamepad button to the given logical
+    /// button.
     pub fn bind_gamepad_button_to_button(
         mut self,
         gamepad_button: GamepadButton,
@@ -600,6 +615,7 @@ where
         self
     }
 
+    /// Adds a gamepad axis binding connecting the given gamepad axis to the given logical axis.
     pub fn bind_gamepad_axis_to_axis(mut self, gamepad_axis: GamepadAxis, axis: Axes) -> Self {
         self.bindings.insert(
             InputType::GamepadAxis(gamepad_axis),
@@ -608,6 +624,7 @@ where
         self
     }
 
+    /// Adds a mouse button binding connecting the given mouse button to the given logical button.
     pub fn bind_mouse_to_button(mut self, mouse_button: MouseButton, button: Buttons) -> Self {
         self.bindings.insert(
             InputType::MouseButton(mouse_button),
@@ -616,11 +633,13 @@ where
         self
     }
 
-    /// Takes an physical input type and turns it into a logical input type (keycode -> axis/button).
+    /// Takes an physical input type and turns it into a logical input type (keycode ->
+    /// axis/button).
     pub fn resolve_keycode(&self, keycode: KeyCode) -> Option<InputEffect<Axes, Buttons>> {
         self.bindings.get(&InputType::Key(keycode)).cloned()
     }
 
+    /// Convert a physical gamepad input into a logical input.
     pub fn resolve_gamepad_button(
         &self,
         button: GamepadButton,
@@ -630,6 +649,7 @@ where
             .cloned()
     }
 
+    /// Convert a physical mouse button input into a logical input.
     pub fn resolve_mouse_button(
         &self,
         mouse_button: MouseButton,
@@ -641,6 +661,7 @@ where
             .map(|eff| eff.with_mouse_position(point))
     }
 
+    /// Convert a physical gamepad axis input into a logical input.
     pub fn resolve_gamepad_axis(
         &self,
         axis: GamepadAxis,
@@ -653,6 +674,7 @@ where
     }
 }
 
+/// Represents an input state for a given set of logical axes and buttons.
 #[derive(Debug)]
 pub struct InputState<Axes, Buttons>
 where
@@ -682,6 +704,7 @@ where
     Axes: Eq + Hash + Clone,
     Buttons: Eq + Hash + Clone,
 {
+    /// Create a fresh [`InputState`].
     pub fn new() -> Self {
         InputState {
             axes: HashMap::new(),
@@ -690,15 +713,12 @@ where
         }
     }
 
-    /// Updates the logical input state based on the actual
-    /// physical input state.  Should be called in your update()
-    /// handler.
-    /// So, it will do things like move the axes and so on.
+    /// Updates the logical input state based on the actual physical input state.  Should be called
+    /// in your update() handler. So, it will do things like move the axes and so on.
     pub fn update(&mut self, dt: f32) {
         for (_axis, axis_status) in self.axes.iter_mut() {
             if axis_status.direction != 0.0 {
-                // Accelerate the axis towards the
-                // input'ed direction.
+                // Accelerate the axis towards the input'ed direction.
                 let vel = axis_status.acceleration * dt;
                 let pending_position = axis_status.position
                     + if axis_status.direction > 0.0 {
@@ -743,11 +763,15 @@ where
         self.update_effect(InputEffect::Button(button, None), false);
     }
 
-    /// This method should get called by your key_up_event handler.
+    /// This method should get called by your gamepad_axis_changed_event handler, or by your
+    /// key_down_event handler if you're binding keypresses to logical axes.
     pub fn update_axis_start(&mut self, axis: Axes, position: f32) {
         self.update_effect(InputEffect::Axis(axis, position), true);
     }
 
+    /// This method will probably not usually be used; however, if you're connecting logical axes to
+    /// physical button or key presses, then you can call this in your key_up_event handler for the
+    /// corresponding button/key releases.
     pub fn update_axis_stop(&mut self, axis: Axes, position: f32) {
         self.update_effect(InputEffect::Axis(axis, position), false);
     }
@@ -782,12 +806,15 @@ where
         }
     }
 
+    /// Get the position of a logical axis.
     pub fn get_axis(&self, axis: Axes) -> f32 {
         let d = AxisState::default();
         let axis_status = self.axes.get(&axis).unwrap_or(&d);
         axis_status.position
     }
 
+    /// Get the *actual* position of a logical axis. We actually smooth axes a bit; you usually
+    /// don't want this, but this method will return the actual exact position value of the axis.
     pub fn get_axis_raw(&self, axis: Axes) -> f32 {
         let d = AxisState::default();
         let axis_status = self.axes.get(&axis).unwrap_or(&d);
@@ -800,42 +827,52 @@ where
         *button_status
     }
 
+    /// Check if a logical button is down.
     pub fn get_button_down(&self, button: Buttons) -> bool {
         self.get_button(button).pressed
     }
 
+    /// Check if a logical button is up.
     pub fn get_button_up(&self, button: Buttons) -> bool {
         !self.get_button(button).pressed
     }
 
-    /// Returns whether or not the button was pressed this frame,
-    /// only returning true if the press happened this frame.
+    /// Returns whether or not the button was pressed this frame, only returning true if the press
+    /// happened this frame.
     ///
-    /// Basically, `get_button_down()` and `get_button_up()` are level
-    /// triggers, this and `get_button_released()` are edge triggered.
+    /// Basically, `get_button_down()` and `get_button_up()` are level triggers, this and
+    /// `get_button_released()` are edge triggered.
     pub fn get_button_pressed(&self, button: Buttons) -> bool {
         let b = self.get_button(button);
         b.pressed && !b.pressed_last_frame
     }
 
+    /// Check whether or not a button was released on this frame.
     pub fn get_button_released(&self, button: Buttons) -> bool {
         let b = self.get_button(button);
         !b.pressed && b.pressed_last_frame
     }
 
+    /// Get the location of a button event, if it has one. Generally speaking a button event will
+    /// only have a location if it comes from a mouse click, in which case the location will be the
+    /// position that the mouse clicked.
     pub fn get_button_event_location(&self, button: Buttons) -> Option<Point2<f32>> {
         let b = self.get_button(button);
         b.event_location
     }
 
+    /// Get the current mouse position.
     pub fn mouse_position(&self) -> Point2<f32> {
         self.mouse.position
     }
 
+    /// Get the change in the mouse position for this frame with respect to the previous frame.
     pub fn mouse_delta(&self) -> Vector2<f32> {
         self.mouse.delta
     }
 
+    /// Reset the input state, all axes at zero, all buttons unpresseed, all positions and deltas
+    /// zeroed out.
     pub fn reset_input_state(&mut self) {
         for (_axis, axis_status) in self.axes.iter_mut() {
             axis_status.position = 0.0;
@@ -853,7 +890,9 @@ where
     }
 }
 
+/// Supported cursor icons.
 #[derive(Debug, Copy, Clone, PartialEq, Hash, Eq)]
+#[allow(missing_docs)]
 pub enum CursorIcon {
     Default,
     Help,

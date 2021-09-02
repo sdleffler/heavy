@@ -126,9 +126,9 @@ impl Danmaku {
 
     pub fn update(&self, lua: &Lua, dt: f32) -> Result<()> {
         let space = &mut self.space.borrow_mut();
-        let state_registry_resource = lua.resource::<StateRegistry>()?;
+        let state_registry_resource = lua.get_resource::<StateRegistry>()?;
         let state_registry = &state_registry_resource.borrow();
-        let sprite_registry_resource = lua.resource::<ProjectileSpriteRegistry>()?;
+        let sprite_registry_resource = lua.get_resource::<ProjectileSpriteRegistry>()?;
 
         for (_, (projectile, state_machine)) in
             space.query_mut::<(&mut ProjectileState, &mut StateMachine)>()
@@ -201,7 +201,7 @@ impl Danmaku {
     }
 
     pub fn draw(&self, lua: &Lua, gfx: &mut Graphics) -> Result<()> {
-        let sprite_registry_resource = lua.resource::<ProjectileSpriteRegistry>()?;
+        let sprite_registry_resource = lua.get_resource::<ProjectileSpriteRegistry>()?;
         let sprite_registry = &mut sprite_registry_resource.borrow_mut();
 
         gfx.push_pipeline();
@@ -231,7 +231,7 @@ impl LuaUserData for Danmaku {
         });
 
         methods.add_method("draw", |lua, this, ()| {
-            let gfx_lock = lua.resource::<GraphicsLock>()?;
+            let gfx_lock = lua.get_resource::<GraphicsLock>()?;
             this.draw(lua, &mut gfx_lock.lock()).to_lua_err()?;
             Ok(())
         });
@@ -252,13 +252,13 @@ impl Plugin for HvRainPlugin {
         )?;
 
         let shot_type_registry = engine.insert(ShotTypeRegistry::new());
-        lua.register(shot_type_registry.clone())?;
+        lua.insert_resource(shot_type_registry.clone())?;
 
         let state_registry = engine.insert(StateRegistry::new());
-        lua.register(state_registry.clone())?;
+        lua.insert_resource(state_registry.clone())?;
 
         let sprite_registry = engine.insert(ProjectileSpriteRegistry::new());
-        lua.register(sprite_registry.clone())?;
+        lua.insert_resource(sprite_registry.clone())?;
 
         let create_danmaku_object =
             lua.create_function_mut(move |_lua, space| Danmaku::new(&space).to_lua_err())?;
@@ -280,7 +280,7 @@ impl Plugin for HvRainPlugin {
                 Option<Pipeline>,
             )| {
                 let registry = &mut weak_registry.borrow_mut();
-                let gfx_lock = lua.resource::<GraphicsLock>()?;
+                let gfx_lock = lua.get_resource::<GraphicsLock>()?;
                 let batch = SpriteBatch::new(&mut gfx_lock.lock(), texture);
 
                 Ok(ProjectileSpriteBatchId(registry.defs.insert(
@@ -316,7 +316,7 @@ impl Plugin for HvRainPlugin {
             lua.create_function_mut(move |lua, ()| match color_bullet_pipeline.clone() {
                 Some(pl) => Ok(pl),
                 None => {
-                    let gfx_lock = weak_gfx_cache.get(|| lua.resource())?;
+                    let gfx_lock = weak_gfx_cache.get(|| lua.get_resource())?;
                     let gfx = &mut gfx_lock.lock();
 
                     let bullet_shader = Shader::new(

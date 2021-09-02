@@ -568,7 +568,7 @@ impl Plugin for HvFmodPlugin {
             FmodStudioInitFlags::NORMAL,
             FmodCoreInitFlags::NORMAL,
         )?);
-        lua.register(fmod_resource.clone())?;
+        lua.insert_resource(fmod_resource.clone())?;
 
         let fmod = fmod_resource.clone();
         let load_bank_file = lua.create_function(

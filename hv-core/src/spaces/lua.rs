@@ -67,6 +67,7 @@ pub fn spaces_clear() -> lua_fn!(FnMut<'lua>(&mut Space, ()) -> ()) {
     }
 }
 
+/// A specialized cache for [`Space`]s to reduce access to the [`Spaces`] resource.
 pub struct SpaceCache {
     weak_engine: EngineRef,
     weak_spaces: Weak<Spaces>,
@@ -75,6 +76,7 @@ pub struct SpaceCache {
 }
 
 impl SpaceCache {
+    /// Create a new cache for the [`Spaces`] resource in the given engine.
     pub fn new(engine: &Engine) -> Self {
         Self {
             weak_engine: engine.downgrade(),
@@ -84,6 +86,8 @@ impl SpaceCache {
         }
     }
 
+    /// Get a space by ID. If this is the same as the last space that was accessed with this cache,
+    /// then the cached space is returned.
     pub fn get_space(&mut self, space_id: SpaceId) -> Shared<Space> {
         if self.cached_space_id != Some(space_id) {
             let strong_spaces = match self.weak_spaces.try_upgrade() {

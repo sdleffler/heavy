@@ -106,7 +106,7 @@ impl Plugin for HvConsolePlugin {
 
     fn open<'lua>(&self, lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lua>> {
         let console = Console::new(engine);
-        lua.register(console.clone())?;
+        lua.insert_resource(console.clone())?;
         let poll = lua.create_function(move |lua, ()| {
             console.borrow_mut().poll(lua).to_lua_err()?;
             Ok(())

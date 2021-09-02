@@ -337,7 +337,7 @@ impl LuaUserData for Buffer {
     fn add_methods<'lua, M: LuaUserDataMethods<'lua, Self>>(methods: &mut M) {
         let mut weak_gfx_cache = WeakResourceCache::<GraphicsLock>::new();
         methods.add_method_mut("update", move |lua, this, data: LuaTable| {
-            let gfx_lock = weak_gfx_cache.get(|| lua.resource())?;
+            let gfx_lock = weak_gfx_cache.get(|| lua.get_resource())?;
             let mut bytes = Vec::new();
             this.format
                 .as_ref()

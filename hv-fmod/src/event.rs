@@ -682,7 +682,7 @@ impl LuaUserData for EventInstance {
             "set_callback",
             |lua, this, (maybe_cb, mask): (Option<LuaFunction>, Option<EventCallbackMask>)| {
                 if let Some(cb) = maybe_cb {
-                    let fmod = lua.resource::<Fmod>()?;
+                    let fmod = lua.get_resource::<Fmod>()?;
                     let (cq_send, cb_guard) = {
                         let fmod_mut = &mut fmod.borrow_mut();
                         let cq_send = Mutex::new(fmod.borrow().cq_send.clone());
@@ -825,7 +825,7 @@ impl LuaUserData for EventDescription {
             "set_callback",
             |lua, this, (maybe_cb, mask): (Option<LuaFunction>, Option<EventCallbackMask>)| {
                 if let Some(cb) = maybe_cb {
-                    let fmod = lua.resource::<Fmod>()?;
+                    let fmod = lua.get_resource::<Fmod>()?;
                     let (cq_send, cb_guard) = {
                         let fmod_mut = &mut fmod.borrow_mut();
                         let cq_send = Mutex::new(fmod.borrow().cq_send.clone());

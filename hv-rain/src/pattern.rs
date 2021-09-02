@@ -311,7 +311,7 @@ impl Barrage {
 
     pub fn flush(&mut self, lua: &Lua) -> Result<()> {
         let mut space = self.space.borrow_mut();
-        let st_registry_resource = lua.resource::<ShotTypeRegistry>()?;
+        let st_registry_resource = lua.get_resource::<ShotTypeRegistry>()?;
         let st_registry = st_registry_resource.borrow();
         for (&shot_type, shots) in self.batches.iter_mut() {
             st_registry.shot_types[shot_type.0].spawn(lua, &self.lua_slots, &mut space, shots)?;

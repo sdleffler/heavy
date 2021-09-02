@@ -9,10 +9,12 @@ use std::{
 
 use crate::mlua::prelude::*;
 
+/// A "strong" shared reference to a value with interior mutability.
 pub struct Shared<T: ?Sized> {
     inner: Arc<RwLock<T>>,
 }
 
+/// A "weak" shared reference to a value with interior mutability.
 pub struct Weak<T: ?Sized> {
     inner: std::sync::Weak<RwLock<T>>,
 }
@@ -67,6 +69,7 @@ impl<T> Default for Weak<T> {
 }
 
 impl<T> Shared<T> {
+    /// Construct a new [`Shared<T>`].
     #[inline]
     pub fn new(t: T) -> Self {
         Self {
@@ -76,6 +79,7 @@ impl<T> Shared<T> {
 }
 
 impl<T> Weak<T> {
+    /// Construct a new [`Weak<T>`] which cannot be upgraded.
     #[inline]
     pub fn new() -> Self {
         Self {
@@ -85,6 +89,7 @@ impl<T> Weak<T> {
 }
 
 impl<T: ?Sized> Shared<T> {
+    /// Construct a weak reference to the same shared value.
     #[inline]
     pub fn downgrade(&self) -> Weak<T> {
         Weak {
@@ -92,41 +97,42 @@ impl<T: ?Sized> Shared<T> {
         }
     }
 
+    /// If this is the only strong reference to this value and there are no weak references to this
+    /// value, mutably borrow the interior value.
     #[inline]
     pub fn get_mut(&mut self) -> Option<&mut T> {
         Arc::get_mut(&mut self.inner).map(|rwlock| rwlock.get_mut().unwrap())
     }
 
-    #[inline]
-    pub fn borrow_blocking(&self) -> Ref<'_, T> {
-        Ref(self.inner.read().unwrap())
-    }
-
-    #[inline]
-    pub fn borrow_mut_blocking(&self) -> RefMut<'_, T> {
-        RefMut(self.inner.write().unwrap())
-    }
-
+    /// Immutably borrow the interior value. Panics if the value is already mutably borrowed.
     #[inline]
     pub fn borrow(&self) -> Ref<'_, T> {
         Ref(self.inner.try_read().unwrap())
     }
 
+    /// Mutably borrow the interior value. Panics if the value is already borrowed.
     #[inline]
     pub fn borrow_mut(&self) -> RefMut<'_, T> {
         RefMut(self.inner.try_write().unwrap())
     }
 
+    /// Attempt to immutably borrow the interior value. Returns `None` if the value is already
+    /// mutably borrowed.
     #[inline]
     pub fn try_borrow(&self) -> Option<Ref<'_, T>> {
         self.inner.try_read().ok().map(Ref)
     }
 
+    /// Attempt to mutably borrow the interior value. Returns `None` if the value is already
+    /// borrowed.
     #[inline]
     pub fn try_borrow_mut(&self) -> Option<RefMut<'_, T>> {
         self.inner.try_write().ok().map(RefMut)
     }
 
+    /// Convert this strong reference into an object which represents both a strong reference to the
+    /// interior value *and* an ongoing immutable borrow of it. The immutable borrow is released
+    /// when the [`OwnedRef`] is dropped. Panics if the interior value is already mutably borrowed.
     #[inline]
     pub fn owned_borrow(self) -> OwnedRef<'static, T> {
         let guard = self.borrow();
@@ -136,6 +142,9 @@ impl<T: ?Sized> Shared<T> {
         }
     }
 
+    /// Convert this strong reference into an object which represents both a strong reference to the
+    /// interior value *and* an ongoing mutable borrow of it. The mutable borrow is released when
+    /// the [`OwnedRef`] is dropped. Panics if the interior value is already borrowed.
     #[inline]
     pub fn owned_borrow_mut(self) -> OwnedRefMut<'static, T> {
         let guard = unsafe { std::mem::transmute::<&Self, &'static Self>(&self) }.borrow_mut();
@@ -145,6 +154,21 @@ impl<T: ?Sized> Shared<T> {
         }
     }
 
+    /// Like [`Shared::borrow`] but if the value is already mutably borrowed, then instead of
+    /// panicking, block the current thread until the mutable borrow ends.
+    #[inline]
+    pub fn borrow_blocking(&self) -> Ref<'_, T> {
+        Ref(self.inner.read().unwrap())
+    }
+
+    /// Like [`Shared::borrow_mut`], but if the value is already borrowed, then instead of
+    /// panicking, block the current thread until the borrow ends.
+    #[inline]
+    pub fn borrow_mut_blocking(&self) -> RefMut<'_, T> {
+        RefMut(self.inner.write().unwrap())
+    }
+
+    /// Combination of [`Shared::borrow_blocking`] and [`Shared::owned_borrow`].
     #[inline]
     pub fn owned_borrow_blocking(self) -> OwnedRef<'static, T> {
         let guard = self.borrow_blocking();
@@ -154,6 +178,7 @@ impl<T: ?Sized> Shared<T> {
         }
     }
 
+    /// Combination of [`Shared::borrow_mut_blocking`] and [`Shared::owned_borrow_mut`].
     #[inline]
     pub fn owned_borrow_mut_blocking(self) -> OwnedRefMut<'static, T> {
         let guard =
@@ -166,16 +191,26 @@ impl<T: ?Sized> Shared<T> {
 }
 
 impl<T: ?Sized> Weak<T> {
+    /// Try to upgrade this weak reference to a strong reference. Returns `None` if the weak
+    /// reference was constructed with [`Weak::new`] or if the value the reference points to has
+    /// already been dropped.
     #[inline]
     pub fn try_upgrade(&self) -> Option<Shared<T>> {
         self.inner.upgrade().map(|inner| Shared { inner })
     }
 
+    /// Upgrade this weak reference to a strong reference. Will panic if the weak reference was
+    /// constructed with [`Weak::new`] or if the value the reference points to has already been
+    /// dropped.
     #[inline]
     pub fn upgrade(&self) -> Shared<T> {
         self.try_upgrade().unwrap()
     }
 
+    /// Attempt to upgrade this weak reference to a strong reference and then immutably borrow it.
+    /// If successful, returns a reference which owns an upgraded strong reference and an immutable
+    /// reference to the interior value. Will panic if the interior value is already mutably
+    /// borrowed.
     #[inline]
     pub fn borrow(&self) -> OwnedRef<'_, T> {
         let upgraded = self.upgrade();
@@ -186,6 +221,9 @@ impl<T: ?Sized> Weak<T> {
         }
     }
 
+    /// Attempt to upgrade this weak reference to a strong reference and then mutably borrow it. If
+    /// successful, returns a reference which owns an upgraded strong reference and a mutable
+    /// reference to the interior value. Will panic if the interior value is already borrowed.
     #[inline]
     pub fn borrow_mut(&self) -> OwnedRefMut<'_, T> {
         let upgraded = self.upgrade();
@@ -197,6 +235,10 @@ impl<T: ?Sized> Weak<T> {
         }
     }
 
+    /// Attempt to upgrade this weak reference to a strong reference and then immutably borrow it.
+    /// If successful, returns a reference which owns an upgraded strong reference and an immutable
+    /// reference to the interior value. Returns `None` if the weak reference can't be upgraded or
+    /// the interior value is already mutably borrowed.
     #[inline]
     pub fn try_borrow(&self) -> Option<OwnedRef<'_, T>> {
         let upgraded = self.try_upgrade()?;
@@ -207,6 +249,10 @@ impl<T: ?Sized> Weak<T> {
         })
     }
 
+    /// Attempt to upgrade this weak reference to a strong reference and then mutably borrow it. If
+    /// successful, returns a reference which owns an upgraded strong reference and a mutable
+    /// reference to the interior value. Returns `None` if the weak reference can't be upgraded or
+    /// the interior value is already borrowed.
     #[inline]
     pub fn try_borrow_mut(&self) -> Option<OwnedRefMut<'_, T>> {
         let upgraded = self.try_upgrade()?;
@@ -218,6 +264,9 @@ impl<T: ?Sized> Weak<T> {
         })
     }
 
+    /// Like [`Weak::borrow`] but if the value is already mutably borrowed, then instead of
+    /// panicking, block the current thread until the mutable borrow ends. Will panic if the weak
+    /// reference can't be upgraded.
     #[inline]
     pub fn borrow_blocking(&self) -> OwnedRef<'_, T> {
         let upgraded = self.upgrade();
@@ -228,6 +277,9 @@ impl<T: ?Sized> Weak<T> {
         }
     }
 
+    /// Like [`Weak::borrow_mut`] but if the value is already borrowed, then instead of
+    /// panicking, block the current thread until the borrow ends. Will panic if the weak reference
+    /// can't be upgraded.
     #[inline]
     pub fn borrow_mut_blocking(&self) -> OwnedRefMut<'_, T> {
         let upgraded = self.upgrade();
@@ -239,21 +291,25 @@ impl<T: ?Sized> Weak<T> {
         }
     }
 
+    /// Combination of [`Weak::upgrade`] followed by [`Shared::owned_borrow`].
     #[inline]
     pub fn owned_borrow(&self) -> OwnedRef<'static, T> {
         self.upgrade().owned_borrow()
     }
 
+    /// Combination of [`Weak::upgrade`] followed by [`Shared::owned_borrow_mut`].
     #[inline]
     pub fn owned_borrow_mut(&self) -> OwnedRefMut<'static, T> {
         self.upgrade().owned_borrow_mut()
     }
 
+    /// Combination of [`Weak::upgrade`] followed by [`Shared::owned_borrow_blocking`].
     #[inline]
     pub fn owned_borrow_blocking(&self) -> OwnedRef<'static, T> {
         self.upgrade().owned_borrow_blocking()
     }
 
+    /// Combination of [`Weak::upgrade`] followed by [`Shared::owned_borrow_mut_blocking`].
     #[inline]
     pub fn owned_borrow_mut_blocking(&self) -> OwnedRefMut<'static, T> {
         self.upgrade().owned_borrow_mut_blocking()
@@ -276,15 +332,21 @@ impl<'lua, T: LuaUserData + 'static> FromLua<'lua> for Shared<T> {
     }
 }
 
+/// An immutable borrow of a value inside a [`Shared<T>`].
 pub struct Ref<'a, T: ?Sized + 'a>(RwLockReadGuard<'a, T>);
 
+/// A mutable borrow of a value inside a [`Shared<T>`].
 pub struct RefMut<'a, T: ?Sized + 'a>(RwLockWriteGuard<'a, T>);
 
+/// An immutable borrow of a value inside a [`Shared<T>`] which owns the strong reference that the
+/// value is borrowed from.
 pub struct OwnedRef<'a, T: ?Sized + 'a> {
     borrower: Ref<'a, T>,
     _owner: Shared<T>,
 }
 
+/// A mutable borrow of a value inside a [`Shared<T>`] which owns the strong reference that the
+/// value is borrowed from.
 pub struct OwnedRefMut<'a, T: ?Sized + 'a> {
     borrower: RefMut<'a, T>,
     _owner: Shared<T>,

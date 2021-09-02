@@ -59,7 +59,7 @@ impl Drop for ObjectTableComponent {
 
 impl<'a, 'lua> ToLua<'lua> for &'a ObjectTableComponent {
     fn to_lua(self, lua: &'lua Lua) -> LuaResult<LuaValue<'lua>> {
-        let object_table_registry_shared = lua.resource::<ObjectTableRegistry>()?;
+        let object_table_registry_shared = lua.get_resource::<ObjectTableRegistry>()?;
         let object_table_registry = object_table_registry_shared.borrow();
         object_table_registry
             .by_index(self.index)
@@ -74,7 +74,7 @@ impl<'lua> FromLua<'lua> for ObjectTableComponent {
         let table = LuaTable::from_lua(lua_value, lua)?;
         let lua_object_table: LuaTable = lua.named_registry_value(HV_LUA_OBJECT_TABLE)?;
         let maybe_index: Option<ObjectTableIndex> = lua_object_table.get(table.clone())?;
-        let otr_shared = lua.resource::<ObjectTableRegistry>()?;
+        let otr_shared = lua.get_resource::<ObjectTableRegistry>()?;
 
         match maybe_index {
             Some(index) => Ok(ObjectTableComponent {
@@ -93,7 +93,7 @@ const HV_LUA_OBJECT_TABLE: &str = "HV_LUA_OBJECT_TABLE";
 
 impl<'lua> ToLua<'lua> for Object {
     fn to_lua(self, lua: &'lua Lua) -> LuaResult<LuaValue<'lua>> {
-        let object_table_registry_shared = lua.resource::<ObjectTableRegistry>()?;
+        let object_table_registry_shared = lua.get_resource::<ObjectTableRegistry>()?;
         let object_table_registry = object_table_registry_shared.borrow();
         object_table_registry
             .by_object(self)
@@ -107,7 +107,7 @@ impl<'lua> FromLua<'lua> for Object {
     fn from_lua(lua_value: LuaValue<'lua>, lua: &'lua Lua) -> LuaResult<Self> {
         let lua_object_table: LuaTable = lua.named_registry_value(HV_LUA_OBJECT_TABLE)?;
         let otable_index = lua_object_table.get(lua_value)?;
-        let otr_shared = lua.resource::<ObjectTableRegistry>()?;
+        let otr_shared = lua.get_resource::<ObjectTableRegistry>()?;
         let otr = otr_shared.borrow();
 
         match otr
@@ -200,6 +200,7 @@ impl<'lua> FromLua<'lua> for ObjectTableIndex {
 }
 
 impl ObjectTableRegistry {
+    /// Create an empty [`ObjectTableRegistry`].
     pub fn new() -> Shared<Self> {
         let this = Shared::new(Self {
             objects: Arena::new(),
@@ -299,7 +300,7 @@ impl Plugin for ObjectTableComponentPlugin {
     fn open<'lua>(&self, lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lua>> {
         let otable_resource = ObjectTableRegistry::new();
         engine.insert_wrapped(otable_resource.clone());
-        lua.register(otable_resource.clone())?;
+        lua.insert_resource(otable_resource.clone())?;
         lua.set_named_registry_value(HV_LUA_OBJECT_TABLE, lua.create_table()?)?;
 
         let otr_weak = otable_resource.downgrade();

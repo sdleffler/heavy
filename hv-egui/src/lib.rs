@@ -44,7 +44,7 @@ impl Egui {
         };
 
         let resource = engine.insert(this);
-        engine.lua().register(resource.clone())?;
+        engine.lua().insert_resource(resource.clone())?;
 
         Ok(resource)
     }

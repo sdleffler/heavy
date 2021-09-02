@@ -240,6 +240,7 @@ pub struct Serializable {
 inventory::collect!(Serializable);
 
 impl Serializable {
+    #[doc(hidden)]
     pub fn new(cs: impl ComponentSerde + 'static) -> Self {
         Self {
             inner: Box::new(cs),
@@ -553,7 +554,7 @@ serializable!(with_finalizer(
         log::trace!(
             "linking Lua object table entries from components to their owning Rust objects..."
         );
-        let object_table_registry = lua.resource::<ObjectTableRegistry>()?;
+        let object_table_registry = lua.get_resource::<ObjectTableRegistry>()?;
         for (object, otc) in space.query_mut::<&ObjectTableComponent>() {
             object_table_registry
                 .borrow_mut()

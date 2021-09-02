@@ -32,24 +32,29 @@ pub const MINIQUAD_DT: f32 = 1. / 60.;
 /// A [`LuaResource`] can be fetched from the Lua context, similarly to how a regular resource can
 /// be fetched from [`Engine::get`]. Most of the time a resource can be fetched from both locations.
 pub trait LuaResource: LuaUserData + Send + Sync + 'static {
+    /// The registry key for this resource to be stored with. It should not collide with any other
+    /// string registry keys, or you'll get panics and dynamic type mismatches.
     const REGISTRY_KEY: &'static str;
 }
 
 /// An extension trait implemented on the [`Lua`] context type, allowing for easily registering and
 /// retrieving shared resources.
 pub trait LuaExt {
-    fn resource<T: LuaResource>(&self) -> LuaResult<Shared<T>>;
-    fn register<T: LuaResource>(&self, resource: Shared<T>) -> LuaResult<()>;
+    /// Retrieve a resource implementing [`LuaResource`] from its entry in the Lua registry.
+    fn get_resource<T: LuaResource>(&self) -> LuaResult<Shared<T>>;
+
+    /// Insert a resource implementing [`LuaResource`] into the Lua registry.
+    fn insert_resource<T: LuaResource>(&self, resource: Shared<T>) -> LuaResult<()>;
 }
 
 impl LuaExt for Lua {
     #[inline]
-    fn resource<T: LuaResource>(&self) -> LuaResult<Shared<T>> {
+    fn get_resource<T: LuaResource>(&self) -> LuaResult<Shared<T>> {
         self.named_registry_value(T::REGISTRY_KEY)
     }
 
     #[inline]
-    fn register<T: LuaResource>(&self, resource: Shared<T>) -> LuaResult<()> {
+    fn insert_resource<T: LuaResource>(&self, resource: Shared<T>) -> LuaResult<()> {
         self.set_named_registry_value(T::REGISTRY_KEY, resource)
     }
 }
@@ -112,7 +117,7 @@ impl Engine<'static> {
 
         {
             let lua = this.lua();
-            lua.register(Shared::new(this.downgrade()))?;
+            lua.insert_resource(Shared::new(this.downgrade()))?;
 
             let hv = lua.create_table()?;
             lua.globals().set("hv", hv.clone())?;
@@ -280,6 +285,7 @@ impl LuaResource for EngineRef {
     const REGISTRY_KEY: &'static str = "HV_ENGINE";
 }
 
+/// A cache for reducing the need to access the Lua registry to get an [`EngineRef`].
 pub struct EngineRefCache {
     weak: StdWeak<EngineInner>,
 }
@@ -291,17 +297,25 @@ impl Default for EngineRefCache {
 }
 
 impl EngineRefCache {
+    /// Create an empty cache.
     pub fn new() -> Self {
         Self {
             weak: StdWeak::new(),
         }
     }
 
+    /// If the cache is empty, retrieve a shared reference to the engine from the Lua context.
+    /// Otherwise, return the cached reference.
     pub fn get<'lua>(&mut self, lua: &'lua Lua) -> Engine {
         let inner = match self.weak.upgrade() {
             Some(strong) => strong,
             None => {
-                self.weak = lua.resource::<EngineRef>().unwrap().borrow().weak.clone();
+                self.weak = lua
+                    .get_resource::<EngineRef>()
+                    .unwrap()
+                    .borrow()
+                    .weak
+                    .clone();
                 self.weak
                     .upgrade()
                     .expect("failed to upgrade weak reference!")
@@ -365,6 +379,11 @@ pub trait EventHandler: Send + Sync + 'static {
     /// Called once per frame; use this to run your rendering/drawing code.
     fn draw(&mut self, engine: &Engine) -> Result<()>;
 
+    /// Called when a key is pressed.
+    ///
+    /// If a key is held down, then this event may be repeatedly generated. If the event is a
+    /// "repeat" from a held-down key (the first type the key is pressed will not be a "repeat")
+    /// then `repeat` will be true.
     fn key_down_event(
         &mut self,
         _engine: &Engine,
@@ -380,10 +399,14 @@ pub trait EventHandler: Send + Sync + 'static {
         );
     }
 
+    /// Called when a key is released.
     fn key_up_event(&mut self, _engine: &Engine, keycode: KeyCode, keymods: KeyMods) {
         log::trace!("unhandled key_up_event({:?}, {:?})", keycode, keymods);
     }
 
+    /// Called when any of keypresses which would type a character are completed.
+    ///
+    /// This is useful for text entry.
     fn char_event(&mut self, _engine: &Engine, character: char, keymods: KeyMods, repeat: bool) {
         log::trace!(
             "unhandled char_event({:?}, {:?}, {})",
@@ -393,14 +416,25 @@ pub trait EventHandler: Send + Sync + 'static {
         );
     }
 
+    /// Called when the mouse is moved.
+    ///
+    /// Arguments are the delta/change in mouse position, not the new position. Will still be
+    /// generated if the mouse is grabbed.
     fn mouse_motion_event(&mut self, _engine: &Engine, x: f32, y: f32) {
         log::trace!("unhandled mouse_motion_event({}, {})", x, y);
     }
 
+    /// Called when the mouse wheel is moved.
+    ///
+    /// Arguments are the delta/change in mouse wheel position, not the new position. `x` is
+    /// horizontal mouse wheel movement, `y` is vertical mouse wheel movement.
     fn mouse_wheel_event(&mut self, _engine: &Engine, x: f32, y: f32) {
         log::trace!("unhandled mouse_wheel_event({}, {})", x, y);
     }
 
+    /// Called when a mouse button is pressed.
+    ///
+    /// Receives the location at which the mouse was when the button was pressed.
     fn mouse_button_down_event(&mut self, _engine: &Engine, button: MouseButton, x: f32, y: f32) {
         log::trace!(
             "unhandled mouse_button_down_event({:?}, {}, {})",
@@ -410,6 +444,9 @@ pub trait EventHandler: Send + Sync + 'static {
         );
     }
 
+    /// Called when a mouse button is released.
+    ///
+    /// Receives the location at which the mouse was when the button was released.
     fn mouse_button_up_event(&mut self, _engine: &Engine, button: MouseButton, x: f32, y: f32) {
         log::trace!(
             "unhandled mouse_button_up_event({:?}, {}, {})",
@@ -419,6 +456,10 @@ pub trait EventHandler: Send + Sync + 'static {
         );
     }
 
+    /// Called when a gamepad button is pressed.
+    ///
+    /// Similarly to [`EventHandler::key_down_event`], if the press is a repeat, the `repeat`
+    /// parameter will be `true`.
     fn gamepad_button_down_event(&mut self, _engine: &Engine, button: GamepadButton, repeat: bool) {
         log::trace!(
             "unhandled gamepad_button_down_event({:?}, {})",
@@ -427,10 +468,12 @@ pub trait EventHandler: Send + Sync + 'static {
         );
     }
 
+    /// Called when a gamepad button is released.
     fn gamepad_button_up_event(&mut self, _engine: &Engine, button: GamepadButton) {
         log::trace!("unhandled gamepad_button_up_event({:?})", button);
     }
 
+    /// Called when a gamepad axis changes in value.
     fn gamepad_axis_changed_event(&mut self, _engine: &Engine, axis: GamepadAxis, position: f32) {
         log::trace!(
             "unhandled gamepad_axis_changed_event({:?}, {})",
@@ -439,10 +482,12 @@ pub trait EventHandler: Send + Sync + 'static {
         );
     }
 
+    /// Called when a gamepad is connected.
     fn gamepad_connected_event(&mut self, _engine: &Engine) {
         log::trace!("unhandled gamepad_connected_event()");
     }
 
+    /// Called when a gamepad is disconnected.
     fn gamepad_disconnected_event(&mut self, _engine: &Engine) {
         log::trace!("unhandled gamepad_disconnected_event()");
     }

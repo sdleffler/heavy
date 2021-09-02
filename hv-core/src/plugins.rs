@@ -62,6 +62,7 @@ pub struct PluginWrapper {
 }
 
 impl PluginWrapper {
+    #[doc(hidden)]
     pub fn new<T: Plugin>(plugin: T) -> Self {
         Self {
             object: Box::new(plugin),

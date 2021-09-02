@@ -686,10 +686,10 @@ impl<'a> Graphics<'a> {
 
 pub(crate) fn open<'lua>(lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lua>> {
     let gfx_lock = GraphicsLock::new(engine)?;
-    lua.register(gfx_lock.clone())?;
+    lua.insert_resource(gfx_lock.clone())?;
 
     let texture_cache = engine.insert(TextureCache::new(engine, &gfx_lock));
-    lua.register(texture_cache.clone())?;
+    lua.insert_resource(texture_cache.clone())?;
 
     let clone = texture_cache.clone();
     let load_texture_from_filesystem = lua.create_function(move |_, path: LuaString| {
@@ -698,7 +698,7 @@ pub(crate) fn open<'lua>(lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lu
     })?;
 
     let sprite_sheet_cache = engine.insert(SpriteSheetCache::new(engine));
-    lua.register(sprite_sheet_cache.clone())?;
+    lua.insert_resource(sprite_sheet_cache.clone())?;
 
     let clone = sprite_sheet_cache.clone();
     let load_sprite_sheet_from_filesystem = lua.create_function(move |_, path: LuaString| {

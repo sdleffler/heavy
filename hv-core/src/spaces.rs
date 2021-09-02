@@ -33,10 +33,13 @@ pub use self::lua::SpaceCache;
 /// Possible errors when attempting to access a specific component on an object.
 #[derive(Debug, thiserror::Error)]
 pub enum ComponentError {
+    /// The space does not contain the object.
     #[error("no such object")]
     NoSuchObject,
+    /// The object exists in the space, but does not have the requested component.
     #[error("missing component {_0}")]
     MissingComponent(MissingComponent),
+    /// The object's space ID does not match the space.
     #[error("wrong space")]
     WrongSpace,
 }
@@ -44,8 +47,10 @@ pub enum ComponentError {
 /// Possible errors when attempting to access an object.
 #[derive(Debug, thiserror::Error)]
 pub enum ObjectError {
+    /// The space does not contain the object.
     #[error("no such object")]
     NoSuchObject,
+    /// The object's space ID does not match the space.
     #[error("wrong space")]
     WrongSpace,
 }
@@ -765,7 +770,7 @@ impl Plugin for SpacesPlugin {
         engine: &crate::engine::Engine,
     ) -> Result<LuaTable<'lua>, Error> {
         let spaces_resource = engine.insert(Spaces::new());
-        lua.register(spaces_resource.clone())?;
+        lua.insert_resource(spaces_resource.clone())?;
 
         let sp_res = spaces_resource;
         let create_space = lua.create_function(move |_, ()| {

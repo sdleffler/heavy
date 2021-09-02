@@ -112,7 +112,7 @@ where
 {
     let mut weak_gfx_cache = WeakResourceCache::<GraphicsLock>::new();
     methods.add_method_mut("draw", move |lua, this, maybe_params: Option<Instance>| {
-        let gfx_lock = weak_gfx_cache.get(|| lua.resource::<GraphicsLock>())?;
+        let gfx_lock = weak_gfx_cache.get(|| lua.get_resource::<GraphicsLock>())?;
         this.draw_mut(&mut gfx_lock.lock(), maybe_params.unwrap_or_default());
         Ok(())
     });

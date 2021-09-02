@@ -21,8 +21,10 @@ use crate::{
 /// the Lua context. Most of the time you'll be fine just constructing this as a closure, and
 /// honestly I can't see any reason you'd want to do anything else, so it may go away in the future.
 pub trait ComponentConstructor: Send + 'static {
+    /// The type of the [`Component`] to be constructed.
     type Component: Component;
 
+    /// Returns a newly constructed component, if successful.
     fn construct(&self, _lua: &Lua, _object: Object) -> Result<Self::Component>;
 }
 
@@ -127,6 +129,7 @@ pub struct ComponentWrapper {
 }
 
 impl ComponentWrapper {
+    #[doc(hidden)]
     pub fn new<T: Plugin>(plugin: T) -> Self {
         Self {
             object: Box::new(plugin),

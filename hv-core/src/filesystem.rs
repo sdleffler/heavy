@@ -132,6 +132,7 @@ impl Default for Filesystem {
 }
 
 impl Filesystem {
+    /// Construct a new virtual filesystem with a completely empty root set.
     pub fn new() -> Self {
         Self {
             vfs: vfs::OverlayFS::new(),
