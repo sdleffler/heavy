@@ -22,12 +22,6 @@ do
         end
     end
 
-    local Component = class("Component")
-    do
-        space.Component = Component
-        binser.registerClass(Component)
-    end
-
     local Object = class("Object")
     do
         space.Object = Object

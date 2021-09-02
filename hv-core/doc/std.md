@@ -4,6 +4,10 @@ Most crates in the Heavy family come with Lua APIs; `hv-core` is no exception. I
 several convenient pieces of functionality as well as Lua bindings for its most important core Rust
 types.
 
+## std.agent
+
+A simple class for message-passing based state machines.
+
 ## std.binser
 
 Calvin Rose's `binser` Lua library for serializing Lua objects to byte strings. `binser` is not just
@@ -22,3 +26,9 @@ things like creating "classes" to wrap your objects in, and crates like `hv-frie
 "mixins" compatible with 30log for doing things like adding standard functions for accessing
 `Position` and `Velocity` components. 30log is simple and flexible, and while object oriented
 programming doesn't solve all problems, it can add structure to working with Lua.
+
+## std.space
+
+Contains two useful classes to use as base classes for holding your [`Object`]s and [`Space`]s in
+your Lua code, with the intent that you can extend them and then add mixins from libraries such as
+`hv-friends` to give an object table functionality related to the object it represents.
