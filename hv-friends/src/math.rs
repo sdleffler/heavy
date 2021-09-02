@@ -17,7 +17,8 @@ pub use nalgebra::{
     self as na, Affine2, Affine3, Complex, Isometry2, Isometry3, Matrix2, Matrix3, Matrix4,
     Orthographic3, Perspective3, Point2, Point3, Projective2, Projective3, Quaternion, RealField,
     Rotation2, Rotation3, Scalar, Similarity2, Similarity3, Transform2, Transform3, Translation2,
-    Translation3, Unit, UnitComplex, UnitQuaternion, Vector2, Vector3, Vector4,
+    Translation3, Unit, UnitComplex, UnitQuaternion, UnitVector2, UnitVector3, UnitVector4,
+    Vector2, Vector3, Vector4,
 };
 
 pub use num_traits as num;
@@ -95,6 +96,33 @@ impl<N: RealField + Copy> Position2<N> {
 
     pub fn center(&self) -> Point2<N> {
         Point2::from(self.0.translation.vector)
+    }
+
+    pub fn to_isometry(&self) -> Isometry2<N> {
+        self.0
+    }
+}
+
+impl<N: RealField + Copy + for<'lua> FromLua<'lua> + for<'lua> ToLua<'lua>> Position2<N> {
+    pub fn lua_new(lua: &Lua, args: LuaMultiValue) -> LuaResult<Self> {
+        match args.len() {
+            0 => Ok(Position2::from(Isometry2::identity())),
+            1 => {
+                let pos = Position2::from_lua_multi(args, lua)?;
+                Ok(pos)
+            }
+            2 => {
+                let (x, y) = FromLuaMulti::from_lua_multi(args, lua)?;
+                Ok(Position2::translation(x, y))
+            }
+            3 => {
+                let (x, y, angle) = FromLuaMulti::from_lua_multi(args, lua)?;
+                Ok(Position2::new(Point2::new(x, y), angle))
+            }
+            _ => Err(LuaError::external(anyhow!(
+                "could not construct position from args"
+            ))),
+        }
     }
 }
 
