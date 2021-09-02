@@ -1,8 +1,9 @@
 [package]
 name = "hv-fmod-sys"
 version = "0.1.0"
-authors = ["Shea Leffler <shea@errno.com>"]
+authors = ["Shea Decibel Leffler <shea@errno.com>"]
 edition = "2018"
+license = "MIT OR Apache-2.0"
 build = "build.rs"
 
 [features]
