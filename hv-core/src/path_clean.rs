@@ -1,34 +1,28 @@
-//! This is a lightly modified version of the `path-clean` crate, which diverges a bit from the original
-//! semantics/behavior.
+//! This is a lightly modified version of the `path-clean` crate, which diverges a bit from the
+//! original semantics/behavior.
 //!
-//! `path-clean` is a modification of a Rust port of the the `cleanname` procedure from the Plan 9 C library,
-//! and is similar to [`path.Clean`](https://golang.org/pkg/path/#Clean) from the Go standard library. However,
-//! unlike both of these functions, this module will not remove `..` elements which begin a path.
+//! `path-clean` is a modification of a Rust port of the the `cleanname` procedure from the Plan 9 C
+//! library, and is similar to [`path.Clean`](https://golang.org/pkg/path/#Clean) from the Go
+//! standard library. However, unlike both of these functions, this module will not remove `..`
+//! elements which begin a path.
 //!
 //! It works as follows:
 //!
 //! 1. Reduce multiple slashes to a single slash.
 //! 2. Eliminate `.` path name elements (the current directory).
-//! 3. Eliminate `..` path name elements (the parent directory) and the non-`.` non-`..`, element that precedes them.
+//! 3. Eliminate `..` path name elements (the parent directory) and the non-`.` non-`..`, element
+//!    that precedes them.
 //! 4. Leave intact `..` elements that begin a path.
 //!
-//! If the result of this process is an empty string, return the string `"."`, representing the current directory.
+//! If the result of this process is an empty string, return the string `"."`, representing the
+//! current directory.
 //!
 //! It performs this transform lexically, without touching the filesystem. Therefore it doesn't do
-//! any symlink resolution or absolute path resolution. For more information you can see ["Getting Dot-Dot
-//! Right"](https://9p.io/sys/doc/lexnames.html).
+//! any symlink resolution or absolute path resolution. For more information you can see ["Getting
+//! Dot-Dot Right"](https://9p.io/sys/doc/lexnames.html).
 //!
-//! For convenience, the [`PathClean`] trait is exposed and comes implemented for [`std::path::PathBuf`].
-//!
-//! ```rust
-//! # use std::path::{Path, PathBuf};
-//! # use sludge::path_clean::{clean, PathClean};
-//! assert_eq!(clean("hello/world/.."), "hello");
-//! assert_eq!(
-//!     Path::new("/test/../path/").clean(),
-//!     PathBuf::from("/path")
-//! );
-//! ```
+//! For convenience, the [`PathClean`] trait is exposed and comes implemented for
+//! [`std::path::PathBuf`].
 
 /*
  * Copyright (c) 2018 Dan Reeves

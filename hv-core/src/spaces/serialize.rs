@@ -13,9 +13,8 @@
 //! [`serializable!`] macro:
 //!
 //! ```rust
-//! # use hv_core::{spaces::serialize::{serializable, self}, na::Vector2};
+//! # use hv_core::{spaces::serialize, na::Vector2, serializable};
 //! # use serde::*;
-//!
 //! #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 //! pub struct Coordinates(pub Vector2<f32>);
 //!
@@ -31,13 +30,12 @@
 //! very easy:
 //!
 //! ```rust
-//! # use hv_core::{spaces::serialize::{serializable, self}, prelude::*};
-//!
+//! # use hv_core::{spaces::serialize, prelude::*, serializable};
 //! #[derive(Debug)]
 //! pub struct SomeLuaTable(pub LuaRegistryKey);
 //!
-//! impl<'lua> ToLua<'lua> for SomeLuaTable {
-//!     fn to_lua(&self, lua: &'lua Lua) -> LuaResult<LuaValue<'lua>> {
+//! impl<'a, 'lua> ToLua<'lua> for &'a SomeLuaTable {
+//!     fn to_lua(self, lua: &'lua Lua) -> LuaResult<LuaValue<'lua>> {
 //!         lua.registry_value(&self.0)
 //!     }
 //! }
@@ -50,6 +48,10 @@
 //!
 //! serializable!(serialize::with_lua::<SomeLuaTable>("my.SomeLuaTableComponent"));
 //! ```
+//!
+//! *Note the slight snag on the [`ToLua`] implementation!* There must be a [`ToLua`] implementation
+//! for `&T`, not just `T`! (It's actually okay if there isn't one for `T` but that would be a
+//! little strange if you already have it for `&T`.)
 //!
 //! If your Lua value contains references to other Lua values being serialized in the same space,
 //! those references *will* be preserved! The underlying serialization used is from `binser`, which
@@ -69,8 +71,7 @@
 //! provide an example of how finalization can be useful with a deserializer.)
 //!
 //! ```rust
-//! # use hv_core::{spaces::{serialize::*, object_table::*}, prelude::*};
-//!
+//! # use hv_core::{spaces::{serialize::*, object_table::*}, prelude::*, serializable};
 //! serializable!(with_finalizer(
 //!     with_lua::<ObjectTableComponent>("hv.ObjectTable"),
 //!     |lua, space| {
@@ -78,7 +79,7 @@
 //!         // problem: they are linked to object IDs, and not even hecs entity IDs are available at
 //!         // deserialization time. So we "partially" insert them when deserializing, and then
 //!         // link them to their respective objects after we're done loading everything else.
-//!         let object_table_registry = lua.resource::<ObjectTableRegistry>()?;
+//!         let object_table_registry = lua.get_resource::<ObjectTableRegistry>()?;
 //!         for (object, otc) in space.query_mut::<&ObjectTableComponent>() {
 //!             object_table_registry
 //!                 .borrow_mut()

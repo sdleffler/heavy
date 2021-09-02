@@ -171,7 +171,7 @@ impl Guid {
     /// Parse a Guid from a Windows-style GUID string.
     ///
     /// ```no_run
-    /// # use sludge_fmod::Guid;
+    /// # use hv_fmod::Guid;
     /// // Note: this snippet is marked `no_run` because it's troublesome to make
     /// // doctests find the FMOD DLLs, and without them it will fail with an odd
     /// // error code.
