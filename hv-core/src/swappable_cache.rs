@@ -147,7 +147,7 @@ impl<T> CacheRef<T> {
     }
 
     /// Quickly check that the cached value is valid and does not need to be reloaded, and then
-    /// a reference to it. This is faster than [`CacheRef::get`] and [`Handle::get`], but requires
+    /// a reference to it. This is faster than [`CacheRef::get`] and [`Handle::load`], but requires
     /// mutable access to the [`CacheRef<T>`].
     pub fn get_cached(&mut self) -> &T {
         self.inner.load()

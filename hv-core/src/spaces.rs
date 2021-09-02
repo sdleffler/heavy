@@ -78,6 +78,8 @@ impl From<hecs::NoSuchEntity> for ObjectError {
 /// [`Object`], unlike [`hecs::Entity`], is specifically tied to its [`Space`] and so contains a
 /// [`SpaceId`]. The [`Spaces`] resource is what initially creates this [`SpaceId`] when
 /// constructing a new [`Space`].
+///
+/// [`Engine`]: crate::engine::Engine
 pub struct Spaces {
     registry: Arena<Shared<Space>>,
 }
@@ -172,7 +174,7 @@ impl Object {
     ///
     /// As this index lacks any generational information, it could potentially refer to a dead
     /// entity. Accessing via a slot is unsafe, but can be done with
-    /// [`Space::find_find_object_from_id`].
+    /// [`Space::find_object_from_id`].
     pub fn slot(&self) -> u32 {
         self.entity.id()
     }
@@ -469,7 +471,7 @@ impl Space {
 
     /// An even more efficient batch spawning method than [`Space::spawn_batch`], and capable of
     /// being called with a dynamically typed batch. This is roughly what's used under the hood when
-    /// deserializing a [`World`].
+    /// deserializing a [`Space`].
     pub fn spawn_column_batch(&mut self, batch: ColumnBatch) -> SpawnColumnBatchIter {
         let id = self.id;
         let inner = self.ecs.spawn_column_batch(batch);
