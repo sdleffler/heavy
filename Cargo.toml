@@ -1,6 +1,5 @@
 [workspace]
 members = [
-    "belltower", 
     "hv-core",
     "hv-egui",
     "hv-fmod-sys",
