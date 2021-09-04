@@ -290,7 +290,7 @@ fn to_egui_button(mb: MouseButton) -> egui::PointerButton {
         MouseButton::Left => egui::PointerButton::Primary,
         MouseButton::Right => egui::PointerButton::Secondary,
         MouseButton::Middle => egui::PointerButton::Middle,
-        // MouseButton::Unknown => egui::PointerButton::Primary,
+        MouseButton::Unknown => egui::PointerButton::Primary,
     }
 }
 
