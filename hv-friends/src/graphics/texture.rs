@@ -28,7 +28,8 @@ impl OwnedTexture {
 
     /// Parse a buffer containing the raw contents of an image file such as a PNG, GIF, etc.
     pub fn from_memory(ctx: &mut Graphics, buffer: &[u8]) -> Result<Self> {
-        let rgba_image = image::load_from_memory(buffer)?.to_rgba8();
+        let mut rgba_image = image::load_from_memory(buffer)?.to_rgba8();
+        image::imageops::flip_vertical_in_place(&mut rgba_image);
         Ok(Self::from_rgba8(
             ctx,
             rgba_image.width() as u16,
