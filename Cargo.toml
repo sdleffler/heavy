@@ -8,6 +8,7 @@ members = [
     "hv-mymachine",
     "hv-rain",
     "hv-talisman",
+    "hv-tiled",
 ]
 
 [profile.dev]
