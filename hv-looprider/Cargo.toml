@@ -1,0 +1,11 @@
+[package]
+name = "hv-looprider"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+hv-core = { path = "../hv-core" }
+slab = "0.4.4"
+serde = "1.0.130"
+shrev = "1.1.1"
+log = "0.4.14"
