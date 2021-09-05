@@ -468,7 +468,7 @@ enum InputType {
 
 /// An `InputEffect` represents a single input event acting on a parameterizable set of axes and
 /// buttons.
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize)]
 pub enum InputEffect<Axes, Buttons>
 where
     Axes: Eq + Hash + Clone,
