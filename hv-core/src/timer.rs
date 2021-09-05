@@ -243,6 +243,22 @@ impl TimeContext {
     /// whether there's enough remaining time, and set the residual delta time to zero.
     /// This helps avoid cascading stutters where the game performs no updates one frame
     /// and then many the next.
+    ///
+    /// ```rust
+    /// # use hv_core::{prelude::*, timer::{self, TimeContext}};
+    /// # fn update_game_physics() -> Result<()> { Ok(()) }
+    /// # struct State;
+    /// # impl State {
+    /// fn update(&mut self, ctx: &mut TimeContext) -> Result<()> {
+    ///     ctx.tick();
+    ///     let mut counter = 0;
+    ///     while ctx.check_update_time_forced(60, &mut counter) {
+    ///         update_game_physics()?;
+    ///     }
+    ///     Ok(())
+    /// }
+    /// # }
+    /// ```
     pub fn check_update_time_forced(&mut self, target_fps: u32, iteration: &mut u32) -> bool {
         let target_dt = fps_as_duration(target_fps);
         if self.residual_update_dt > target_dt
