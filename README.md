@@ -8,12 +8,15 @@ stable in any way shape or form. Heavy currently takes the form of a family of c
 - Heavy Friends (`hv-friends`), a Love2D-like interface built on Heavy core
 - MyMachine (`hv-mymachine`), a small "console" library that allows interfacing w/ a running game's
   Lua state from stdin
+- Looprider (`hv-looprider`), a small event stream replay library for recording and later replaying
+  input events, game events, or other
 - Heavy Rain (`hv-rain`), a library for spawning and controlling 2D danmaku patterns
 - Talisman (`hv-talisman`), a highly work-in-progress and experimental in-engine preview/level
   editing tool which keeps getting its entire source deleted as we figure out how to do it right
 - `hv-fmod`, a library providing FMOD bindings for Heavy both to Lua and Rust
 - `hv-egui`, a library providing a thin wrapper over the `egui` crate for making simple GUIs for
   development purposes
+- `hv-tiled`, a library for parsing the Tiled map format
 
 ## License
 
