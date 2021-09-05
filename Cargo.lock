@@ -2234,6 +2234,7 @@ dependencies = [
 [[package]]
 name = "tiled"
 version = "0.9.5"
+source = "git+https://github.com/maximveligan/rs-tiled#1f0178333e9220365418698c980bc3d1e7eeedc0"
 dependencies = [
  "base64",
  "libflate",

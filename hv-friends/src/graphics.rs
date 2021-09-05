@@ -4,10 +4,26 @@ use std::{
     sync::{Arc, Mutex, MutexGuard, RwLock},
 };
 
-use hv_core::{components::DynamicComponentConstructor, engine::{Engine, EngineRef, LuaExt, LuaResource}, mq::{self, PassAction}, prelude::*, shared::{Shared, RefMut}};
+use hv_core::{
+    components::DynamicComponentConstructor,
+    engine::{Engine, EngineRef, LuaExt, LuaResource},
+    mq::{self, PassAction},
+    prelude::*,
+    shared::{RefMut, Shared},
+};
 use serde::*;
 
-use crate::{graphics::{bindings::Bindings, lua::{LuaDrawMode, LuaGraphicsState}, pipeline::{Pipeline, PipelineRegistry, ShaderRegistry}, render_pass::RenderPassRegistry, sprite::{CachedSpriteSheet, SpriteAnimationState, SpriteSheetCache}, texture::TextureCache}, math::*};
+use crate::{
+    graphics::{
+        bindings::Bindings,
+        lua::{LuaDrawMode, LuaGraphicsState},
+        pipeline::{Pipeline, PipelineRegistry, ShaderRegistry},
+        render_pass::RenderPassRegistry,
+        sprite::{CachedSpriteSheet, SpriteAnimationState, SpriteSheetCache},
+        texture::TextureCache,
+    },
+    math::*,
+};
 
 pub mod basic;
 pub mod bindings;
@@ -580,11 +596,11 @@ impl<'a> Graphics<'a> {
     pub fn mq_mut(&mut self) -> &mut mq::Context {
         &mut *self.mq
     }
-    
+
     #[inline]
     pub fn modelview(&self) -> &TransformStack {
         &self.state.modelview
-    } 
+    }
 
     #[inline]
     pub fn modelview_mut(&mut self) -> &mut TransformStack {
@@ -794,14 +810,15 @@ pub(crate) fn open<'lua>(lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lu
     let points = lua.create_function(self::lua::points(lgs.clone(), gfx_lock.clone()))?;
     let polygon = lua.create_function(self::lua::polygon(lgs.clone(), gfx_lock.clone()))?;
     let print = lua.create_function(self::lua::print(lgs.clone(), gfx_lock.clone()))?;
-    
+
     let clear = lua.create_function(self::lua::clear(lgs.clone(), gfx_lock.clone()))?;
     let present = lua.create_function(self::lua::present(gfx_lock.clone()))?;
 
     let set_color = lua.create_function(self::lua::set_color(lgs))?;
-    
+
     let apply_transform = lua.create_function(self::lua::apply_transform(gfx_lock.clone()))?;
-    let inverse_transform_point = lua.create_function(self::lua::inverse_transform_point(gfx_lock.clone()))?;
+    let inverse_transform_point =
+        lua.create_function(self::lua::inverse_transform_point(gfx_lock.clone()))?;
     let origin = lua.create_function(self::lua::origin(gfx_lock.clone()))?;
     let pop = lua.create_function(self::lua::pop(gfx_lock.clone()))?;
     let push = lua.create_function(self::lua::push(gfx_lock.clone()))?;

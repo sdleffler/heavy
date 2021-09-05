@@ -1,20 +1,22 @@
 use std::path::Path;
 
 use hv_core::{
+    conf::Conf,
     engine::{Engine, EventHandler},
     filesystem::Filesystem,
-    conf::Conf,
     prelude::*,
     // spaces::{Object, Space, Spaces},
 };
 
-use hv_friends::{SimpleHandler, graphics:: {Drawable, DrawableMut, GraphicsLock, GraphicsLockExt, Instance}};
+use hv_friends::{
+    graphics::{DrawableMut, GraphicsLock, GraphicsLockExt, Instance},
+    SimpleHandler,
+};
 
 use hv_tiled;
 use std::io::Read;
 
 struct MarioBros {
-    tileset_atlas: hv_tiled::TilesetAtlas,
     layer_batches: Vec<hv_tiled::LayerBatch>,
 }
 
@@ -33,13 +35,19 @@ impl MarioBros {
 
         let mut tiled_layers = Vec::new();
 
-        for layer in tiled_lua_table.get::<_, LuaTable>("layers")?.sequence_values::<LuaTable>() {
+        for layer in tiled_lua_table
+            .get::<_, LuaTable>("layers")?
+            .sequence_values::<LuaTable>()
+        {
             tiled_layers.push(hv_tiled::Layer::from_lua_table(layer?)?);
         }
 
         let mut tilesets = Vec::new();
 
-        for tileset in tiled_lua_table.get::<_, LuaTable>("tilesets")?.sequence_values::<LuaTable>() {
+        for tileset in tiled_lua_table
+            .get::<_, LuaTable>("tilesets")?
+            .sequence_values::<LuaTable>()
+        {
             tilesets.push(hv_tiled::get_tileset(tileset?, engine)?);
         }
 
@@ -51,14 +59,18 @@ impl MarioBros {
         let mut layer_batches = Vec::with_capacity(tiled_layers.len());
 
         for layer in tiled_layers.iter() {
-            layer_batches.push(hv_tiled::LayerBatch::new(layer, &tileset_atlas, engine, &map_data));
+            layer_batches.push(hv_tiled::LayerBatch::new(
+                layer,
+                &tileset_atlas,
+                engine,
+                &map_data,
+            ));
         }
 
         let mut simple_handler = SimpleHandler::new("main");
         simple_handler.init(engine)?;
 
         Ok(MarioBros {
-            tileset_atlas,
             layer_batches,
         })
     }
@@ -72,7 +84,10 @@ impl EventHandler for MarioBros {
     fn draw(&mut self, engine: &Engine) -> Result<()> {
         let graphics_lock = engine.get::<GraphicsLock>();
         for layer_batch in self.layer_batches.iter_mut() {
-            layer_batch.draw_mut(&mut GraphicsLockExt::lock(&graphics_lock), Instance::default());
+            layer_batch.draw_mut(
+                &mut GraphicsLockExt::lock(&graphics_lock),
+                Instance::default(),
+            );
         }
         Ok(())
     }
