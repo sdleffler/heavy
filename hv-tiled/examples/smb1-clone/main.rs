@@ -8,21 +8,14 @@ use hv_core::{
     // spaces::{Object, Space, Spaces},
 };
 
-use hv_friends::{
-    graphics:: {
-        Drawable,
-        GraphicsLock,
-        GraphicsLockExt,
-        Instance,
-    },
-    SimpleHandler,
-};
+use hv_friends::{SimpleHandler, graphics:: {Drawable, DrawableMut, GraphicsLock, GraphicsLockExt, Instance}};
 
 use hv_tiled;
 use std::io::Read;
 
 struct MarioBros {
-    tileset_atlas: hv_tiled::TilesetAtlas
+    tileset_atlas: hv_tiled::TilesetAtlas,
+    layer_batches: Vec<hv_tiled::LayerBatch>,
 }
 
 impl MarioBros {
@@ -36,6 +29,8 @@ impl MarioBros {
         tiled_lua_map.read_to_end(&mut tiled_buffer)?;
         let lua_chunk = lua.load(&tiled_buffer);
         let tiled_lua_table = lua_chunk.eval::<LuaTable>()?;
+        let map_data = hv_tiled::MapData::from_lua_table(&tiled_lua_table)?;
+
         let mut tiled_layers = Vec::new();
 
         for layer in tiled_lua_table.get::<_, LuaTable>("layers")?.sequence_values::<LuaTable>() {
@@ -48,16 +43,23 @@ impl MarioBros {
             tilesets.push(hv_tiled::get_tileset(tileset?, engine)?);
         }
 
-        let tileset_atlas = hv_tiled::TilesetAtlas::new(tilesets, engine)?;
-
         drop(tiled_lua_table);
         drop(lua);
+
+        let tileset_atlas = hv_tiled::TilesetAtlas::new(tilesets, engine)?;
+
+        let mut layer_batches = Vec::with_capacity(tiled_layers.len());
+
+        for layer in tiled_layers.iter() {
+            layer_batches.push(hv_tiled::LayerBatch::new(layer, &tileset_atlas, engine, &map_data));
+        }
 
         let mut simple_handler = SimpleHandler::new("main");
         simple_handler.init(engine)?;
 
         Ok(MarioBros {
-            tileset_atlas
+            tileset_atlas,
+            layer_batches,
         })
     }
 }
@@ -69,7 +71,9 @@ impl EventHandler for MarioBros {
 
     fn draw(&mut self, engine: &Engine) -> Result<()> {
         let graphics_lock = engine.get::<GraphicsLock>();
-        self.tileset_atlas.draw(&mut GraphicsLockExt::lock(&graphics_lock), Instance::default());
+        for layer_batch in self.layer_batches.iter_mut() {
+            layer_batch.draw_mut(&mut GraphicsLockExt::lock(&graphics_lock), Instance::default());
+        }
         Ok(())
     }
 }

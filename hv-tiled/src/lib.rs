@@ -13,7 +13,9 @@ use hv_friends::{
         GraphicsLockExt,
         Instance,
         OwnedTexture,
-        SpriteBatch},
+        SpriteBatch,
+        Color,
+    },
     math::Box2,
     math::Vector2,
 };
@@ -49,8 +51,79 @@ pub enum Encoding {
     Lua,
 }
 
-#[derive(Debug)]
+pub enum Orientation {
+    Orthogonal,
+    Isometric
+}
+
+pub enum RenderOrder {
+    RightDown,
+    RightUp,
+    LeftDown,
+    LeftUp
+}
+
+#[derive(Debug, Clone, Copy)]
 pub struct TileId(u32);
+
+pub struct MapData {
+  pub tsx_ver: String,
+  pub lua_ver: String,
+  pub tiled_ver: String,
+  pub orientation: Orientation,
+  pub render_order: RenderOrder,
+  pub width: usize,
+  pub height: usize,
+  pub tilewidth: usize,
+  pub tileheight: usize,
+  pub nextlayerid: usize,
+  pub nextobjectid: usize,
+  pub properties: HashMap<String, Property>
+}
+
+impl MapData {
+    pub fn from_lua_table(map_table: &LuaTable) -> Result<Self, Error> {
+        let render_order = match map_table.get::<_, LuaString>("renderorder")?.to_str()? {
+            "right-down" => RenderOrder::RightDown,
+            r => return Err(anyhow!("Got an unsupported renderorder: {}", r))
+        };
+
+        let orientation = match map_table.get::<_, LuaString>("orientation")?.to_str()? {
+            "orthogonal" => Orientation::Orthogonal,
+            o => return Err(anyhow!("Got an unsupported orientation: {}", o))
+        };
+
+
+        let mut properties = HashMap::new();
+
+        for pair_res in map_table.get::<_, LuaTable>("properties")?.pairs() {
+            let pair = pair_res?;
+            let val = match pair.1 {
+                LuaValue::Boolean(b) => Property::Bool(b),
+                LuaValue::Integer(i) => Property::Int(i),
+                LuaValue::Number(n) => Property::Float(n),
+                LuaValue::String(s) => Property::String(s.to_str()?.to_owned()),
+                l => return Err(anyhow!("Got an unexpected value in the properties section: {:?}", l)),
+            };
+            properties.insert(pair.0, val);
+        }
+
+        Ok(MapData {
+            width : map_table.get("width")?,
+            height : map_table.get("height")?,
+            tilewidth : map_table.get("tilewidth")?,
+            tileheight : map_table.get("tileheight")?,
+            tsx_ver : map_table.get::<_, LuaString>("version")?.to_str()?.to_owned(),
+            lua_ver : map_table.get::<_, LuaString>("luaversion")?.to_str()?.to_owned(),
+            tiled_ver : map_table.get::<_, LuaString>("tiledversion")?.to_str()?.to_owned(),
+            nextlayerid : map_table.get::<_, LuaInteger>("nextlayerid")? as usize,
+            nextobjectid : map_table.get::<_, LuaInteger>("nextobjectid")? as usize,
+            orientation,
+            properties,
+            render_order,
+        })
+    }
+}
 
 #[derive(Debug)]
 pub struct Layer {
@@ -70,11 +143,48 @@ pub struct Layer {
     data: Vec<TileId>
 }
 
-pub struct LayerBatch(SpriteBatch);
+pub struct LayerBatch(Vec<SpriteBatch>);
 
 impl DrawableMut for LayerBatch {
     fn draw_mut(&mut self, ctx: &mut Graphics, instance: Instance) {
-        self.0.draw_mut(ctx, instance)
+        for batch in self.0.iter_mut() {
+            batch.draw_mut(ctx, instance);
+        }
+    }
+}
+
+impl LayerBatch {
+    pub fn new(layer: &Layer, ts_atlas: &TilesetAtlas, engine: &Engine, map_data: &MapData) -> Self {
+        // We need 1 sprite batch per texture
+        let mut batches = Vec::with_capacity(ts_atlas.textures.len());
+        let graphics_lock = engine.get::<GraphicsLock>();
+
+        for texture in ts_atlas.textures.iter() {
+            let mut acquired_lock = GraphicsLockExt::lock(&graphics_lock);
+            batches.push(SpriteBatch::new(&mut acquired_lock, texture.clone()));
+            drop(acquired_lock);
+        }
+        let top = layer.height * map_data.tileheight;
+
+        for y_cord in 0..layer.height {
+            for x_cord in 0..layer.width {
+                let tile = layer.data[y_cord * layer.width + x_cord];
+                // Tile indices start at 1, 0 represents no tile, so we offset the tile by 1
+                // first, and skip making the instance param if the tile is 0
+                if tile.0 == 0 {
+                    continue;
+                }
+
+                let real_id: TileId = TileId(tile.0 - 1u32);
+
+                let (uvs, tileset_id) = ts_atlas[real_id];
+                batches[tileset_id].insert(Instance::new()
+                    .src(uvs)
+                    .color(Color::new(1.0, 1.0, 1.0, layer.opacity as f32))
+                    .translate2(Vector2::new((x_cord * map_data.tilewidth) as f32, (top - (y_cord * map_data.tileheight)) as f32)));
+            }
+        }
+        LayerBatch(batches)
     }
 }
 
@@ -116,12 +226,13 @@ impl TilesetAtlas {
 
             if let Some(tile_count) = tileset.tilecount {
                 let rows = tile_count / tileset.columns;
-                for row in 0..rows {
+                let top = (rows * (tileset.spacing + tileset.tile_height)) + tileset.margin;
+                for row in 1..=rows {
                     for column in 0..tileset.columns {
                         render_data.push(
                         (Box2::new(
                             (tileset.margin + ((column * tileset.tile_width) + column * tileset.spacing)) as f32 / texture_obj.width() as f32,
-                            (tileset.margin + ((row * tileset.tile_height) + column * tileset.spacing)) as f32 / texture_obj.height() as f32,
+                            (tileset.spacing + (top - (tileset.margin + ((row * tileset.tile_height) + row * tileset.spacing)))) as f32 / texture_obj.height() as f32,
                             tileset.tile_width as f32 / texture_obj.width() as f32,
                             tileset.tile_height as f32 / texture_obj.height() as f32,
                         ), i));
