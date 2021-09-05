@@ -11,6 +11,7 @@ use hv_core::{
 use hv_friends::{
     graphics::{DrawableMut, GraphicsLock, GraphicsLockExt, Instance},
     SimpleHandler,
+    math::Vector2,
 };
 
 use hv_tiled;
@@ -18,6 +19,7 @@ use std::io::Read;
 
 struct MarioBros {
     layer_batches: Vec<hv_tiled::LayerBatch>,
+    map_instance: Instance,
 }
 
 impl MarioBros {
@@ -72,6 +74,7 @@ impl MarioBros {
 
         Ok(MarioBros {
             layer_batches,
+            map_instance : Instance::default(),
         })
     }
 }
@@ -86,9 +89,10 @@ impl EventHandler for MarioBros {
         for layer_batch in self.layer_batches.iter_mut() {
             layer_batch.draw_mut(
                 &mut GraphicsLockExt::lock(&graphics_lock),
-                Instance::default(),
+                self.map_instance,
             );
         }
+        self.map_instance.translate2(Vector2::new(1.0, 0.0));
         Ok(())
     }
 }
