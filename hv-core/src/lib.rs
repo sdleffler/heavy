@@ -24,6 +24,7 @@ pub mod plugins;
 pub mod shared;
 pub mod spaces;
 pub mod swappable_cache;
+pub mod timer;
 pub mod xsbox;
 
 pub mod error {
