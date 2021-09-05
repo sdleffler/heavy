@@ -86,7 +86,8 @@ impl MarioBros {
 impl EventHandler for MarioBros {
     fn update(&mut self, engine: &Engine, _dt: f32) -> Result<()> {
         self.timer.tick();
-        if self.timer.check_update_time(60) {
+        let mut counter = 0;
+        if self.timer.check_update_time_forced(60, &mut counter) {
             self.x_scroll += 1;
             if self.x_scroll
                 > ((self.map_data.width * self.map_data.tilewidth)
