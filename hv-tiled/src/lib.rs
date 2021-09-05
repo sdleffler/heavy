@@ -212,10 +212,10 @@ impl Layer {
 }
 
 pub fn get_tileset(t: LuaTable, engine: &Engine) -> Result<tiled::Tileset, Error> {
-    let filename = t.get::<_, LuaString>("filename")?.to_str()?.to_owned();
+    let filename = "/".to_owned() + t.get::<_, LuaString>("filename")?.to_str()?;
     let gid = t.get("firstgid")?;
     let mut fs = engine.fs();
-    let tileset_path = fs.open(Path::new("/NES - Super Mario Bros - Tileset.tsx"))?;
+    let tileset_path = fs.open(Path::new(&filename))?;
     match tiled::parse_tileset(tileset_path, gid) {
         Ok(t) => Ok(t),
         Err(e) => Err(anyhow!("Got an error when parsing {}: {:?}", filename, e)),
