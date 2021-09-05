@@ -5,6 +5,7 @@ members = [
     "hv-fmod-sys",
     "hv-fmod",
     "hv-friends",
+    "hv-looprider",
     "hv-mymachine",
     "hv-rain",
     "hv-talisman",
