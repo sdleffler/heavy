@@ -492,6 +492,11 @@ pub trait EventHandler: Send + Sync + 'static {
         log::trace!("unhandled gamepad_disconnected_event()");
     }
 
+    /// Called when the window size changes.
+    fn resize_event(&mut self, _engine: &Engine, width: f32, height: f32) {
+        log::trace!("unhandled resize_event({}, {})", width, height);
+    }
+
     /// Called after the [`Engine`] is created. Normally you won't need this, as [`Engine::run`]
     /// lets you construct an [`EventHandler`] directly from a strong reference to the engine.
     /// Internally however that call uses a [`LazyHandler`], which runs your constructor closure in
@@ -538,7 +543,9 @@ impl mq::EventHandlerFree for Engine<'static> {
         self.handler().draw(self).unwrap();
     }
 
-    fn resize_event(&mut self, _width: f32, _height: f32) {}
+    fn resize_event(&mut self, width: f32, height: f32) {
+        self.handler().resize_event(self, width, height);
+    }
 
     fn mouse_motion_event(&mut self, x: f32, y: f32) {
         self.handler().mouse_motion_event(self, x, y);
@@ -665,6 +672,10 @@ impl<T: EventHandler> EventHandler for Shared<T> {
         self.borrow_mut()
             .gamepad_axis_changed_event(engine, axis, position)
     }
+
+    fn resize_event(&mut self, engine: &Engine, width: f32, height: f32) {
+        self.borrow_mut().resize_event(engine, width, height)
+    }
 }
 
 enum LazyHandlerState {
@@ -773,5 +784,9 @@ impl EventHandler for LazyHandler {
 
     fn gamepad_disconnected_event(&mut self, engine: &Engine) {
         self.get_mut().gamepad_disconnected_event(engine)
+    }
+
+    fn resize_event(&mut self, engine: &Engine, width: f32, height: f32) {
+        self.get_mut().resize_event(engine, width, height)
     }
 }
