@@ -201,9 +201,9 @@ impl FontAtlas {
                         vertical_offset: v_metrics.descent + bb.min.y as f32,
                         uvs: Box2::new(
                             texture_cursor.x as f32 / texture_width as f32,
-                            (texture_cursor.y + height) as f32 / texture_height as f32,
+                            texture_cursor.y as f32 / texture_height as f32,
                             bb.width() as f32 / texture_width as f32,
-                            -bb.height() as f32 / texture_height as f32,
+                            bb.height() as f32 / texture_height as f32,
                         ),
                         advance_width: h_metrics.advance_width,
                         horizontal_offset: h_metrics.left_side_bearing,
@@ -215,7 +215,7 @@ impl FontAtlas {
 
                 glyph.draw(|x, y, v| {
                     let x: u32 = texture_cursor.x as u32 + x;
-                    let y: u32 = texture_cursor.y as u32 + (height - y);
+                    let y: u32 = texture_cursor.y as u32 + y;
                     let c = (threshold(v).clamp(0., 1.) * 255.0) as u8;
                     let color = Rgba([255, 255, 255, c]);
                     texture.put_pixel(x, y, color);
