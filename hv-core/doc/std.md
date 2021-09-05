@@ -32,3 +32,6 @@ programming doesn't solve all problems, it can add structure to working with Lua
 Contains two useful classes to use as base classes for holding your [`Object`]s and [`Space`]s in
 your Lua code, with the intent that you can extend them and then add mixins from libraries such as
 `hv-friends` to give an object table functionality related to the object it represents.
+
+[`Object`]: crate::spaces::Object
+[`Space`]: crate::spaces::Space
