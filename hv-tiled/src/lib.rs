@@ -185,7 +185,8 @@ impl LayerBatch {
                         .color(Color::new(1.0, 1.0, 1.0, layer.opacity as f32))
                         .translate2(Vector2::new(
                             (x_cord * map_data.tilewidth) as f32,
-                            (top - (y_cord * map_data.tileheight)) as f32,
+                            // Need to offset by 1 here since tiled renders maps top right to bottom left, but we do bottom left to top right
+                            (top - ((y_cord + 1) * map_data.tileheight)) as f32,
                         )),
                 );
             }
