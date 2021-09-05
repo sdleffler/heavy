@@ -5,6 +5,7 @@ use hv_core::{
     engine::{Engine, EventHandler},
     filesystem::Filesystem,
     prelude::*,
+    timer::TimeContext,
     // spaces::{Object, Space, Spaces},
 };
 
@@ -20,6 +21,7 @@ struct MarioBros {
     layer_batches: Vec<hv_tiled::LayerBatch>,
     x_scroll: usize,
     map_data: hv_tiled::MapData,
+    timer: TimeContext,
 }
 
 impl MarioBros {
@@ -76,12 +78,20 @@ impl MarioBros {
             layer_batches,
             x_scroll : 0,
             map_data,
+            timer : TimeContext::new(),
         })
     }
 }
 
 impl EventHandler for MarioBros {
     fn update(&mut self, _engine: &Engine, _dt: f32) -> Result<()> {
+        self.timer.tick();
+        if self.timer.check_update_time(60) {
+            self.x_scroll += 1;
+            if self.x_scroll > (self.map_data.width * self.map_data.tilewidth) {
+                self.x_scroll = 0;
+            }
+        }
         Ok(())
     }
 
@@ -92,11 +102,6 @@ impl EventHandler for MarioBros {
                 &mut GraphicsLockExt::lock(&graphics_lock),
                 Instance::default().translate2(Vector2::new((self.x_scroll as f32) * -1.0, 0.0)).scale2(Vector2::new(4.0, 4.0)),
             );
-        }
-
-        self.x_scroll += 1;
-        if self.x_scroll > (self.map_data.width * self.map_data.tilewidth) {
-            self.x_scroll = 0;
         }
         Ok(())
     }
