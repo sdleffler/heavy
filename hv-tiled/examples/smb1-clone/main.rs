@@ -11,8 +11,8 @@ use hv_core::{
 
 use hv_friends::{
     graphics::{DrawableMut, GraphicsLock, GraphicsLockExt, Instance},
-    SimpleHandler,
     math::Vector2,
+    SimpleHandler,
 };
 
 use std::io::Read;
@@ -76,19 +76,22 @@ impl MarioBros {
 
         Ok(MarioBros {
             layer_batches,
-            x_scroll : 0,
+            x_scroll: 0,
             map_data,
-            timer : TimeContext::new(),
+            timer: TimeContext::new(),
         })
     }
 }
 
 impl EventHandler for MarioBros {
-    fn update(&mut self, _engine: &Engine, _dt: f32) -> Result<()> {
+    fn update(&mut self, engine: &Engine, _dt: f32) -> Result<()> {
         self.timer.tick();
         if self.timer.check_update_time(60) {
             self.x_scroll += 1;
-            if self.x_scroll > (self.map_data.width * self.map_data.tilewidth) {
+            if self.x_scroll
+                > ((self.map_data.width * self.map_data.tilewidth)
+                    - (engine.mq().screen_size().0 as usize / 4))
+            {
                 self.x_scroll = 0;
             }
         }
@@ -100,7 +103,9 @@ impl EventHandler for MarioBros {
         for layer_batch in self.layer_batches.iter_mut() {
             layer_batch.draw_mut(
                 &mut GraphicsLockExt::lock(&graphics_lock),
-                Instance::default().translate2(Vector2::new((self.x_scroll as f32) * -1.0, 0.0)).scale2(Vector2::new(4.0, 4.0)),
+                Instance::default()
+                    .scale2(Vector2::new(4.0, 4.0))
+                    .translate2(Vector2::new((self.x_scroll as f32) * -1.0, 0.0)),
             );
         }
         Ok(())
