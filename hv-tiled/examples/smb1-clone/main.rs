@@ -14,12 +14,12 @@ use hv_friends::{
     math::Vector2,
 };
 
-use hv_tiled;
 use std::io::Read;
 
 struct MarioBros {
     layer_batches: Vec<hv_tiled::LayerBatch>,
-    map_instance: Instance,
+    x_scroll: usize,
+    map_data: hv_tiled::MapData,
 }
 
 impl MarioBros {
@@ -74,7 +74,8 @@ impl MarioBros {
 
         Ok(MarioBros {
             layer_batches,
-            map_instance : Instance::default(),
+            x_scroll : 0,
+            map_data,
         })
     }
 }
@@ -89,10 +90,14 @@ impl EventHandler for MarioBros {
         for layer_batch in self.layer_batches.iter_mut() {
             layer_batch.draw_mut(
                 &mut GraphicsLockExt::lock(&graphics_lock),
-                self.map_instance,
+                Instance::default().translate2(Vector2::new((self.x_scroll as f32) * -1.0, 0.0)).scale2(Vector2::new(4.0, 4.0)),
             );
         }
-        self.map_instance.translate2(Vector2::new(1.0, 0.0));
+
+        self.x_scroll += 1;
+        if self.x_scroll > (self.map_data.width * self.map_data.tilewidth) {
+            self.x_scroll = 0;
+        }
         Ok(())
     }
 }
@@ -107,6 +112,8 @@ fn main() {
             "Maxim Veligan",
         )
         .unwrap(),
+        window_width: 1024,
+        window_height: 960,
         ..Conf::default()
     };
 

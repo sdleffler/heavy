@@ -11,8 +11,6 @@ use hv_friends::{
 
 use std::{collections::HashMap, ops, path::Path};
 
-use tiled;
-
 #[derive(Debug)]
 pub enum LayerType {
     Tile,
@@ -339,11 +337,11 @@ impl Layer {
             offset_x: t.get("offsetx")?,
             offset_y: t.get("offsety")?,
             data: tile_data,
-            encoding: encoding,
-            layer_type: layer_type,
-            width: width,
-            height: height,
-            properties: properties,
+            encoding,
+            layer_type,
+            width,
+            height,
+            properties,
         })
     }
 }
