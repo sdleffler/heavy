@@ -4,20 +4,24 @@ use hv_core::{
     conf::Conf,
     engine::{Engine, EventHandler},
     filesystem::Filesystem,
+    mq::graphics,
     prelude::*,
+    spaces::{Space, Spaces},
     timer::TimeContext,
-    // spaces::{Object, Space, Spaces},
 };
 
 use hv_friends::{
-    graphics::{DrawableMut, GraphicsLock, GraphicsLockExt, Instance},
-    math::Vector2,
-    SimpleHandler,
+    graphics::{
+        Color, DrawMode, DrawableMut, GraphicsLock, GraphicsLockExt, Instance, MeshBuilder,
+    },
+    math::*,
+    Position, SimpleHandler,
 };
 
 use std::io::Read;
 
 struct SmbOneOne {
+    space: Shared<Space>,
     layer_batches: Vec<hv_tiled::LayerBatch>,
     x_scroll: usize,
     map_data: hv_tiled::MapData,
@@ -26,9 +30,10 @@ struct SmbOneOne {
 
 impl SmbOneOne {
     pub fn new(engine: &Engine) -> Result<Self, Error> {
-        // let space = engine.get::<Spaces>().borrow_mut().create_space();
+        let space = engine.get::<Spaces>().borrow_mut().create_space();
         let mut fs = engine.fs();
         let lua = engine.lua();
+        lua.globals().set("space", space.clone())?;
         let mut tiled_lua_map = fs.open(Path::new("/maps/mario_bros_1-1.lua"))?;
         drop(fs);
         let mut tiled_buffer: Vec<u8> = Vec::new();
@@ -75,6 +80,7 @@ impl SmbOneOne {
         simple_handler.init(engine)?;
 
         Ok(SmbOneOne {
+            space,
             layer_batches,
             x_scroll: 0,
             map_data,
@@ -101,14 +107,30 @@ impl EventHandler for SmbOneOne {
 
     fn draw(&mut self, engine: &Engine) -> Result<()> {
         let graphics_lock = engine.get::<GraphicsLock>();
+        let mut gfx = graphics_lock.lock();
+
+        gfx.modelview_mut()
+            .origin()
+            .scale2(Vector2::new(4.0, 4.0))
+            .translate2(Vector2::new((self.x_scroll as f32) * -1.0, 0.0));
+
         for layer_batch in self.layer_batches.iter_mut() {
-            layer_batch.draw_mut(
-                &mut GraphicsLockExt::lock(&graphics_lock),
-                Instance::default()
-                    .scale2(Vector2::new(4.0, 4.0))
-                    .translate2(Vector2::new((self.x_scroll as f32) * -1.0, 0.0)),
-            );
+            layer_batch.draw_mut(&mut gfx, Instance::new());
         }
+
+        let mut space = self.space.borrow_mut();
+        let mut mesh = MeshBuilder::new(gfx.state.null_texture.clone())
+            .rectangle(
+                DrawMode::fill(),
+                Box2::from_half_extents(Point2::origin(), Vector2::new(8., 8.)),
+                Color::RED,
+            )
+            .build(&mut gfx);
+
+        for (_, Position(pos)) in space.query_mut::<&Position>() {
+            mesh.draw_mut(&mut gfx, Instance::new().translate2(pos.center().coords));
+        }
+
         Ok(())
     }
 }

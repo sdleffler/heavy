@@ -1,13 +1,17 @@
-local space = nil -- The current level space - this will probably be created in Rust
+local std_space = require("std.space")
+
+-- Grab the global `space` and shove it into a local variable.
+local space = std_space.Space:new(space)
 
 function load_level()
-    -- space:clear()
+    space:clear()
 
     local level = load("smb1_1.level")()
     local all_objects = level:objects()
 
     for _,object in ipairs(all_objects) do
         print("object: " .. tostring(object))
+        object:spawn(space)
     end
 end
 

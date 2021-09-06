@@ -21,6 +21,14 @@ do
             return self
         end
 
+        function Space:clear()
+            return self._space:clear()
+        end
+
+        function Space:spawn(...)
+            return self._space:spawn(...)
+        end
+
         function Space:objects()
             return self._space:objects()
         end

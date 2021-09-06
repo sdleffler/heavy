@@ -1,4 +1,4 @@
-local smb_objects = require("smb1_1.objects")
+local smb_objects = require("smb1_1.objects").level_objects
 local level = require("std.space").Space:new()
 
 -- Width of a single tile in pixels.
