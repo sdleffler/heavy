@@ -1,0 +1,12 @@
+[package]
+name = "smb1-1"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+hv-core = { path = "../../hv-core" }
+hv-friends = { path = "../../hv-friends" }
+hv-tiled = { path = "../../hv-tiled" }
+hv-mymachine = { path = "../../hv-mymachine" }
+mlua = "0.6.2"
+simple_logger = "1.13.0"

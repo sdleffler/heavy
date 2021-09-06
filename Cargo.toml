@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "examples/smb1-1",
     "hv-core",
     "hv-egui",
     "hv-fmod-sys",
