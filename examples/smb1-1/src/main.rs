@@ -29,7 +29,7 @@ impl SmbOneOne {
         // let space = engine.get::<Spaces>().borrow_mut().create_space();
         let mut fs = engine.fs();
         let lua = engine.lua();
-        let mut tiled_lua_map = fs.open(Path::new("/mario_bros_1-1.lua"))?;
+        let mut tiled_lua_map = fs.open(Path::new("/maps/mario_bros_1-1.lua"))?;
         drop(fs);
         let mut tiled_buffer: Vec<u8> = Vec::new();
         tiled_lua_map.read_to_end(&mut tiled_buffer)?;

@@ -15,12 +15,7 @@ return {
     {
       name = "NES - Super Mario Bros - Tileset",
       firstgid = 1,
-      filename = "NES - Super Mario Bros - Tileset.tsx"
-    },
-    {
-      name = "TX Tileset Wall",
-      firstgid = 385,
-      filename = "TX Tileset Wall.tsx"
+      filename = "/maps/NES - Super Mario Bros - Tileset.tsx"
     }
   },
   layers = {

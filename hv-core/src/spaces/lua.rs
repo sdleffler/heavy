@@ -5,7 +5,7 @@ use crate::{
     components::DynamicComponentConstructor,
     engine::{Engine, EngineRef},
     shared::{Shared, Weak},
-    spaces::{Object, Space, SpaceId, Spaces},
+    spaces::{object_table::ObjectTableComponent, Object, Space, SpaceId, Spaces},
 };
 
 macro_rules! lua_fn {
@@ -64,6 +64,17 @@ pub fn spaces_clear() -> lua_fn!(FnMut<'lua>(&mut Space, ()) -> ()) {
     |_, space, ()| {
         space.clear();
         Ok(())
+    }
+}
+
+pub fn spaces_objects() -> lua_fn!(Fn<'lua>(&Space, ()) -> Vec<Object>) {
+    |_, space, ()| {
+        Ok(space
+            .query::<()>()
+            .with::<ObjectTableComponent>()
+            .iter()
+            .map(|(obj, _)| obj)
+            .collect())
     }
 }
 

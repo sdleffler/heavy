@@ -756,6 +756,8 @@ impl LuaUserData for Space {
         methods.add_method_mut("despawn", spaces_despawn());
         methods.add_method_mut("clear", spaces_clear());
         methods.add_method("id", |_, this, ()| Ok(this.id));
+
+        methods.add_method("objects", spaces_objects());
     }
 }
 

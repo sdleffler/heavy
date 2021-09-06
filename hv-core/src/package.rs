@@ -113,6 +113,7 @@ impl Plugin for PackageModule {
         })?;
 
         table.set("load", load_fn.clone())?;
+        lua.globals().set("load", load_fn)?;
 
         let modules = lua.create_table()?;
         table.set("modules", modules.clone())?;

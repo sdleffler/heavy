@@ -20,6 +20,10 @@ do
             all_spaces[self._space:id()] = self
             return self
         end
+
+        function Space:objects()
+            return self._space:objects()
+        end
     end
 
     local Object = class("Object")
