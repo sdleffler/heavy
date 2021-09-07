@@ -154,6 +154,47 @@ impl Collider {
         Self { shape, local_tx }
     }
 
+    pub fn compute_local_aabb(&self) -> Box2<f32> {
+        self.shape.compute_local_aabb().into()
+    }
+
+    pub fn compute_aabb(&self, position: &Isometry2<f32>) -> Box2<f32> {
+        self.shape.compute_aabb(position).into()
+    }
+
+    pub fn compute_swept_aabb(
+        &self,
+        start_pos: &Isometry2<f32>,
+        end_pos: &Isometry2<f32>,
+    ) -> Box2<f32> {
+        self.shape.compute_swept_aabb(start_pos, end_pos).into()
+    }
+
+    pub fn lua_compute_local_aabb(_: &Lua, this: &Self, (): ()) -> LuaResult<Box2<f32>> {
+        Ok(this.compute_local_aabb())
+    }
+
+    pub fn lua_compute_aabb(_: &Lua, this: &Self, tx: Tx<f32>) -> LuaResult<Box2<f32>> {
+        Ok(this.compute_aabb(
+            &tx.to_isometry2()
+                .ok_or_else(|| anyhow!("could not convert transform to Isometry2").to_lua_err())?,
+        ))
+    }
+
+    pub fn lua_compute_swept_aabb(
+        _: &Lua,
+        this: &Self,
+        (start_tx, end_tx): (Tx<f32>, Tx<f32>),
+    ) -> LuaResult<Box2<f32>> {
+        let start_pos = start_tx
+            .to_isometry2()
+            .ok_or_else(|| anyhow!("could not convert start position to Isometry2").to_lua_err())?;
+        let end_pos = end_tx
+            .to_isometry2()
+            .ok_or_else(|| anyhow!("could not convert end position to Isometry2").to_lua_err())?;
+        Ok(this.compute_swept_aabb(&start_pos, &end_pos))
+    }
+
     pub fn lua_ball(lua: &Lua, (radius, more): (f32, LuaMultiValue)) -> LuaResult<Self> {
         Ok(Self {
             shape: SharedShape::ball(radius),
@@ -274,9 +315,15 @@ impl Collider {
     }
 }
 
-impl LuaUserData for Collider {}
+impl LuaUserData for Collider {
+    fn add_methods<'lua, M: LuaUserDataMethods<'lua, Self>>(methods: &mut M) {
+        methods.add_method("compute_local_aabb", Self::lua_compute_local_aabb);
+        methods.add_method("compute_aabb", Self::lua_compute_aabb);
+        methods.add_method("compute_swept_aabb", Self::lua_compute_swept_aabb);
+    }
+}
 
-pub fn open<'lua>(lua: &'lua Lua, _engine: &Engine) -> Result<LuaTable<'lua>> {
+pub(crate) fn open<'lua>(lua: &'lua Lua, _engine: &Engine) -> Result<LuaTable<'lua>> {
     let create_ball = lua.create_function(Collider::lua_ball)?;
     let create_compound = lua.create_function(Collider::lua_compound)?;
     let create_cuboid = lua.create_function(Collider::lua_cuboid)?;

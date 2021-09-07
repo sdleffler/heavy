@@ -144,6 +144,7 @@ impl Plugin for HvFriendsPlugin {
             Some(std::path::PathBuf::from("hv-friends/resources/scripts")),
         )?;
 
+        let collision = crate::collision::open(lua, engine)?;
         let graphics = crate::graphics::open(lua, engine)?;
         let keyboard = crate::keyboard::open(lua, engine)?;
         let position = crate::position::open(lua, engine)?;
@@ -153,6 +154,7 @@ impl Plugin for HvFriendsPlugin {
         Ok(lua
             .load(mlua::chunk! {
                 {
+                    collision = $collision,
                     graphics = $graphics,
                     keyboard = $keyboard,
                     math = $math,
