@@ -40,6 +40,7 @@
 
 // TODO: Handle mice, game pads, joysticks
 
+use mlua::prelude::*;
 use nalgebra::{Point2, Vector2};
 use serde::*;
 use std::{collections::HashMap, hash::Hash};
@@ -946,6 +947,44 @@ impl From<CursorIcon> for mq::CursorIcon {
             CursorIcon::NESWResize => Self::NESWResize,
             CursorIcon::NWSEResize => Self::NWSEResize,
         }
+    }
+}
+
+impl<Axes, Buttons> LuaUserData for InputState<Axes, Buttons>
+where
+    Axes: for<'lua> FromLua<'lua> + for<'lua> ToLua<'lua> + Eq + Hash + Clone,
+    Buttons: for<'lua> FromLua<'lua> + for<'lua> ToLua<'lua> + Eq + Hash + Clone,
+{
+    fn add_methods<'lua, M: LuaUserDataMethods<'lua, Self>>(methods: &mut M) {
+        methods.add_method("get_button_down", |_, this, button| {
+            Ok(this.get_button_down(button))
+        });
+
+        methods.add_method("get_button_up", |_, this, button| {
+            Ok(this.get_button_up(button))
+        });
+
+        methods.add_method("get_button_pressed", |_, this, button| {
+            Ok(this.get_button_pressed(button))
+        });
+
+        methods.add_method("get_button_released", |_, this, button| {
+            Ok(this.get_button_released(button))
+        });
+
+        methods.add_method("get_axis", |_, this, axis| Ok(this.get_axis(axis)));
+
+        methods.add_method("get_axis_raw", |_, this, axis| Ok(this.get_axis_raw(axis)));
+
+        methods.add_method("mouse_position", |_, this, ()| {
+            let pt = this.mouse_position();
+            Ok((pt.x, pt.y))
+        });
+
+        methods.add_method("mouse_delta", |_, this, ()| {
+            let v = this.mouse_delta();
+            Ok((v.x, v.y))
+        });
     }
 }
 

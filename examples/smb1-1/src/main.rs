@@ -4,7 +4,7 @@ use hv_core::{
     conf::Conf,
     engine::{Engine, EventHandler},
     filesystem::Filesystem,
-    mq::graphics,
+    input::{GamepadAxis, GamepadButton, InputBinding, InputState, KeyCode, KeyMods},
     prelude::*,
     spaces::{Space, Spaces},
     timer::TimeContext,
@@ -20,8 +20,43 @@ use hv_friends::{
 
 use std::io::Read;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum Button {
+    A,
+    B,
+    Start,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+enum Axis {
+    Horizontal,
+    Vertical,
+}
+
+fn default_input_bindings() -> InputBinding<Axis, Button> {
+    InputBinding::new()
+        .bind_gamepad_button_to_button(GamepadButton::West, Button::B)
+        .bind_gamepad_button_to_button(GamepadButton::North, Button::A)
+        .bind_gamepad_button_to_button(GamepadButton::Start, Button::Start)
+        .bind_key_to_button(KeyCode::Z, Button::B)
+        .bind_key_to_button(KeyCode::X, Button::A)
+        .bind_key_to_button(KeyCode::Enter, Button::Start)
+        .bind_gamepad_axis_to_axis(GamepadAxis::LeftStickX, Axis::Horizontal)
+        .bind_gamepad_axis_to_axis(GamepadAxis::LeftStickY, Axis::Vertical)
+        .bind_key_to_axis(KeyCode::Left, Axis::Horizontal, -1.)
+        .bind_key_to_axis(KeyCode::Right, Axis::Horizontal, 1.)
+        .bind_key_to_axis(KeyCode::Down, Axis::Vertical, -1.)
+        .bind_key_to_axis(KeyCode::Up, Axis::Vertical, 1.)
+        .bind_key_to_axis(KeyCode::A, Axis::Horizontal, -1.)
+        .bind_key_to_axis(KeyCode::D, Axis::Horizontal, 1.)
+        .bind_key_to_axis(KeyCode::S, Axis::Vertical, -1.)
+        .bind_key_to_axis(KeyCode::W, Axis::Vertical, 1.)
+}
+
 struct SmbOneOne {
     space: Shared<Space>,
+    input_binding: InputBinding<Axis, Button>,
+    input_state: InputState<Axis, Button>,
     layer_batches: Vec<hv_tiled::LayerBatch>,
     x_scroll: usize,
     map_data: hv_tiled::MapData,
@@ -80,6 +115,8 @@ impl SmbOneOne {
         simple_handler.init(engine)?;
 
         Ok(SmbOneOne {
+            input_binding: default_input_bindings(),
+            input_state: InputState::new(),
             space,
             layer_batches,
             x_scroll: 0,
@@ -132,6 +169,36 @@ impl EventHandler for SmbOneOne {
         }
 
         Ok(())
+    }
+
+    fn key_down_event(&mut self, _: &Engine, keycode: KeyCode, _: KeyMods, _: bool) {
+        if let Some(effect) = self.input_binding.resolve_keycode(keycode) {
+            self.input_state.update_effect(effect, true);
+        }
+    }
+
+    fn key_up_event(&mut self, _: &Engine, keycode: KeyCode, _: KeyMods) {
+        if let Some(effect) = self.input_binding.resolve_keycode(keycode) {
+            self.input_state.update_effect(effect, false);
+        }
+    }
+
+    fn gamepad_button_down_event(&mut self, _: &Engine, button: GamepadButton, _: bool) {
+        if let Some(effect) = self.input_binding.resolve_gamepad_button(button) {
+            self.input_state.update_effect(effect, true);
+        }
+    }
+
+    fn gamepad_button_up_event(&mut self, _engine: &Engine, button: GamepadButton) {
+        if let Some(effect) = self.input_binding.resolve_gamepad_button(button) {
+            self.input_state.update_effect(effect, false);
+        }
+    }
+
+    fn gamepad_axis_changed_event(&mut self, _: &Engine, axis: GamepadAxis, position: f32) {
+        if let Some(effect) = self.input_binding.resolve_gamepad_axis(axis, position) {
+            self.input_state.update_effect(effect, true);
+        }
     }
 }
 

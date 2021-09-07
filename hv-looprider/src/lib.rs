@@ -26,7 +26,7 @@ pub struct Replay<E: LoopriderEvent> {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Record<E: LoopriderEvent> {
-    frame: u64,
+    record: u64,
     events: Vec<E>,
 }
 
@@ -52,7 +52,7 @@ pub struct Looprider<E: LoopriderEvent> {
     channel: EventChannel<E>,
     mode: LoopriderMode<E>,
     records: Vec<Record<E>>,
-    frame: u64,
+    record: u64,
 }
 
 impl<E: LoopriderEvent> Looprider<E> {
@@ -62,7 +62,7 @@ impl<E: LoopriderEvent> Looprider<E> {
             channel: EventChannel::new(),
             mode: LoopriderMode::Record { buf: Vec::new() },
             records: Vec::new(),
-            frame: 0,
+            record: 0,
         })
     }
 
@@ -71,7 +71,7 @@ impl<E: LoopriderEvent> Looprider<E> {
         assert!(
             replay
                 .records
-                .is_sorted_by(|r1, r2| Some(r1.frame.cmp(&r2.frame).reverse())),
+                .is_sorted_by(|r1, r2| Some(r1.record.cmp(&r2.record).reverse())),
             "invalid replay data (out of order)"
         );
 
@@ -79,7 +79,7 @@ impl<E: LoopriderEvent> Looprider<E> {
             channel: EventChannel::new(),
             mode: LoopriderMode::Playback,
             records: replay.records,
-            frame: 0,
+            record: 0,
         })
     }
 
@@ -94,16 +94,19 @@ impl<E: LoopriderEvent> Looprider<E> {
         }
     }
 
-    /// Update the [`Looprider`] by flushing its internal buffers and incrementing its frame
-    /// counter. Should be called once per frame, and assumes a constant delta-time for most
-    /// underlying processes - otherwise replays will quickly and easily desynchronize.
-    pub fn tick(&mut self) {
+    /// Update the [`Looprider`] by flushing its internal buffers and incrementing its record
+    /// counter. You can call this multiple times per frame, but it should be ensured that the
+    /// number of times it is called per frame is deterministic - otherwise, replays will play back
+    /// the wrong records at the wrong `flush` calls. It's worth noting that `Looprider` will have
+    /// serious problems with a game running at a variable delta-time; `Looprider` should *only* be
+    /// used with a fixed timestep.
+    pub fn flush(&mut self) {
         match &mut self.mode {
             LoopriderMode::Playback => {
-                while matches!(self.records.last(), Some(record) if record.frame <= self.frame) {
+                while matches!(self.records.last(), Some(record) if record.record <= self.record) {
                     let record = self.records.pop().unwrap();
                     assert_eq!(
-                        record.frame, self.frame,
+                        record.record, self.record,
                         "a looprider tick was skipped! replay frame mismatch"
                     );
                     self.channel.iter_write(record.events);
@@ -112,7 +115,7 @@ impl<E: LoopriderEvent> Looprider<E> {
             LoopriderMode::Record { buf } => {
                 if !buf.is_empty() {
                     self.records.push(Record {
-                        frame: self.frame,
+                        record: self.record,
                         events: buf.clone(),
                     });
 
@@ -121,7 +124,7 @@ impl<E: LoopriderEvent> Looprider<E> {
             }
         }
 
-        self.frame += 1;
+        self.record += 1;
     }
 
     /// Create a subscription handle to the event stream.
@@ -156,8 +159,8 @@ where
     E: LoopriderEvent + for<'lua> FromLua<'lua> + for<'lua> ToLua<'lua>,
 {
     fn add_methods<'lua, M: LuaUserDataMethods<'lua, Self>>(methods: &mut M) {
-        methods.add_method_mut("tick", |_, this, ()| {
-            this.tick();
+        methods.add_method_mut("flush", |_, this, ()| {
+            this.flush();
             Ok(())
         });
 

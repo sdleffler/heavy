@@ -98,9 +98,9 @@ impl TransformStack {
 
     pub fn translate2(&mut self, translation: Vector2<f32>) -> &mut Self {
         let top_mut = self.top_mut();
-        *top_mut = homogeneous_mat3_to_mat4(
+        *top_mut *= homogeneous_mat3_to_mat4(
             &Translation2::new(translation.x, translation.y).to_homogeneous(),
-        ) * *top_mut;
+        );
         self
     }
 }
