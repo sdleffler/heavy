@@ -93,7 +93,7 @@ pub struct MapData {
 }
 
 impl MapData {
-    pub fn from_lua_table(map_table: &LuaTable) -> Result<Self, Error> {
+    pub fn from_lua(map_table: &LuaTable) -> Result<Self, Error> {
         let render_order = match map_table.get::<_, LuaString>("renderorder")?.to_str()? {
             "right-down" => RenderOrder::RightDown,
             r => return Err(anyhow!("Got an unsupported renderorder: {}", r)),
@@ -501,7 +501,7 @@ impl DrawableMut for TilesetAtlas {
 }
 
 impl Layer {
-    pub fn from_lua_table(t: &LuaTable) -> Result<Layer, Error> {
+    pub fn from_lua(t: &LuaTable) -> Result<Layer, Error> {
         let layer_type = match t.get::<_, LuaString>("type")?.to_str()? {
             "tilelayer" => LayerType::Tile,
             s => return Err(anyhow!("Got an unsupported tilelayer type: {}", s)),
