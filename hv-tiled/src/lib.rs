@@ -9,7 +9,7 @@ use hv_friends::{
     math::Vector2,
 };
 
-use std::{collections::HashMap, ops, path::Path};
+use std::{collections::HashMap, io::Read, ops, path::Path};
 
 #[derive(Debug, Clone)]
 pub enum LayerType {
@@ -62,11 +62,13 @@ pub enum Encoding {
     Lua,
 }
 
+#[derive(Debug, Clone)]
 pub enum Orientation {
     Orthogonal,
     Isometric,
 }
 
+#[derive(Debug, Clone)]
 pub enum RenderOrder {
     RightDown,
     RightUp,
@@ -77,7 +79,8 @@ pub enum RenderOrder {
 #[derive(Debug, Clone, Copy)]
 pub struct TileId(u32);
 
-pub struct MapData {
+#[derive(Debug, Clone)]
+pub struct MapMetaData {
     pub tsx_ver: String,
     pub lua_ver: String,
     pub tiled_ver: String,
@@ -92,7 +95,7 @@ pub struct MapData {
     pub properties: Properties,
 }
 
-impl MapData {
+impl MapMetaData {
     pub fn from_lua(map_table: &LuaTable) -> Result<Self, Error> {
         let render_order = match map_table.get::<_, LuaString>("renderorder")?.to_str()? {
             "right-down" => RenderOrder::RightDown,
@@ -104,7 +107,7 @@ impl MapData {
             o => return Err(anyhow!("Got an unsupported orientation: {}", o)),
         };
 
-        Ok(MapData {
+        Ok(MapMetaData {
             width: map_table.get("width")?,
             height: map_table.get("height")?,
             tilewidth: map_table.get("tilewidth")?,
@@ -148,6 +151,56 @@ pub struct Layer {
     data: Vec<TileId>,
 }
 
+#[derive(Debug, Clone)]
+pub struct Map {
+    pub meta_data: MapMetaData,
+    pub layers: Vec<Layer>,
+    pub tilesets: Vec<Tileset>,
+}
+
+impl Map {
+    pub fn new(map_path: &str, engine: &Engine, path_prefix: Option<&str>) -> Result<Map, Error> {
+        let mut fs = engine.fs();
+        let lua = engine.lua();
+        let mut tiled_lua_map = fs.open(Path::new(map_path))?;
+
+        drop(fs);
+
+        let mut tiled_buffer: Vec<u8> = Vec::new();
+        tiled_lua_map.read_to_end(&mut tiled_buffer)?;
+        let lua_chunk = lua.load(&tiled_buffer);
+        let tiled_lua_table = lua_chunk.eval::<LuaTable>()?;
+        let meta_data = MapMetaData::from_lua(&tiled_lua_table)?;
+
+        let mut layers = Vec::new();
+
+        for layer in tiled_lua_table
+            .get::<_, LuaTable>("layers")?
+            .sequence_values::<LuaTable>()
+        {
+            layers.push(Layer::from_lua(&layer?)?);
+        }
+
+        let mut tilesets = Vec::new();
+
+        for tileset in tiled_lua_table
+            .get::<_, LuaTable>("tilesets")?
+            .sequence_values::<LuaTable>()
+        {
+            tilesets.push(Tileset::from_lua(&tileset?, path_prefix)?);
+        }
+
+        drop(tiled_lua_table);
+        drop(lua);
+
+        Ok(Map {
+            meta_data,
+            layers,
+            tilesets,
+        })
+    }
+}
+
 pub struct LayerBatch(Vec<SpriteBatch>);
 
 impl DrawableMut for LayerBatch {
@@ -163,7 +216,7 @@ impl LayerBatch {
         layer: &Layer,
         ts_atlas: &TilesetAtlas,
         engine: &Engine,
-        map_data: &MapData,
+        map_meta_data: &MapMetaData,
     ) -> Self {
         // We need 1 sprite batch per texture
         let mut batches = Vec::with_capacity(ts_atlas.textures.len());
@@ -174,7 +227,7 @@ impl LayerBatch {
             batches.push(SpriteBatch::new(&mut acquired_lock, texture.clone()));
             drop(acquired_lock);
         }
-        let top = layer.height * map_data.tileheight;
+        let top = layer.height * map_meta_data.tileheight;
 
         for y_cord in 0..layer.height {
             for x_cord in 0..layer.width {
@@ -193,9 +246,9 @@ impl LayerBatch {
                         .src(uvs)
                         .color(Color::new(1.0, 1.0, 1.0, layer.opacity as f32))
                         .translate2(Vector2::new(
-                            (x_cord * map_data.tilewidth) as f32,
+                            (x_cord * map_meta_data.tilewidth) as f32,
                             // Need to offset by 1 here since tiled renders maps top right to bottom left, but we do bottom left to top right
-                            (top - ((y_cord + 1) * map_data.tileheight)) as f32,
+                            (top - ((y_cord + 1) * map_meta_data.tileheight)) as f32,
                         )),
                 );
             }
@@ -350,9 +403,9 @@ pub struct Image {
 }
 
 impl Image {
-    pub fn new(it: &LuaTable) -> Result<Self, Error> {
+    pub fn new(it: &LuaTable, prefix: Option<&str>) -> Result<Self, Error> {
         Ok(Image {
-            source: it.get::<_, LuaString>("image")?.to_str()?.to_owned(),
+            source: prefix.unwrap_or("").to_owned() + it.get::<_, LuaString>("image")?.to_str()?,
             width: it.get("imagewidth")?,
             height: it.get("imageheight")?,
             trans_color: match it.get::<_, LuaString>("transparentcolor") {
@@ -384,7 +437,7 @@ pub struct Tileset {
 }
 
 impl Tileset {
-    pub fn from_lua(ts: &LuaTable) -> Result<Tileset, Error> {
+    pub fn from_lua(ts: &LuaTable, path_prefix: Option<&str>) -> Result<Tileset, Error> {
         let mut tiles = Vec::new();
         for tile_table in ts.get::<_, LuaTable>("tiles")?.sequence_values() {
             tiles.push(Tile::from_lua(&tile_table?)?);
@@ -398,7 +451,7 @@ impl Tileset {
             spacing: ts.get("spacing")?,
             margin: ts.get("margin")?,
             columns: ts.get("columns")?,
-            images: vec![Image::new(ts)?],
+            images: vec![Image::new(ts, path_prefix)?],
             tilecount: ts.get("tilecount")?,
             properties: Properties::from_lua(ts)?,
             tiles,
@@ -423,7 +476,7 @@ impl ops::Index<TileId> for TilesetAtlas {
 }
 
 impl TilesetAtlas {
-    pub fn new(tilesets: Vec<Tileset>, engine: &Engine) -> Result<Self, Error> {
+    pub fn new(tilesets: &[Tileset], engine: &Engine) -> Result<Self, Error> {
         let mut textures = Vec::with_capacity(tilesets.len());
         let mut render_data = Vec::new();
 

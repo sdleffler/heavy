@@ -20,7 +20,7 @@ return {
       spacing = 1,
       margin = 1,
       columns = 48,
-      image = "maps/NES - Super Mario Bros - Tileset.png",
+      image = "NES - Super Mario Bros - Tileset.png",
       imagewidth = 817,
       imageheight = 137,
       transparentcolor = "#93bbec",

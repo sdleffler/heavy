@@ -19,8 +19,6 @@ use hv_friends::{
     Position, SimpleHandler, Velocity,
 };
 
-use std::io::Read;
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum Button {
     A,
@@ -71,7 +69,7 @@ struct SmbOneOne {
     input_state: Shared<InputState<Axis, Button>>,
     layer_batches: Vec<hv_tiled::LayerBatch>,
     x_scroll: usize,
-    map_data: hv_tiled::MapData,
+    map: hv_tiled::Map,
     timer: TimeContext,
 
     to_update: Vec<Object>,
@@ -81,7 +79,6 @@ impl SmbOneOne {
     pub fn new(engine: &Engine) -> Result<Self, Error> {
         let space = engine.get::<Spaces>().borrow_mut().create_space();
         let input_state = Shared::new(InputState::new());
-        let mut fs = engine.fs();
         let lua = engine.lua();
 
         {
@@ -112,46 +109,20 @@ impl SmbOneOne {
             lua.globals()
                 .set("rust", lua.load(chunk).eval::<LuaTable>()?)?;
         }
-
-        let mut tiled_lua_map = fs.open(Path::new("/maps/mario_bros_1-1.lua"))?;
-        drop(fs);
-        let mut tiled_buffer: Vec<u8> = Vec::new();
-        tiled_lua_map.read_to_end(&mut tiled_buffer)?;
-        let lua_chunk = lua.load(&tiled_buffer);
-        let tiled_lua_table = lua_chunk.eval::<LuaTable>()?;
-        let map_data = hv_tiled::MapData::from_lua(&tiled_lua_table)?;
-
-        let mut tiled_layers = Vec::new();
-
-        for layer in tiled_lua_table
-            .get::<_, LuaTable>("layers")?
-            .sequence_values::<LuaTable>()
-        {
-            tiled_layers.push(hv_tiled::Layer::from_lua(&layer?)?);
-        }
-
-        let mut tilesets = Vec::new();
-
-        for tileset in tiled_lua_table
-            .get::<_, LuaTable>("tilesets")?
-            .sequence_values::<LuaTable>()
-        {
-            tilesets.push(hv_tiled::Tileset::from_lua(&tileset?)?);
-        }
-
-        drop(tiled_lua_table);
         drop(lua);
 
-        let tileset_atlas = hv_tiled::TilesetAtlas::new(tilesets, engine)?;
+        let map = hv_tiled::Map::new("/maps/mario_bros_1-1.lua", engine, Some("maps/"))?;
 
-        let mut layer_batches = Vec::with_capacity(tiled_layers.len());
+        let tileset_atlas = hv_tiled::TilesetAtlas::new(&map.tilesets, engine)?;
 
-        for layer in tiled_layers.iter() {
+        let mut layer_batches = Vec::with_capacity(map.layers.len());
+
+        for layer in map.layers.iter() {
             layer_batches.push(hv_tiled::LayerBatch::new(
                 layer,
                 &tileset_atlas,
                 engine,
-                &map_data,
+                &map.meta_data,
             ));
         }
 
@@ -164,7 +135,7 @@ impl SmbOneOne {
             space,
             layer_batches,
             x_scroll: 0,
-            map_data,
+            map,
             timer: TimeContext::new(),
 
             to_update: Vec::new(),
@@ -203,7 +174,7 @@ impl EventHandler for SmbOneOne {
 
             // self.x_scroll += 1;
             if self.x_scroll
-                > ((self.map_data.width * self.map_data.tilewidth)
+                > ((self.map.meta_data.width * self.map.meta_data.tilewidth)
                     - (engine.mq().screen_size().0 as usize / 4))
             {
                 self.x_scroll = 0;
