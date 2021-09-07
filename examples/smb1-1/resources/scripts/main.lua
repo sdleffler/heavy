@@ -1,7 +1,7 @@
 local std_space = require("std.space")
 
 -- Grab the global `space` and shove it into a local variable.
-local space = std_space.Space:new(space)
+local space = std_space.Space:new(rust.space)
 
 function load_level()
     space:clear()

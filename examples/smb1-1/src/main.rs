@@ -16,7 +16,7 @@ use hv_friends::{
         Color, DrawMode, DrawableMut, GraphicsLock, GraphicsLockExt, Instance, MeshBuilder,
     },
     math::*,
-    Position, SimpleHandler,
+    Position, SimpleHandler, Velocity,
 };
 
 use std::io::Read;
@@ -187,6 +187,14 @@ impl EventHandler for SmbOneOne {
             for obj_to_update in self.to_update.drain(..) {
                 let table = LuaTable::from_lua(obj_to_update.to_lua(&lua)?, &lua)?;
                 table.call_method("update", ())?;
+            }
+
+            for (_obj, (Position(pos), Velocity(vel))) in self
+                .space
+                .borrow_mut()
+                .query_mut::<(&mut Position, &Velocity)>()
+            {
+                pos.integrate_mut(vel, 1. / 60.);
             }
 
             // self.x_scroll += 1;

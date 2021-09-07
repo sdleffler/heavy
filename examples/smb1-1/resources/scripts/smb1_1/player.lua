@@ -9,8 +9,8 @@ function sign(n)
 end
 
 -- Mario-per-frame to pixels-per-frame.
-function mpf_to_ppf(pixels, subpixels, subsubpixels, subsubsubpixels)
-    return pixels + ((((subsubsubpixels / 16) + subsubpixels) / 16) + subpixels) / 16
+function mpf_to_pps(pixels, subpixels, subsubpixels, subsubsubpixels)
+    return 60 * (pixels + ((((subsubsubpixels / 16) + subsubpixels) / 16) + subpixels) / 16)
 end
 
 local min_walk_velocity = mpf_to_pps(0, 1, 3, 0)
@@ -24,9 +24,9 @@ local skid_turnaround_velocity = mpf_to_pps(0, 9, 0, 0)
 
 local GroundState = State:extend("smb1_1.player.GroundState", { name = "ground" })
 do
-    function GroundState:update(agent, player, input)
-        if input.get_button_pressed(button.A) then
-            agent:push("air", player, input)
+    function GroundState:update(agent, player)
+        if input:get_button_pressed(button.A) then
+            agent:push("air", player)
         else
             -- There are quite a few cases to consider here.
             -- 1.) Walking or running in the same direction as current velocity
@@ -35,9 +35,9 @@ do
             -- 4.) Not walking or running but facing in the opposite direction of current velocity
             -- (skidding)
             
-            local left_down, right_down = input.get_button_pressed(button.Left), input.get_button_pressed(button.Right)
+            local left_down, right_down = input:get_button_pressed(button.Left), input:get_button_pressed(button.Right)
 
-            if input.get_button_pressed(button.B) then
+            if input:get_button_pressed(button.B) then
                 player.run_frames = 10
             elseif left_down or right_down then
                 player.run_frames = math.max(player.run_frames - 1, 0)
@@ -74,7 +74,7 @@ do
                     vx = 0
                 end
             else
-                assert(move_dir == sign_vx)
+                assert(move_dir == sign_vx or sign_vx == 0)
                 -- Case 1. (accelerating)
                 local acceleration = (running and run_acceleration) or walk_acceleration
                 local max_velocity = (running and max_run_velocity) or max_walk_velocity
@@ -104,7 +104,7 @@ end
 
 local AirState = State:extend("smb1_1.player.AirState", { name = "air" })
 do
-    function AirState:update(agent, player, input)
+    function AirState:update(agent, player)
         -- TODO.
         agent:pop()
     end

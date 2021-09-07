@@ -1,7 +1,8 @@
 local std_space = require("std.space")
 local binser = require("std.binser")
-local Player = require("smb1_1.player").Player
+local PlayerController = require("smb1_1.player").PlayerController
 local Position = hf.components.Position
+local Velocity = hf.components.Velocity
 
 local game_objects = {}
 do
@@ -39,13 +40,14 @@ do
     end
 
     local Player = GameObject:extend("smb1_1.game_objects.Player")
+        :with(Velocity)
     do
         game_objects.Player = Player
         binser.registerClass(Player)
 
         function Player:init(space, x, y)
-            Player.super.init(self, space, x, y, rust.RequiresUpdate)
-
+            Player.super.init(self, space, x, y, Velocity(), rust.RequiresUpdate)
+            
             self.controller = PlayerController:new()
             self.controller:push("ground")
         end
@@ -94,7 +96,7 @@ do
         level_objects.Player = Player
         binser.registerClass(Player)
         function Player:spawn(space)
-            return game_objects.player:new(space, self:position_get_coords())
+            return game_objects.Player:new(space, self:position_get_coords())
         end
     end
 end
