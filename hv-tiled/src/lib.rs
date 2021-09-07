@@ -11,7 +11,7 @@ use hv_friends::{
 
 use std::{collections::HashMap, ops, path::Path};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum LayerType {
     Tile,
 }
@@ -19,7 +19,7 @@ pub enum LayerType {
 // TODO: This type was pulled from the Tiled crate, but the Color and File variants
 // are never constructed. This might be a bug depending on what the "properties"
 // table contains
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Property {
     Bool(bool),
     Float(f64),
@@ -29,7 +29,35 @@ pub enum Property {
     File(String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
+pub struct Properties(HashMap<String, Property>);
+
+impl Properties {
+    pub fn from_lua(props: &LuaTable) -> Result<Self, Error> {
+        let mut properties = HashMap::new();
+        let props_t = props.get::<_, LuaTable>("properties")?;
+
+        for pair_res in props_t.pairs() {
+            let pair = pair_res?;
+            let val = match pair.1 {
+                LuaValue::Boolean(b) => Property::Bool(b),
+                LuaValue::Integer(i) => Property::Int(i),
+                LuaValue::Number(n) => Property::Float(n),
+                LuaValue::String(s) => Property::String(s.to_str()?.to_owned()),
+                l => {
+                    return Err(anyhow!(
+                        "Got an unexpected value in the properties section: {:?}",
+                        l
+                    ))
+                }
+            };
+            properties.insert(pair.0, val);
+        }
+        Ok(Properties(properties))
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum Encoding {
     Lua,
 }
@@ -61,7 +89,7 @@ pub struct MapData {
     pub tileheight: usize,
     pub nextlayerid: usize,
     pub nextobjectid: usize,
-    pub properties: HashMap<String, Property>,
+    pub properties: Properties,
 }
 
 impl MapData {
@@ -75,25 +103,6 @@ impl MapData {
             "orthogonal" => Orientation::Orthogonal,
             o => return Err(anyhow!("Got an unsupported orientation: {}", o)),
         };
-
-        let mut properties = HashMap::new();
-
-        for pair_res in map_table.get::<_, LuaTable>("properties")?.pairs() {
-            let pair = pair_res?;
-            let val = match pair.1 {
-                LuaValue::Boolean(b) => Property::Bool(b),
-                LuaValue::Integer(i) => Property::Int(i),
-                LuaValue::Number(n) => Property::Float(n),
-                LuaValue::String(s) => Property::String(s.to_str()?.to_owned()),
-                l => {
-                    return Err(anyhow!(
-                        "Got an unexpected value in the properties section: {:?}",
-                        l
-                    ))
-                }
-            };
-            properties.insert(pair.0, val);
-        }
 
         Ok(MapData {
             width: map_table.get("width")?,
@@ -114,14 +123,14 @@ impl MapData {
                 .to_owned(),
             nextlayerid: map_table.get::<_, LuaInteger>("nextlayerid")? as usize,
             nextobjectid: map_table.get::<_, LuaInteger>("nextobjectid")? as usize,
+            properties: Properties::from_lua(map_table)?,
             orientation,
-            properties,
             render_order,
         })
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Layer {
     layer_type: LayerType,
     id: usize,
@@ -134,7 +143,7 @@ pub struct Layer {
     opacity: f64,
     offset_x: usize,
     offset_y: usize,
-    properties: HashMap<String, Property>,
+    properties: Properties,
     encoding: Encoding,
     data: Vec<TileId>,
 }
@@ -195,6 +204,208 @@ impl LayerBatch {
     }
 }
 
+#[derive(Debug, PartialEq, Clone)]
+pub enum ObjectShape {
+    Rect { width: f32, height: f32 },
+    Ellipse { width: f32, height: f32 },
+    Polyline { points: Vec<(f32, f32)> },
+    Polygon { points: Vec<(f32, f32)> },
+    Point(f32, f32),
+}
+
+impl ObjectShape {
+    pub fn from_lua(shape_table: &LuaTable) -> Result<Self, Error> {
+        match shape_table.get::<_, LuaString>("shape")?.to_str()? {
+            "rectangle" => Ok(ObjectShape::Rect {
+                width: shape_table.get("width")?,
+                height: shape_table.get("height")?,
+            }),
+            "ellipse" => Ok(ObjectShape::Ellipse {
+                width: shape_table.get("width")?,
+                height: shape_table.get("height")?,
+            }),
+            s if s == "point" || s == "polygon" || s == "polyline" => {
+                Err(anyhow!("{} objects aren't supported yet, ping Maxim", s))
+            }
+            e => Err(anyhow!("Got an unsupported shape type: {}", e)),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Object {
+    pub id: u32,
+    pub name: String,
+    pub obj_type: String,
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+    pub rotation: f32,
+    pub gid: Option<u32>,
+    pub visible: bool,
+    pub shape: ObjectShape,
+    pub properties: Properties,
+}
+
+impl Object {
+    pub fn from_lua(obj_table: &LuaTable) -> Result<Self, Error> {
+        Ok(Object {
+            id: obj_table.get("id")?,
+            name: obj_table.get::<_, LuaString>("name")?.to_str()?.to_owned(),
+            obj_type: obj_table.get::<_, LuaString>("type")?.to_str()?.to_owned(),
+            x: obj_table.get("x")?,
+            y: obj_table.get("y")?,
+            width: obj_table.get("width")?,
+            height: obj_table.get("height")?,
+            shape: ObjectShape::from_lua(obj_table)?,
+            properties: Properties::from_lua(obj_table)?,
+            rotation: obj_table.get("rotation")?,
+            visible: obj_table.get("visible")?,
+            gid: obj_table.get("gid").ok(),
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ObjectGroup {
+    pub name: String,
+    pub opacity: f32,
+    pub visible: bool,
+    pub objects: Vec<Object>,
+    pub color: Option<Color>,
+    /**
+     * Layer index is not preset for tile collision boxes
+     */
+    pub layer_index: Option<u32>,
+    pub properties: Properties,
+}
+
+impl ObjectGroup {
+    pub fn from_lua(objg_table: &LuaTable) -> Result<Self, Error> {
+        let name = objg_table.get("name")?;
+        let opacity = objg_table.get("opacity")?;
+        let visible = objg_table.get("visible")?;
+        let color = objg_table.get("color").ok();
+        let layer_index = objg_table.get("layer_index").ok();
+        let properties = Properties::from_lua(objg_table)?;
+
+        let mut objects = Vec::new();
+        for object in objg_table.get::<_, LuaTable>("objects")?.sequence_values() {
+            objects.push(Object::from_lua(&object?)?);
+        }
+
+        Ok(ObjectGroup {
+            name,
+            opacity,
+            visible,
+            color,
+            layer_index,
+            properties,
+            objects,
+        })
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Animation;
+
+#[derive(Debug, Clone)]
+pub struct Tile {
+    pub id: u32,
+    pub tile_type: Option<String>,
+    pub probability: f32,
+    pub properties: Properties,
+    pub objectgroup: Option<ObjectGroup>,
+    pub animation: Option<Animation>,
+}
+
+impl Tile {
+    pub fn from_lua(tile_table: &LuaTable) -> Result<Self, Error> {
+        let objectgroup = match tile_table.get::<_, LuaTable>("objectGroup") {
+            Ok(t) => Some(ObjectGroup::from_lua(&t)?),
+            Err(_) => None,
+        };
+
+        Ok(Tile {
+            id: tile_table.get("id")?,
+            tile_type: tile_table.get("type").ok(),
+            probability: tile_table.get("probability").unwrap_or(0.0),
+            animation: None,
+            properties: match tile_table.get("properties") {
+                Ok(t) => Properties::from_lua(&t)?,
+                Err(_) => Properties(HashMap::new()),
+            },
+            objectgroup,
+        })
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct Image {
+    pub source: String,
+    pub width: u32,
+    pub height: u32,
+    pub trans_color: Option<Color>,
+}
+
+impl Image {
+    pub fn new(it: &LuaTable) -> Result<Self, Error> {
+        Ok(Image {
+            source: it.get::<_, LuaString>("image")?.to_str()?.to_owned(),
+            width: it.get("imagewidth")?,
+            height: it.get("imageheight")?,
+            trans_color: match it.get::<_, LuaString>("transparentcolor") {
+                Ok(s) => {
+                    log::warn!(
+                    "Transparent colors aren't supported, courtesy of Shea, add support yourself. Color: {}", s.to_str()?
+                );
+                    None
+                }
+                _ => None,
+            },
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Tileset {
+    pub first_gid: u32,
+    pub name: String,
+    pub tile_width: u32,
+    pub tile_height: u32,
+    pub spacing: u32,
+    pub margin: u32,
+    pub tilecount: Option<u32>,
+    pub columns: u32,
+    pub tiles: Vec<Tile>,
+    pub properties: Properties,
+    pub images: Vec<Image>,
+}
+
+impl Tileset {
+    pub fn from_lua(ts: &LuaTable) -> Result<Tileset, Error> {
+        let mut tiles = Vec::new();
+        for tile_table in ts.get::<_, LuaTable>("tiles")?.sequence_values() {
+            tiles.push(Tile::from_lua(&tile_table?)?);
+        }
+
+        Ok(Tileset {
+            name: ts.get::<_, LuaString>("name")?.to_str()?.to_owned(),
+            first_gid: ts.get("firstgid")?,
+            tile_width: ts.get("tilewidth")?,
+            tile_height: ts.get("tileheight")?,
+            spacing: ts.get("spacing")?,
+            margin: ts.get("margin")?,
+            columns: ts.get("columns")?,
+            images: vec![Image::new(ts)?],
+            tilecount: ts.get("tilecount")?,
+            properties: Properties::from_lua(ts)?,
+            tiles,
+        })
+    }
+}
+
 pub struct TilesetAtlas {
     // Box2<f32> is the uvs, the second usize is an index into a texture vec
     // that relates the uv to the texture
@@ -212,7 +423,7 @@ impl ops::Index<TileId> for TilesetAtlas {
 }
 
 impl TilesetAtlas {
-    pub fn new(tilesets: Vec<tiled::Tileset>, engine: &Engine) -> Result<Self, Error> {
+    pub fn new(tilesets: Vec<Tileset>, engine: &Engine) -> Result<Self, Error> {
         let mut textures = Vec::with_capacity(tilesets.len());
         let mut render_data = Vec::new();
 
@@ -290,7 +501,7 @@ impl DrawableMut for TilesetAtlas {
 }
 
 impl Layer {
-    pub fn from_lua_table(t: LuaTable) -> Result<Layer, Error> {
+    pub fn from_lua_table(t: &LuaTable) -> Result<Layer, Error> {
         let layer_type = match t.get::<_, LuaString>("type")?.to_str()? {
             "tilelayer" => LayerType::Tile,
             s => return Err(anyhow!("Got an unsupported tilelayer type: {}", s)),
@@ -309,25 +520,6 @@ impl Layer {
             tile_data.push(TileId(tile?));
         }
 
-        let mut properties = HashMap::new();
-
-        for pair_res in t.get::<_, LuaTable>("properties")?.pairs() {
-            let pair = pair_res?;
-            let val = match pair.1 {
-                LuaValue::Boolean(b) => Property::Bool(b),
-                LuaValue::Integer(i) => Property::Int(i),
-                LuaValue::Number(n) => Property::Float(n),
-                LuaValue::String(s) => Property::String(s.to_str()?.to_owned()),
-                l => {
-                    return Err(anyhow!(
-                        "Got an unexpected value in the properties section: {:?}",
-                        l
-                    ))
-                }
-            };
-            properties.insert(pair.0, val);
-        }
-
         Ok(Layer {
             id: t.get("id")?,
             name: t.get::<_, LuaString>("name")?.to_str()?.to_owned(),
@@ -338,22 +530,11 @@ impl Layer {
             offset_x: t.get("offsetx")?,
             offset_y: t.get("offsety")?,
             data: tile_data,
+            properties: Properties::from_lua(t)?,
             encoding,
             layer_type,
             width,
             height,
-            properties,
         })
-    }
-}
-
-pub fn get_tileset(t: LuaTable, engine: &Engine) -> Result<tiled::Tileset, Error> {
-    let filename = "/".to_owned() + t.get::<_, LuaString>("filename")?.to_str()?;
-    let gid = t.get("firstgid")?;
-    let mut fs = engine.fs();
-    let tileset_path = fs.open(Path::new(&filename))?;
-    match tiled::parse_tileset(tileset_path, gid) {
-        Ok(t) => Ok(t),
-        Err(e) => Err(anyhow!("Got an error when parsing {}: {:?}", filename, e)),
     }
 }

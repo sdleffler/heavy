@@ -43,7 +43,7 @@ impl MarioBros {
             .get::<_, LuaTable>("layers")?
             .sequence_values::<LuaTable>()
         {
-            tiled_layers.push(hv_tiled::Layer::from_lua_table(layer?)?);
+            tiled_layers.push(hv_tiled::Layer::from_lua_table(&layer?)?);
         }
 
         let mut tilesets = Vec::new();
@@ -52,7 +52,7 @@ impl MarioBros {
             .get::<_, LuaTable>("tilesets")?
             .sequence_values::<LuaTable>()
         {
-            tilesets.push(hv_tiled::get_tileset(tileset?, engine)?);
+            tilesets.push(hv_tiled::Tileset::from_lua(&tileset?)?);
         }
 
         drop(tiled_lua_table);

@@ -6,9 +6,9 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-tiled = { git = "https://github.com/maximveligan/rs-tiled" }
 hv-core = { path = "../hv-core" }
 hv-friends = { path = "../hv-friends" }
+log = "0.4.14"
 
 [dev-dependencies]
 simple_logger = "1.13.0"
