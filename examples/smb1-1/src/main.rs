@@ -75,7 +75,7 @@ impl SmbOneOne {
         tiled_lua_map.read_to_end(&mut tiled_buffer)?;
         let lua_chunk = lua.load(&tiled_buffer);
         let tiled_lua_table = lua_chunk.eval::<LuaTable>()?;
-        let map_data = hv_tiled::MapData::from_lua_table(&tiled_lua_table)?;
+        let map_data = hv_tiled::MapData::from_lua(&tiled_lua_table)?;
 
         let mut tiled_layers = Vec::new();
 
@@ -83,7 +83,7 @@ impl SmbOneOne {
             .get::<_, LuaTable>("layers")?
             .sequence_values::<LuaTable>()
         {
-            tiled_layers.push(hv_tiled::Layer::from_lua_table(layer?)?);
+            tiled_layers.push(hv_tiled::Layer::from_lua(&layer?)?);
         }
 
         let mut tilesets = Vec::new();
@@ -92,7 +92,7 @@ impl SmbOneOne {
             .get::<_, LuaTable>("tilesets")?
             .sequence_values::<LuaTable>()
         {
-            tilesets.push(hv_tiled::get_tileset(tileset?, engine)?);
+            tilesets.push(hv_tiled::Tileset::from_lua(&tileset?)?);
         }
 
         drop(tiled_lua_table);
