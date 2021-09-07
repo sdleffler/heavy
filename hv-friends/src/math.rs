@@ -1,7 +1,7 @@
 use {
     nalgebra::SimdPartialOrd,
     num_traits::{Bounded, NumAssign, NumAssignRef, NumCast},
-    serde::{de::DeserializeOwned, Deserialize, Serialize},
+    serde::{Deserialize, Serialize},
 };
 
 use std::{
@@ -302,8 +302,7 @@ impl<N: RealField + Copy> MulAssign<N> for Velocity2<N> {
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
-#[serde(into = "Box2Proxy<N>", from = "Box2Proxy<N>")]
-pub struct Box2<N: Numeric> {
+pub struct Box2<N: Numeric + Send> {
     pub mins: Point2<N>,
     pub maxs: Point2<N>,
 }
@@ -317,7 +316,7 @@ impl From<parry2d::bounding_volume::AABB> for Box2<f32> {
     }
 }
 
-impl<N: Numeric> Box2<N> {
+impl<N: Numeric + Send> Box2<N> {
     pub fn new(x: N, y: N, w: N, h: N) -> Self {
         Self {
             mins: Point2::new(x, y),
@@ -484,47 +483,69 @@ impl Box2<f32> {
     }
 }
 
-#[derive(Serialize, Deserialize)]
-#[serde(rename = "Box2")]
-struct Box2Proxy<N: Numeric> {
-    x: N,
-    y: N,
-    w: N,
-    h: N,
-}
+impl<N: Numeric + Send + for<'lua> FromLua<'lua> + for<'lua> ToLua<'lua>> Box2<N> {
+    pub fn lua_from_corners(
+        _: &Lua,
+        (min_x, min_y, max_x, max_y): (N, N, N, N),
+    ) -> LuaResult<Self> {
+        Ok(Self::from_corners(
+            Point2::new(min_x, min_y),
+            Point2::new(max_x, max_y),
+        ))
+    }
 
-impl<N: Numeric> From<Box2<N>> for Box2Proxy<N> {
-    fn from(b: Box2<N>) -> Self {
-        Self {
-            x: b.mins.x,
-            y: b.mins.y,
-            w: b.maxs.x - b.mins.x,
-            h: b.maxs.y - b.mins.y,
-        }
+    pub fn lua_from_extents(_: &Lua, (x, y, w, h): (N, N, N, N)) -> LuaResult<Self> {
+        Ok(Self::from_extents(Point2::new(x, y), Vector2::new(w, h)))
+    }
+
+    pub fn lua_from_half_extents(_: &Lua, (x, y, w, h): (N, N, N, N)) -> LuaResult<Self> {
+        Ok(Self::from_half_extents(
+            Point2::new(x, y),
+            Vector2::new(w, h),
+        ))
+    }
+
+    pub fn lua_invalid(_: &Lua, (): ()) -> LuaResult<Self> {
+        Ok(Self::invalid())
+    }
+
+    pub fn lua_huge(_: &Lua, (): ()) -> LuaResult<Self> {
+        Ok(Self::huge())
     }
 }
 
-impl<N: Numeric> From<Box2Proxy<N>> for Box2<N> {
-    fn from(b: Box2Proxy<N>) -> Self {
-        Self::new(b.x, b.y, b.w, b.h)
-    }
-}
+impl<N: Numeric + Send + for<'lua> FromLua<'lua> + for<'lua> ToLua<'lua>> LuaUserData for Box2<N> {
+    fn add_methods<'lua, M: LuaUserDataMethods<'lua, Self>>(methods: &mut M) {
+        methods.add_method("intersects", |_, this, other: Self| {
+            Ok(this.intersects(&other))
+        });
 
-impl<'lua, N> ToLua<'lua> for Box2<N>
-where
-    N: Numeric + Serialize + ToLua<'lua>,
-{
-    fn to_lua(self, lua: &'lua Lua) -> LuaResult<LuaValue<'lua>> {
-        lua.to_value(&self)
-    }
-}
+        methods.add_method("contains", |_, this, other: Self| Ok(this.contains(&other)));
 
-impl<'lua, N> FromLua<'lua> for Box2<N>
-where
-    N: Numeric + DeserializeOwned + FromLua<'lua>,
-{
-    fn from_lua(lua_value: LuaValue<'lua>, lua: &'lua Lua) -> LuaResult<Self> {
-        lua.from_value(lua_value)
+        methods.add_method_mut("merge", |_, this, other: Self| {
+            this.merge(&other);
+            Ok(())
+        });
+
+        methods.add_method("merged", |_, this, other: Self| Ok(this.merged(&other)));
+
+        methods.add_method("center", |_, this, ()| {
+            let pt = this.center();
+            Ok((pt.x, pt.y))
+        });
+
+        methods.add_method("mins", |_, this, ()| Ok((this.mins.x, this.mins.y)));
+        methods.add_method("maxs", |_, this, ()| Ok((this.maxs.x, this.maxs.y)));
+
+        methods.add_method("extents", |_, this, ()| {
+            let exts = this.extents();
+            Ok((exts.x, exts.y))
+        });
+
+        methods.add_method("half_extents", |_, this, ()| {
+            let hexts = this.half_extents();
+            Ok((hexts.x, hexts.y))
+        });
     }
 }
 
@@ -652,6 +673,12 @@ pub(crate) fn open<'lua>(lua: &'lua Lua, _engine: &Engine) -> Result<LuaTable<'l
     let create_transform_translation2 =
         lua.create_function(move |_lua, (x, y)| Ok(Tx::<f32>::new(Isometry2::translation(x, y))))?;
 
+    let create_box2_from_corners = lua.create_function(Box2::<f32>::lua_from_corners)?;
+    let create_box2_from_extents = lua.create_function(Box2::<f32>::lua_from_extents)?;
+    let create_box2_from_half_extents = lua.create_function(Box2::<f32>::lua_from_half_extents)?;
+    let create_box2_invalid = lua.create_function(Box2::<f32>::lua_invalid)?;
+    let create_box2_huge = lua.create_function(Box2::<f32>::lua_huge)?;
+
     Ok(lua
         .load(mlua::chunk! {
             {
@@ -665,6 +692,12 @@ pub(crate) fn open<'lua>(lua: &'lua Lua, _engine: &Engine) -> Result<LuaTable<'l
                 create_transform_isometry2 = $create_transform_isometry2,
                 create_transform_rotation2 = $create_transform_rotation2,
                 create_transform_translation2 = $create_transform_translation2,
+
+                create_box2_from_corners = $create_box2_from_corners,
+                create_box2_from_extents = $create_box2_from_extents,
+                create_box2_from_half_extents = $create_box2_from_half_extents,
+                create_box2_invalid = $create_box2_invalid,
+                create_box2_huge = $create_box2_huge,
             }
         })
         .eval()?)

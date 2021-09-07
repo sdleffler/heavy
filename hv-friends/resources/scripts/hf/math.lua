@@ -40,6 +40,22 @@ do
     })
 end
 
+local Box2 = {}
+do
+    Box2.new = assert(hf_math.create_box2_from_extents)
+    Box2.invalid = assert(hf_math.create_box2_invalid)
+    Box2.huge = assert(hf_math.create_box2_huge)
+    Box2.from_corners = assert(hf_math.create_box2_from_corners)
+    Box2.from_extents = assert(hf_math.create_box2_from_extents)
+    Box2.from_half_extents = assert(hf_math.create_box2_from_half_extents)
+
+    setmetatable(Box2, {
+        __call = function(_, x, y, w, h)
+            return Box2.new(x or 0, y or 0, w or 0, h or 0)
+        end
+    })
+end
+
 local Transform = {}
 do
     Transform.new = assert(hf_math.create_transform_identity)
@@ -50,6 +66,7 @@ do
 end
 
 return {
+    Box2 = Box2,
     Position2 = Position2,
     Velocity2 = Velocity2,
     Transform = Transform,
