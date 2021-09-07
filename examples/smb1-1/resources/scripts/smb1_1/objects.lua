@@ -1,5 +1,6 @@
 local std_space = require("std.space")
 local binser = require("std.binser")
+local Player = require("smb1_1.player").Player
 local Position = hf.components.Position
 
 local game_objects = {}
@@ -36,6 +37,23 @@ do
             Koopa.super.init(self, space, x, y)
         end
     end
+
+    local Player = GameObject:extend("smb1_1.game_objects.Player")
+    do
+        game_objects.Player = Player
+        binser.registerClass(Player)
+
+        function Player:init(space, x, y)
+            Player.super.init(self, space, x, y, rust.RequiresUpdate)
+
+            self.controller = PlayerController:new()
+            self.controller:push("ground")
+        end
+
+        function Player:update()
+            self.controller:update(self, input)
+        end
+    end
 end
 
 local level_objects = {}
@@ -68,6 +86,15 @@ do
 
         function Koopa:spawn(space)
             return game_objects.Koopa:new(space, self:position_get_coords())
+        end
+    end
+
+    local Player = LevelObject:extend("smb1_1.level_objects.Player")
+    do
+        level_objects.Player = Player
+        binser.registerClass(Player)
+        function Player:spawn(space)
+            return game_objects.player:new(space, self:position_get_coords())
         end
     end
 end

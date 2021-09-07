@@ -14,6 +14,8 @@ function koopa(x, y)
     return smb_objects.Koopa:new(level, (x + 0.5) * tile_px, (y + 0.5) * tile_px)
 end
 
+smb_objects.Player:new(level, 0.5 * tile_px, 2.5 * tile_px)
+
 -- First goomba, in between the two ? blocks near the start.
 goomba(22, 2)
 
