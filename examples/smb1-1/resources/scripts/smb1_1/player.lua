@@ -41,9 +41,9 @@ do
             -- 4.) Not walking or running but facing in the opposite direction of current velocity
             -- (skidding)
             
-            local left_down, right_down = input:get_button_pressed(button.Left), input:get_button_pressed(button.Right)
+            local left_down, right_down = input:get_button_down(button.Left), input:get_button_down(button.Right)
 
-            if input:get_button_pressed(button.B) then
+            if input:get_button_down(button.B) then
                 player.run_frames = 10
             elseif left_down or right_down then
                 player.run_frames = math.max(player.run_frames - 1, 0)
@@ -111,14 +111,12 @@ end
 local AirState = State:extend("smb1_1.player.AirState", { name = "air" })
 do
     function AirState:update(agent, player)
-        if input:get_button_pressed(button.A) then
+        if input:get_button_down(button.A) then
             player:velocity_add_linear(0, -holding_a_gravity)
         else
+            agent:pop()
             player:velocity_add_linear(0, -normal_gravity)
         end
-
-        -- TODO
-        agent:pop()
     end
 end
 

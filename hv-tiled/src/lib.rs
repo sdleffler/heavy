@@ -409,8 +409,8 @@ impl Map {
 
             CoordSpace::Tile => ((bb.mins.x, bb.mins.y), (bb.maxs.x, bb.maxs.y)),
         };
-        ((box_in_tiles.0 .1)..(box_in_tiles.1 .1)).flat_map(move |y| {
-            ((box_in_tiles.0 .0)..(box_in_tiles.1 .0)).filter_map(move |x| {
+        ((box_in_tiles.0 .1)..=(box_in_tiles.1 .1)).flat_map(move |y| {
+            ((box_in_tiles.0 .0)..=(box_in_tiles.1 .0)).filter_map(move |x| {
                 self.get_tile_in_layer(x, y, layer_id, CoordSpace::Tile)
                     .map(|t| (t, x, y))
             })

@@ -22,7 +22,6 @@ use hv_friends::{
 use hv_tiled::{BoxExt, CoordSpace};
 
 const TIMESTEP: f32 = 1. / 60.;
-const SMOOTHING_FACTOR: f32 = 0.98;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum Button {
@@ -169,115 +168,102 @@ impl EventHandler for SmbOneOne {
                 table.call_method("update", ())?;
             }
 
-            for (_obj, (Position(pos), Velocity(vel), maybe_collider)) in self
+            for (_obj, (Position(pos), Velocity(vel), collider)) in self
                 .space
                 .borrow_mut()
-                .query_mut::<(&mut Position, &mut Velocity, Option<&Collider>)>()
+                .query_mut::<(&mut Position, &mut Velocity, &Collider)>()
             {
-                // Check to see if this object might collide with the world.
-                if let Some(collider) = maybe_collider {
-                    let next_pos = pos.integrate(vel, TIMESTEP);
+                // First, resolve X-axis collisions and movement.
+                pos.translation.vector.x += vel.linear.x * TIMESTEP;
 
-                    let mut swept_aabb = collider.compute_swept_aabb(pos, &next_pos);
-                    let u32_swept_aabb = swept_aabb.floor_to_u32();
+                let mut aabb = collider.compute_aabb(pos);
+                let pixel_aabb = aabb.floor_to_u32();
 
-                    for (tile, x, y) in self.map.get_tiles_in_bb_in_layer(
-                        u32_swept_aabb,
-                        *self.map.layer_map.get("Foreground").unwrap(),
-                        CoordSpace::Pixel,
-                    ) {
-                        let mut tile_bb = Box2::<f32>::invalid();
-                        if let Some(object_group) = self
-                            .map
-                            .tilesets
-                            .get_tile(&tile)
-                            .and_then(|t| t.objectgroup.as_ref())
-                        {
-                            for object in &object_group.objects {
-                                tile_bb.merge(&Box2::new(
-                                    object.x + (x * self.map.meta_data.tilewidth) as f32,
-                                    object.y + (y * self.map.meta_data.tileheight) as f32,
-                                    object.width,
-                                    object.height,
-                                ));
-                            }
-                        }
-
-                        if swept_aabb.intersects(&tile_bb) {
-                            let static_aabb = collider.compute_aabb(pos);
-                            let overlap = tile_bb.overlap(&static_aabb);
-                            let intersection = tile_bb.intersection(&static_aabb);
-                            // Prioritize whichever overlap will get us out of intersection first
-                            // (SAT-like, axis of least penetration.)
-                            if intersection.extents().y > 0. && overlap.y.abs() <= overlap.x.abs() {
-                                // log::info!("y correction: {}", overlap.y);
-                                pos.translation.vector.y += overlap.y;
-                            }
-
-                            // We're no longer statically overlapping (if we were) but now we might
-                            // be going to collide with the object on this frame. We now perform the
-                            // same swept calculation, but this time we modify the velocities to
-                            // keep us from colliding.
-                            swept_aabb =
-                                collider.compute_swept_aabb(pos, &pos.integrate(vel, TIMESTEP));
-                            let overlap = tile_bb.overlap(&swept_aabb);
-                            let intersection = tile_bb.intersection(&swept_aabb);
-                            // Similarly, prioritize whichever "overlap" will get us out of
-                            // collision first.
-                            if intersection.extents().y > 0. {
-                                // We want to clamp the Y velocity so that it can touch but not
-                                // penetrate this object on this frame.
-                                vel.linear.y = 0.;
-                            }
+                for (tile, x, y) in self.map.get_tiles_in_bb_in_layer(
+                    pixel_aabb,
+                    *self.map.layer_map.get("Foreground").unwrap(),
+                    CoordSpace::Pixel,
+                ) {
+                    let mut tile_bb = Box2::<f32>::invalid();
+                    if let Some(object_group) = self
+                        .map
+                        .tilesets
+                        .get_tile(&tile)
+                        .and_then(|t| t.objectgroup.as_ref())
+                    {
+                        for object in &object_group.objects {
+                            tile_bb.merge(&Box2::new(
+                                object.x + (x * self.map.meta_data.tilewidth) as f32,
+                                object.y + (y * self.map.meta_data.tileheight) as f32,
+                                object.width,
+                                object.height,
+                            ));
                         }
                     }
 
-                    let next_pos = pos.integrate(vel, TIMESTEP);
-                    let mut swept_aabb = collider.compute_swept_aabb(pos, &next_pos);
-                    let u32_swept_aabb = swept_aabb.floor_to_u32();
+                    if aabb.intersects(&tile_bb) {
+                        let overlap = aabb.overlap(&tile_bb);
+                        let intersection = aabb.intersection(&tile_bb);
 
-                    for (tile, x, y) in self.map.get_tiles_in_bb_in_layer(
-                        u32_swept_aabb,
-                        *self.map.layer_map.get("Foreground").unwrap(),
-                        CoordSpace::Pixel,
-                    ) {
-                        let mut tile_bb = Box2::<f32>::invalid();
-                        if let Some(object_group) = self
-                            .map
-                            .tilesets
-                            .get_tile(&tile)
-                            .and_then(|t| t.objectgroup.as_ref())
-                        {
-                            for object in &object_group.objects {
-                                tile_bb.merge(&Box2::new(
-                                    object.x + (x * self.map.meta_data.tilewidth) as f32,
-                                    object.y + (y * self.map.meta_data.tileheight) as f32,
-                                    object.width,
-                                    object.height,
-                                ));
-                            }
-                        }
+                        // Only process this collision if we are more than "touching".
+                        if intersection.extents().x > 0. && intersection.extents().y > 0. {
+                            pos.translation.vector.x -= overlap.x;
+                            aabb = collider.compute_aabb(pos);
 
-                        if swept_aabb.intersects(&tile_bb) {
-                            let static_aabb = collider.compute_aabb(pos);
-                            let overlap = tile_bb.overlap(&static_aabb);
-                            let intersection = tile_bb.intersection(&static_aabb);
-                            if intersection.extents().x > 0. && overlap.x.abs() <= overlap.y.abs() {
-                                pos.translation.vector.x += overlap.x;
-                            }
-
-                            swept_aabb =
-                                collider.compute_swept_aabb(pos, &pos.integrate(vel, TIMESTEP));
-                            let overlap = tile_bb.overlap(&swept_aabb);
-                            let intersection = tile_bb.intersection(&swept_aabb);
-                            if intersection.extents().x > 0. && overlap.x.abs() <= overlap.y.abs() {
+                            if vel.linear.x.signum() == overlap.x.signum() {
+                                // If the collision is in the direction we're moving, stop.
                                 vel.linear.x = 0.;
+
+                                // TODO: Collision state (touching left/right)
                             }
                         }
                     }
                 }
 
-                pos.integrate_mut(vel, TIMESTEP);
+                // Second, resolve Y-axis collisions and movement.
+                pos.translation.vector.y += vel.linear.y * TIMESTEP;
+
+                let mut aabb = collider.compute_aabb(pos);
+                let pixel_aabb = aabb.floor_to_u32();
+
+                for (tile, x, y) in self.map.get_tiles_in_bb_in_layer(
+                    pixel_aabb,
+                    *self.map.layer_map.get("Foreground").unwrap(),
+                    CoordSpace::Pixel,
+                ) {
+                    let mut tile_bb = Box2::<f32>::invalid();
+                    if let Some(object_group) = self
+                        .map
+                        .tilesets
+                        .get_tile(&tile)
+                        .and_then(|t| t.objectgroup.as_ref())
+                    {
+                        for object in &object_group.objects {
+                            tile_bb.merge(&Box2::new(
+                                object.x + (x * self.map.meta_data.tilewidth) as f32,
+                                object.y + (y * self.map.meta_data.tileheight) as f32,
+                                object.width,
+                                object.height,
+                            ));
+                        }
+                    }
+
+                    if aabb.intersects(&tile_bb) {
+                        let overlap = aabb.overlap(&tile_bb);
+                        let intersection = aabb.intersection(&tile_bb);
+
+                        if intersection.extents().x > 0. && intersection.extents().y > 0. {
+                            pos.translation.vector.y -= overlap.y;
+                            aabb = collider.compute_aabb(pos);
+
+                            if vel.linear.y.signum() == overlap.y.signum() {
+                                vel.linear.y = 0.;
+
+                                // TODO: Collision state (touching left/right)
+                            }
+                        }
+                    }
+                }
             }
 
             self.x_scroll += 0.25;
@@ -287,7 +273,10 @@ impl EventHandler for SmbOneOne {
             {
                 self.x_scroll = 0.;
             }
+
+            self.input_state.borrow_mut().update(TIMESTEP);
         }
+
         Ok(())
     }
 
