@@ -270,17 +270,21 @@ impl EventHandler for SmbOneOne {
                     }
                 }
 
+                // 8 is just faster than doing self.map.meta_data.tilewidth as f32 / 2.0
+                if pos.translation.vector.x - 8.0 <= 0.0 {
+                    pos.translation.vector.x = 8.0;
+                }
+
+                let scroll = pos.translation.vector.x - (engine.mq().screen_size().0 / 8.0)
+                    + (self.map.meta_data.tilewidth as f32 / 2.0);
+                if scroll < 0.0 {
+                    self.x_scroll = 0.0;
+                } else {
+                    self.x_scroll = scroll;
+                }
+
                 LuaTable::from_lua(object.to_lua(&lua)?, &lua)?.set("is_grounded", is_grounded)?;
             }
-
-            self.x_scroll += 0.25;
-            if self.x_scroll
-                > ((self.map.meta_data.width * self.map.meta_data.tilewidth)
-                    - (engine.mq().screen_size().0 as u32 / 4)) as f32
-            {
-                self.x_scroll = 0.;
-            }
-
             self.input_state.borrow_mut().update(TIMESTEP);
         }
 

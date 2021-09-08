@@ -53,7 +53,7 @@ do
                 Collider(hf.collision.Collider.cuboid(8, 8)),
                 rust.RequiresUpdate
             )
-            
+            self.run_frames = 0
             self.controller = PlayerController:new()
             self.controller:push("ground")
         end

@@ -153,7 +153,15 @@ do
         else
             vy = vy - normal_gravity
         end
-        
+
+        local max_velocity = (player.run_frames > 0 and max_run_velocity) or max_walk_velocity
+
+        if vx > max_velocity then
+            vx = max_velocity
+        elseif vx < -max_velocity then
+            vx = -max_velocity
+        end
+
         player:velocity_set_linear(vx, math.max(vy, -maximum_falling_velocity))
 
         if player.is_grounded then
