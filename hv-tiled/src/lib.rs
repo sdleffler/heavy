@@ -383,8 +383,8 @@ impl Map {
 
             CoordSpace::Tile => ((bb.mins.x, bb.mins.y), (bb.maxs.x, bb.maxs.y)),
         };
-        ((box_in_tiles.0 .1)..(box_in_tiles.1 .1)).flat_map(move |y| {
-            ((box_in_tiles.0 .0)..(box_in_tiles.1 .0))
+        ((box_in_tiles.0 .1)..=(box_in_tiles.1 .1)).flat_map(move |y| {
+            ((box_in_tiles.0 .0)..=(box_in_tiles.1 .0))
                 .map(move |x| (self.get_tile_at(x, y, CoordSpace::Tile), x, y))
         })
     }
