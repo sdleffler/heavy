@@ -1,7 +1,10 @@
 use std::convert::TryFrom;
 
 use hv_core::{
-    components::DynamicComponentConstructor, engine::Engine, prelude::*, spaces::serialize,
+    components::DynamicComponentConstructor,
+    engine::Engine,
+    prelude::*,
+    spaces::{serialize, Object, SpaceCache},
 };
 use na::Isometry2;
 use parry2d::shape::{
@@ -170,29 +173,36 @@ impl Collider {
         self.shape.compute_swept_aabb(start_pos, end_pos).into()
     }
 
-    pub fn lua_compute_local_aabb(_: &Lua, this: &Self, (): ()) -> LuaResult<Box2<f32>> {
-        Ok(this.compute_local_aabb())
+    pub fn lua_compute_local_aabb(_: &Lua, this: &Self, out: LuaAnyUserData) -> LuaResult<()> {
+        *out.borrow_mut::<Box2<f32>>()? = this.compute_local_aabb();
+        Ok(())
     }
 
-    pub fn lua_compute_aabb(_: &Lua, this: &Self, tx: Tx<f32>) -> LuaResult<Box2<f32>> {
-        Ok(this.compute_aabb(
+    pub fn lua_compute_aabb(
+        _: &Lua,
+        this: &Self,
+        (tx, out): (Tx<f32>, LuaAnyUserData),
+    ) -> LuaResult<()> {
+        *out.borrow_mut::<Box2<f32>>()? = this.compute_aabb(
             &tx.to_isometry2()
                 .ok_or_else(|| anyhow!("could not convert transform to Isometry2").to_lua_err())?,
-        ))
+        );
+        Ok(())
     }
 
     pub fn lua_compute_swept_aabb(
         _: &Lua,
         this: &Self,
-        (start_tx, end_tx): (Tx<f32>, Tx<f32>),
-    ) -> LuaResult<Box2<f32>> {
+        (start_tx, end_tx, out): (Tx<f32>, Tx<f32>, LuaAnyUserData),
+    ) -> LuaResult<()> {
         let start_pos = start_tx
             .to_isometry2()
             .ok_or_else(|| anyhow!("could not convert start position to Isometry2").to_lua_err())?;
         let end_pos = end_tx
             .to_isometry2()
             .ok_or_else(|| anyhow!("could not convert end position to Isometry2").to_lua_err())?;
-        Ok(this.compute_swept_aabb(&start_pos, &end_pos))
+        *out.borrow_mut::<Box2<f32>>()? = this.compute_swept_aabb(&start_pos, &end_pos);
+        Ok(())
     }
 
     pub fn lua_ball(lua: &Lua, (radius, more): (f32, LuaMultiValue)) -> LuaResult<Self> {
@@ -317,13 +327,15 @@ impl Collider {
 
 impl LuaUserData for Collider {
     fn add_methods<'lua, M: LuaUserDataMethods<'lua, Self>>(methods: &mut M) {
+        crate::lua::add_clone_methods(methods);
+
         methods.add_method("compute_local_aabb", Self::lua_compute_local_aabb);
         methods.add_method("compute_aabb", Self::lua_compute_aabb);
         methods.add_method("compute_swept_aabb", Self::lua_compute_swept_aabb);
     }
 }
 
-pub(crate) fn open<'lua>(lua: &'lua Lua, _engine: &Engine) -> Result<LuaTable<'lua>> {
+pub(crate) fn open<'lua>(lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lua>> {
     let create_ball = lua.create_function(Collider::lua_ball)?;
     let create_compound = lua.create_function(Collider::lua_compound)?;
     let create_cuboid = lua.create_function(Collider::lua_cuboid)?;
@@ -335,6 +347,22 @@ pub(crate) fn open<'lua>(lua: &'lua Lua, _engine: &Engine) -> Result<LuaTable<'l
 
     let create_collider_component = lua.create_function(|_, collider: Collider| {
         Ok(DynamicComponentConstructor::clone(collider))
+    })?;
+
+    let mut space_cache = SpaceCache::new(engine);
+    let get_collider =
+        lua.create_function_mut(move |_, (obj, out): (Object, LuaAnyUserData)| {
+            let space = space_cache.get_space(obj.space());
+            let collider = (*space.borrow().get::<Collider>(obj).to_lua_err()?).clone();
+            *out.borrow_mut::<Collider>()? = collider;
+            Ok(())
+        })?;
+
+    let mut space_cache = SpaceCache::new(engine);
+    let set_collider = lua.create_function_mut(move |_, (obj, collider): (Object, Collider)| {
+        let space = space_cache.get_space(obj.space());
+        (*space.borrow().get_mut::<Collider>(obj).to_lua_err()?) = collider;
+        Ok(())
     })?;
 
     let intersection_test = lua.create_function(
@@ -366,6 +394,8 @@ pub(crate) fn open<'lua>(lua: &'lua Lua, _engine: &Engine) -> Result<LuaTable<'l
         create_segment = $create_segment,
 
         create_collider_component = $create_collider_component,
+        get_collider = $get_collider,
+        set_collider = $set_collider,
 
         intersection_test = $intersection_test,
     };
