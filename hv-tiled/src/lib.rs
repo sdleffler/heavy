@@ -29,6 +29,41 @@ pub enum Property {
     File(String),
 }
 
+pub trait BoxExt {
+    fn floor_to_u32(self) -> Box2<u32>;
+    fn to_pixel_space(self, map_md: &MapMetaData) -> Box2<u32>;
+}
+
+impl BoxExt for Box2<f32> {
+    fn floor_to_u32(self) -> Box2<u32> {
+        Box2::new(
+            self.mins.x as u32,
+            self.mins.y as u32,
+            (self.maxs.x - self.mins.x) as u32,
+            (self.maxs.y - self.mins.y) as u32,
+        )
+    }
+
+    fn to_pixel_space(self, map_md: &MapMetaData) -> Box2<u32> {
+        self.floor_to_u32().to_pixel_space(map_md)
+    }
+}
+
+impl BoxExt for Box2<u32> {
+    fn floor_to_u32(self) -> Box2<u32> {
+        self
+    }
+
+    fn to_pixel_space(self, map_md: &MapMetaData) -> Box2<u32> {
+        Box2::new(
+            self.mins.x / map_md.tilewidth,
+            self.mins.y / map_md.tileheight,
+            (self.maxs.x - self.mins.x) / map_md.tilewidth,
+            (self.maxs.y - self.mins.y) / map_md.tileheight,
+        )
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Properties(HashMap<String, Property>);
 
