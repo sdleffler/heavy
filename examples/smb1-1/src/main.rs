@@ -294,21 +294,25 @@ impl EventHandler for SmbOneOne {
     fn draw(&mut self, engine: &Engine) -> Result<()> {
         let graphics_lock = engine.get::<GraphicsLock>();
         let mut gfx = graphics_lock.lock();
+        let scale = 4.0;
 
         gfx.modelview_mut()
             .origin()
-            .scale2(Vector2::new(4.0, 4.0))
-            .translate2(Vector2::new(self.x_scroll.floor() * -1.0, 0.0));
+            .translate2((Vector2::new(self.x_scroll * -1.0, 0.0) * scale).map(|t| t.floor()));
+        gfx.modelview_mut().push(None);
+        gfx.modelview_mut().scale2(Vector2::new(4.0, 4.0));
 
         for layer_batch in self.layer_batches.iter_mut() {
             layer_batch.draw_mut(&mut gfx, Instance::new());
         }
 
+        gfx.modelview_mut().pop();
+
         let mut space = self.space.borrow_mut();
         let mut mesh = MeshBuilder::new(gfx.state.null_texture.clone())
             .rectangle(
                 DrawMode::fill(),
-                Box2::from_half_extents(Point2::origin(), Vector2::new(8., 8.)),
+                Box2::from_half_extents(Point2::origin(), Vector2::new(32., 32.)),
                 Color::RED,
             )
             .build(&mut gfx);
@@ -316,7 +320,7 @@ impl EventHandler for SmbOneOne {
         for (_, Position(pos)) in space.query_mut::<&Position>() {
             mesh.draw_mut(
                 &mut gfx,
-                Instance::new().translate2(pos.center().coords.map(|t| t.floor())),
+                Instance::new().translate2((pos.center().coords * scale).map(|t| t.floor())),
             );
         }
 
