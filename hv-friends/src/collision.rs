@@ -383,7 +383,7 @@ pub(crate) fn open<'lua>(lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lu
         },
     )?;
 
-    let chunk = mlua::chunk! {
+    let chunk = mlua::chunk! {{
         create_ball = $create_ball,
         create_compound = $create_compound,
         create_cuboid = $create_cuboid,
@@ -398,7 +398,7 @@ pub(crate) fn open<'lua>(lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lu
         set_collider = $set_collider,
 
         intersection_test = $intersection_test,
-    };
+    }};
 
     Ok(lua.load(chunk).eval()?)
 }

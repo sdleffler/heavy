@@ -1,6 +1,7 @@
 local std_space = require("std.space")
 local binser = require("std.binser")
 local PlayerController = require("smb1_1.player").PlayerController
+local Collider = hf.components.Collider
 local Position = hf.components.Position
 local Velocity = hf.components.Velocity
 
@@ -41,12 +42,17 @@ do
 
     local Player = GameObject:extend("smb1_1.game_objects.Player")
         :with(Velocity)
+        :with(Collider)
     do
         game_objects.Player = Player
         binser.registerClass(Player)
 
         function Player:init(space, x, y)
-            Player.super.init(self, space, x, y, Velocity(), rust.RequiresUpdate)
+            Player.super.init(self, space, x, y,
+                Velocity(),
+                Collider(hf.collision.Collider.cuboid(16, 8)),
+                rust.RequiresUpdate
+            )
             
             self.controller = PlayerController:new()
             self.controller:push("ground")

@@ -12,12 +12,16 @@ use hv_core::{
 };
 
 use hv_friends::{
+    collision::Collider,
     graphics::{
         Color, DrawMode, DrawableMut, GraphicsLock, GraphicsLockExt, Instance, MeshBuilder,
     },
     math::*,
     Position, SimpleHandler, Velocity,
 };
+use hv_tiled::CoordSpace;
+
+const TIMESTEP: f32 = 1. / 60.;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum Button {
@@ -164,12 +168,43 @@ impl EventHandler for SmbOneOne {
                 table.call_method("update", ())?;
             }
 
-            for (_obj, (Position(pos), Velocity(vel))) in self
+            for (_obj, (Position(pos), Velocity(vel), maybe_collider)) in self
                 .space
                 .borrow_mut()
-                .query_mut::<(&mut Position, &Velocity)>()
+                .query_mut::<(&mut Position, &Velocity, Option<&Collider>)>()
             {
-                pos.integrate_mut(vel, 1. / 60.);
+                // Check to see if this object might collide with the world.
+                if let Some(collider) = maybe_collider {
+                    let next_pos = pos.integrate(vel, TIMESTEP);
+                    let swept_aabb = collider.compute_swept_aabb(pos, &next_pos);
+
+                    for tiles in self.map.get_tiles_in_bb(swept_aabb, CoordSpace::Pixel) {
+                        let mut tile_bb = Box2::<f32>::invalid();
+                        for (tile_id, _) in &tiles {
+                            for tileset in &self.map.tilesets {
+                                if let Some(object_group) = tileset
+                                    .get_tile(tile_id)
+                                    .and_then(|t| t.objectgroup.as_ref())
+                                {
+                                    for object in &object_group.objects {
+                                        tile_bb.merge(&Box2::new(
+                                            object.x,
+                                            object.y,
+                                            object.width,
+                                            object.height,
+                                        ));
+                                    }
+                                }
+                            }
+                        }
+
+                        if swept_aabb.intersects(&tile_bb) {
+                            log::info!("colliding! (tiles {:?})", tiles);
+                        }
+                    }
+                }
+
+                pos.integrate_mut(vel, TIMESTEP);
             }
 
             // self.x_scroll += 1;
@@ -242,6 +277,14 @@ impl EventHandler for SmbOneOne {
                 .borrow_mut()
                 .update_effect(effect, position.abs() > f32::EPSILON);
         }
+    }
+
+    fn char_event(&mut self, _engine: &Engine, _character: char, _keymods: KeyMods, _repeat: bool) {
+        // quiet
+    }
+
+    fn mouse_motion_event(&mut self, _engine: &Engine, _x: f32, _y: f32) {
+        // quiet
     }
 }
 

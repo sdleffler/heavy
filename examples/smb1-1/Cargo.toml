@@ -10,3 +10,4 @@ hv-tiled = { path = "../../hv-tiled" }
 hv-mymachine = { path = "../../hv-mymachine" }
 mlua = "0.6.2"
 simple_logger = "1.13.0"
+log = "0.4.14"
