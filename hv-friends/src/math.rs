@@ -21,6 +21,7 @@ pub use nalgebra::{
     Vector2, Vector3, Vector4,
 };
 
+use num::Signed;
 pub use num_traits as num;
 
 use crate::lua::*;
@@ -394,6 +395,40 @@ impl<N: Numeric + Send> Box2<N> {
     #[inline]
     pub fn intersects(&self, other: &Self) -> bool {
         na::partial_le(&self.mins, &other.maxs) && na::partial_ge(&self.maxs, &other.mins)
+    }
+
+    #[inline]
+    pub fn intersection(&self, other: &Self) -> Self {
+        let new_mins = self.mins.coords.sup(&other.mins.coords);
+        let new_maxes = self.maxs.coords.inf(&other.maxs.coords);
+        Self {
+            mins: Point2::from(new_mins),
+            maxs: Point2::from(new_maxes),
+        }
+    }
+
+    #[inline]
+    pub fn overlap(&self, other: &Self) -> Vector2<N>
+    where
+        N: Signed,
+    {
+        let x = if self.mins.x <= other.mins.x && self.maxs.x >= other.mins.x {
+            self.maxs.x - other.mins.x
+        } else if self.mins.x <= other.maxs.x && self.maxs.x >= other.maxs.x {
+            self.mins.x - other.maxs.x
+        } else {
+            N::zero()
+        };
+
+        let y = if self.mins.y <= other.mins.y && self.maxs.y >= other.mins.y {
+            self.maxs.y - other.mins.y
+        } else if self.mins.y <= other.maxs.y && self.maxs.y >= other.maxs.y {
+            self.mins.y - other.maxs.y
+        } else {
+            N::zero()
+        };
+
+        Vector2::new(x, y)
     }
 
     #[inline]

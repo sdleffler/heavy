@@ -50,7 +50,7 @@ do
         function Player:init(space, x, y)
             Player.super.init(self, space, x, y,
                 Velocity(),
-                Collider(hf.collision.Collider.cuboid(16, 8)),
+                Collider(hf.collision.Collider.cuboid(8, 8)),
                 rust.RequiresUpdate
             )
             

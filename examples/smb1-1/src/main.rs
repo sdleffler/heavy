@@ -22,6 +22,7 @@ use hv_friends::{
 use hv_tiled::CoordSpace;
 
 const TIMESTEP: f32 = 1. / 60.;
+const SMOOTHING_FACTOR: f32 = 0.98;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum Button {
@@ -72,7 +73,7 @@ struct SmbOneOne {
     input_binding: InputBinding<Axis, Button>,
     input_state: Shared<InputState<Axis, Button>>,
     layer_batches: Vec<hv_tiled::LayerBatch>,
-    x_scroll: usize,
+    x_scroll: f32,
     map: hv_tiled::Map,
     timer: TimeContext,
 
@@ -138,7 +139,7 @@ impl SmbOneOne {
             input_state,
             space,
             layer_batches,
-            x_scroll: 0,
+            x_scroll: 0.,
             map,
             timer: TimeContext::new(),
 
@@ -171,35 +172,102 @@ impl EventHandler for SmbOneOne {
             for (_obj, (Position(pos), Velocity(vel), maybe_collider)) in self
                 .space
                 .borrow_mut()
-                .query_mut::<(&mut Position, &Velocity, Option<&Collider>)>()
+                .query_mut::<(&mut Position, &mut Velocity, Option<&Collider>)>()
             {
                 // Check to see if this object might collide with the world.
                 if let Some(collider) = maybe_collider {
                     let next_pos = pos.integrate(vel, TIMESTEP);
-                    let swept_aabb = collider.compute_swept_aabb(pos, &next_pos);
+                    let mut swept_aabb = collider.compute_swept_aabb(pos, &next_pos);
 
-                    for tiles in self.map.get_tiles_in_bb(swept_aabb, CoordSpace::Pixel) {
+                    for (tile, x, y) in self.map.get_tiles_in_bb_in_layer(
+                        swept_aabb,
+                        *self.map.layer_map.get("Foreground").unwrap(),
+                        CoordSpace::Pixel,
+                    ) {
                         let mut tile_bb = Box2::<f32>::invalid();
-                        for (tile_id, _) in &tiles {
-                            for tileset in &self.map.tilesets {
-                                if let Some(object_group) = tileset
-                                    .get_tile(tile_id)
-                                    .and_then(|t| t.objectgroup.as_ref())
-                                {
-                                    for object in &object_group.objects {
-                                        tile_bb.merge(&Box2::new(
-                                            object.x,
-                                            object.y,
-                                            object.width,
-                                            object.height,
-                                        ));
-                                    }
+                        for tileset in &self.map.tilesets {
+                            if let Some(object_group) =
+                                tileset.get_tile(&tile).and_then(|t| t.objectgroup.as_ref())
+                            {
+                                for object in &object_group.objects {
+                                    tile_bb.merge(&Box2::new(
+                                        object.x + (x * self.map.meta_data.tilewidth) as f32,
+                                        object.y + (y * self.map.meta_data.tileheight) as f32,
+                                        object.width,
+                                        object.height,
+                                    ));
                                 }
                             }
                         }
 
                         if swept_aabb.intersects(&tile_bb) {
-                            log::info!("colliding! (tiles {:?})", tiles);
+                            let static_aabb = collider.compute_aabb(pos);
+                            let overlap = tile_bb.overlap(&static_aabb);
+                            let intersection = tile_bb.intersection(&static_aabb);
+                            // Prioritize whichever overlap will get us out of intersection first
+                            // (SAT-like, axis of least penetration.)
+                            if intersection.extents().y > 0. && overlap.y.abs() <= overlap.x.abs() {
+                                // log::info!("y correction: {}", overlap.y);
+                                pos.translation.vector.y += overlap.y;
+                            }
+
+                            // We're no longer statically overlapping (if we were) but now we might
+                            // be going to collide with the object on this frame. We now perform the
+                            // same swept calculation, but this time we modify the velocities to
+                            // keep us from colliding.
+                            swept_aabb =
+                                collider.compute_swept_aabb(pos, &pos.integrate(vel, TIMESTEP));
+                            let overlap = tile_bb.overlap(&swept_aabb);
+                            let intersection = tile_bb.intersection(&swept_aabb);
+                            // Similarly, prioritize whichever "overlap" will get us out of
+                            // collision first.
+                            if intersection.extents().y > 0. {
+                                // We want to clamp the Y velocity so that it can touch but not
+                                // penetrate this object on this frame.
+                                vel.linear.y = 0.;
+                            }
+                        }
+                    }
+
+                    let next_pos = pos.integrate(vel, TIMESTEP);
+                    let mut swept_aabb = collider.compute_swept_aabb(pos, &next_pos);
+
+                    for (tile, x, y) in self.map.get_tiles_in_bb_in_layer(
+                        swept_aabb,
+                        *self.map.layer_map.get("Foreground").unwrap(),
+                        CoordSpace::Pixel,
+                    ) {
+                        let mut tile_bb = Box2::<f32>::invalid();
+                        for tileset in &self.map.tilesets {
+                            if let Some(object_group) =
+                                tileset.get_tile(&tile).and_then(|t| t.objectgroup.as_ref())
+                            {
+                                for object in &object_group.objects {
+                                    tile_bb.merge(&Box2::new(
+                                        object.x + (x * self.map.meta_data.tilewidth) as f32,
+                                        object.y + (y * self.map.meta_data.tileheight) as f32,
+                                        object.width,
+                                        object.height,
+                                    ));
+                                }
+                            }
+                        }
+
+                        if swept_aabb.intersects(&tile_bb) {
+                            let static_aabb = collider.compute_aabb(pos);
+                            let overlap = tile_bb.overlap(&static_aabb);
+                            let intersection = tile_bb.intersection(&static_aabb);
+                            if intersection.extents().x > 0. && overlap.x.abs() <= overlap.y.abs() {
+                                pos.translation.vector.x += overlap.x;
+                            }
+
+                            swept_aabb =
+                                collider.compute_swept_aabb(pos, &pos.integrate(vel, TIMESTEP));
+                            let overlap = tile_bb.overlap(&swept_aabb);
+                            let intersection = tile_bb.intersection(&swept_aabb);
+                            if intersection.extents().x > 0. && overlap.x.abs() <= overlap.y.abs() {
+                                vel.linear.x = 0.;
+                            }
                         }
                     }
                 }
@@ -207,12 +275,12 @@ impl EventHandler for SmbOneOne {
                 pos.integrate_mut(vel, TIMESTEP);
             }
 
-            // self.x_scroll += 1;
+            self.x_scroll += 0.25;
             if self.x_scroll
                 > ((self.map.meta_data.width * self.map.meta_data.tilewidth)
-                    - (engine.mq().screen_size().0 as usize / 4))
+                    - (engine.mq().screen_size().0 as usize / 4)) as f32
             {
-                self.x_scroll = 0;
+                self.x_scroll = 0.;
             }
         }
         Ok(())
@@ -225,7 +293,7 @@ impl EventHandler for SmbOneOne {
         gfx.modelview_mut()
             .origin()
             .scale2(Vector2::new(4.0, 4.0))
-            .translate2(Vector2::new((self.x_scroll as f32) * -1.0, 0.0));
+            .translate2(Vector2::new(self.x_scroll * -1.0, 0.0));
 
         for layer_batch in self.layer_batches.iter_mut() {
             layer_batch.draw_mut(&mut gfx, Instance::new());
