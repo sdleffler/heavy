@@ -298,7 +298,7 @@ impl EventHandler for SmbOneOne {
         gfx.modelview_mut()
             .origin()
             .scale2(Vector2::new(4.0, 4.0))
-            .translate2(Vector2::new(self.x_scroll * -1.0, 0.0));
+            .translate2(Vector2::new(self.x_scroll.floor() * -1.0, 0.0));
 
         for layer_batch in self.layer_batches.iter_mut() {
             layer_batch.draw_mut(&mut gfx, Instance::new());
@@ -314,7 +314,10 @@ impl EventHandler for SmbOneOne {
             .build(&mut gfx);
 
         for (_, Position(pos)) in space.query_mut::<&Position>() {
-            mesh.draw_mut(&mut gfx, Instance::new().translate2(pos.center().coords));
+            mesh.draw_mut(
+                &mut gfx,
+                Instance::new().translate2(pos.center().coords.map(|t| t.floor())),
+            );
         }
 
         Ok(())
