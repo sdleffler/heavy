@@ -25,15 +25,20 @@ local holding_a_gravity = mpf_to_pps(0, 2, 0, 0)
 local normal_gravity = mpf_to_pps(0, 7, 0, 0)
 local jump_impulse = mpf_to_pps(4, 0, 0, 0)
 local maximum_falling_velocity = mpf_to_pps(4, 0, 0, 0)
+local midair_low_acceleration = mpf_to_pps(0, 0, 9, 8)
+local midair_low_deceleration = mpf_to_pps(0, 0, 14, 4)
+local midair_high_acceleration = mpf_to_pps(0, 0, 14, 4)
+local midair_high_deceleration = mpf_to_pps(0, 0, 13, 0)
 
 local GroundState = State:extend("smb1_1.player.GroundState", { name = "ground" })
 do
     function GroundState:update(agent, player)
         if input:get_button_pressed(button.A) then
             player:velocity_add_linear(0, jump_impulse)
-            agent:push("air", player)
+            agent:push("air")
+        elseif not player.is_grounded then
+            agent:push("air")
         else
-
             -- There are quite a few cases to consider here.
             -- 1.) Walking or running in the same direction as current velocity
             -- 2.) Walking or running in the opposite direction of current velocity
@@ -103,7 +108,7 @@ do
                 end
             end
             
-            player:velocity_set_linear(vx, math.min(vy - normal_gravity, maximum_falling_velocity))
+            player:velocity_set_linear(vx, math.max(vy - normal_gravity, -maximum_falling_velocity))
         end
     end
 end
@@ -111,11 +116,52 @@ end
 local AirState = State:extend("smb1_1.player.AirState", { name = "air" })
 do
     function AirState:update(agent, player)
+        -- There are quite a few cases to consider here.
+        -- 1.) Walking or running in the same direction as current velocity
+        -- 2.) Walking or running in the opposite direction of current velocity
+        -- 3.) Not walking or running but facing in the direction of current velocity (released)
+        -- 4.) Not walking or running but facing in the opposite direction of current velocity
+        -- (skidding)
+        
+        local left_down, right_down = input:get_button_down(button.Left), input:get_button_down(button.Right)
+
+        local vx, vy = player:velocity_get_linear()
+        local sign_vx = sign(vx)
+        local abs_vx = sign_vx * vx
+        local move_dir = (left_down and -1 or 0) + (right_down and 1 or 0)
+
+        if move_dir ~= 0 then
+            player.facing_direction = move_dir
+        end
+
+        -- -1 if left, 1 if right
+        local facing_direction = player.facing_direction
+
+        if move_dir == sign_vx or sign_vx == 0 then
+            if abs_vx < max_walk_velocity then
+                vx = vx + move_dir * midair_low_acceleration
+            else
+                vx = vx + move_dir * midair_high_acceleration
+            end
+        elseif move_dir == -sign_vx then
+            if abs_vx < max_walk_velocity then
+                vx = vx + move_dir * midair_low_deceleration
+            else
+                vx = vx + move_dir * midair_high_deceleration
+            end
+        end
+
         if input:get_button_down(button.A) then
-            player:velocity_add_linear(0, -holding_a_gravity)
+            vy = vy - holding_a_gravity
         else
+            vy = vy - normal_gravity
+        end
+        
+        player:velocity_set_linear(vx, math.max(vy, -maximum_falling_velocity))
+
+        
+        if player.is_grounded then
             agent:pop()
-            player:velocity_add_linear(0, -normal_gravity)
         end
     end
 end

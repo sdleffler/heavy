@@ -168,11 +168,13 @@ impl EventHandler for SmbOneOne {
                 table.call_method("update", ())?;
             }
 
-            for (_obj, (Position(pos), Velocity(vel), collider)) in self
+            for (object, (Position(pos), Velocity(vel), collider)) in self
                 .space
                 .borrow_mut()
                 .query_mut::<(&mut Position, &mut Velocity, &Collider)>()
             {
+                let mut is_grounded = false;
+
                 // First, resolve X-axis collisions and movement.
                 pos.translation.vector.x += vel.linear.x * TIMESTEP;
 
@@ -259,11 +261,16 @@ impl EventHandler for SmbOneOne {
                             if vel.linear.y.signum() == overlap.y.signum() {
                                 vel.linear.y = 0.;
 
-                                // TODO: Collision state (touching left/right)
+                                // TODO: Collision state (touching up/down)
+                                if overlap.y.signum() < 0. {
+                                    is_grounded = true;
+                                }
                             }
                         }
                     }
                 }
+
+                LuaTable::from_lua(object.to_lua(&lua)?, &lua)?.set("is_grounded", is_grounded)?;
             }
 
             self.x_scroll += 0.25;
