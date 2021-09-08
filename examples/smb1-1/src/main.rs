@@ -180,20 +180,20 @@ impl EventHandler for SmbOneOne {
 
                     for tiles in self.map.get_tiles_in_bb(swept_aabb, CoordSpace::Pixel) {
                         let mut tile_bb = Box2::<f32>::invalid();
-                        for (tile_id, _) in &tiles {
-                            for tileset in &self.map.tilesets {
-                                if let Some(object_group) = tileset
-                                    .get_tile(tile_id)
-                                    .and_then(|t| t.objectgroup.as_ref())
-                                {
-                                    for object in &object_group.objects {
-                                        tile_bb.merge(&Box2::new(
-                                            object.x,
-                                            object.y,
-                                            object.width,
-                                            object.height,
-                                        ));
-                                    }
+                        for (tile_id, _) in &tiles.0 {
+                            if let Some(object_group) = self
+                                .map
+                                .tilesets
+                                .get_tile(tile_id)
+                                .and_then(|t| t.objectgroup.as_ref())
+                            {
+                                for object in &object_group.objects {
+                                    tile_bb.merge(&Box2::new(
+                                        object.x,
+                                        object.y,
+                                        object.width,
+                                        object.height,
+                                    ));
                                 }
                             }
                         }

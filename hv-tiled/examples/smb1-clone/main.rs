@@ -55,8 +55,8 @@ impl MarioBros {
         Ok(MarioBros {
             layer_batches,
             x_scroll: 0,
-            map,
             timer: TimeContext::new(),
+            map,
         })
     }
 }
