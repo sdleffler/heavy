@@ -134,9 +134,6 @@ do
             player.facing_direction = move_dir
         end
 
-        -- -1 if left, 1 if right
-        local facing_direction = player.facing_direction
-
         if move_dir == sign_vx or sign_vx == 0 then
             if abs_vx < max_walk_velocity then
                 vx = vx + move_dir * midair_low_acceleration
@@ -159,7 +156,6 @@ do
         
         player:velocity_set_linear(vx, math.max(vy, -maximum_falling_velocity))
 
-        
         if player.is_grounded then
             agent:pop()
         end
