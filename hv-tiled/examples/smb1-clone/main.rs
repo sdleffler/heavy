@@ -11,6 +11,7 @@ use hv_core::{
 
 use hv_friends::{
     graphics::{DrawableMut, GraphicsLock, GraphicsLockExt, Instance},
+    math::Box2,
     math::Vector2,
     SimpleHandler,
 };
@@ -42,6 +43,14 @@ impl MarioBros {
 
         let mut simple_handler = SimpleHandler::new("main");
         simple_handler.init(engine)?;
+
+        for (tile, x, y) in map.get_tiles_in_bb_in_layer(
+            Box2::new(0.0, 0.0, 2.0, 2.0),
+            *map.layer_map.get("Foreground").unwrap(),
+            hv_tiled::CoordSpace::Tile,
+        ) {
+            println!("TileId {:?}, x {}, y {}", tile, x, y);
+        }
 
         Ok(MarioBros {
             layer_batches,

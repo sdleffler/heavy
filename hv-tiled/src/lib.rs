@@ -278,7 +278,7 @@ impl Map {
         &self,
         bb: Box2<f32>,
         coordinate_space: CoordSpace,
-    ) -> impl Iterator<Item = Vec<(TileId, LayerId)>> + '_ {
+    ) -> impl Iterator<Item = (Vec<(TileId, LayerId)>, usize, usize)> + '_ {
         let box_in_tiles = match coordinate_space {
             CoordSpace::Pixel => (
                 (
@@ -298,10 +298,42 @@ impl Map {
         };
         ((box_in_tiles.0 .1)..(box_in_tiles.1 .1)).flat_map(move |y| {
             ((box_in_tiles.0 .0)..(box_in_tiles.1 .0))
-                .map(move |x| self.get_tile_at(x, y, CoordSpace::Tile))
+                .map(move |x| (self.get_tile_at(x, y, CoordSpace::Tile), x, y))
+        })
+    }
+
+    pub fn get_tiles_in_bb_in_layer(
+        &self,
+        bb: Box2<f32>,
+        layer_id: LayerId,
+        coordinate_space: CoordSpace,
+    ) -> impl Iterator<Item = (TileId, usize, usize)> + '_ {
+        let box_in_tiles = match coordinate_space {
+            CoordSpace::Pixel => (
+                (
+                    (bb.mins.x / (self.meta_data.tilewidth as f32)).floor() as usize,
+                    (bb.mins.y / (self.meta_data.tileheight as f32)).floor() as usize,
+                ),
+                (
+                    (bb.maxs.x / (self.meta_data.tilewidth as f32)).ceil() as usize,
+                    (bb.maxs.y / (self.meta_data.tileheight as f32)).ceil() as usize,
+                ),
+            ),
+
+            CoordSpace::Tile => (
+                (bb.mins.x as usize, bb.mins.y as usize),
+                (bb.maxs.x as usize, bb.maxs.y as usize),
+            ),
+        };
+        ((box_in_tiles.0 .1)..(box_in_tiles.1 .1)).flat_map(move |y| {
+            ((box_in_tiles.0 .0)..(box_in_tiles.1 .0)).filter_map(move |x| {
+                self.get_tile_in_layer(x, y, layer_id, CoordSpace::Tile)
+                    .map(|t| (t, x, y))
+            })
         })
     }
 }
+
 pub struct LayerBatch(Vec<SpriteBatch>);
 
 impl DrawableMut for LayerBatch {
