@@ -18,7 +18,7 @@ use hv_friends::{
 
 struct MarioBros {
     layer_batches: Vec<hv_tiled::LayerBatch>,
-    x_scroll: usize,
+    x_scroll: u32,
     map: hv_tiled::Map,
     timer: TimeContext,
 }
@@ -45,7 +45,7 @@ impl MarioBros {
         simple_handler.init(engine)?;
 
         for (tile, x, y) in map.get_tiles_in_bb_in_layer(
-            Box2::new(0.0, 0.0, 2.0, 2.0),
+            Box2::new(0, 0, 2, 2),
             *map.layer_map.get("Foreground").unwrap(),
             hv_tiled::CoordSpace::Tile,
         ) {
@@ -69,7 +69,7 @@ impl EventHandler for MarioBros {
             self.x_scroll += 1;
             if self.x_scroll
                 > ((self.map.meta_data.width * self.map.meta_data.tilewidth)
-                    - (engine.mq().screen_size().0 as usize / 4))
+                    - (engine.mq().screen_size().0 as u32 / 4))
             {
                 self.x_scroll = 0;
             }

@@ -105,12 +105,12 @@ pub struct MapMetaData {
     pub tiled_ver: String,
     pub orientation: Orientation,
     pub render_order: RenderOrder,
-    pub width: usize,
-    pub height: usize,
-    pub tilewidth: usize,
-    pub tileheight: usize,
-    pub nextlayerid: usize,
-    pub nextobjectid: usize,
+    pub width: u32,
+    pub height: u32,
+    pub tilewidth: u32,
+    pub tileheight: u32,
+    pub nextlayerid: u32,
+    pub nextobjectid: u32,
     pub properties: Properties,
 }
 
@@ -143,8 +143,8 @@ impl MapMetaData {
                 .get::<_, LuaString>("tiledversion")?
                 .to_str()?
                 .to_owned(),
-            nextlayerid: map_table.get::<_, LuaInteger>("nextlayerid")? as usize,
-            nextobjectid: map_table.get::<_, LuaInteger>("nextobjectid")? as usize,
+            nextlayerid: map_table.get::<_, LuaInteger>("nextlayerid")? as u32,
+            nextobjectid: map_table.get::<_, LuaInteger>("nextobjectid")? as u32,
             properties: Properties::from_lua(map_table)?,
             orientation,
             render_order,
@@ -157,14 +157,14 @@ pub struct Layer {
     layer_type: LayerType,
     id: LayerId,
     name: String,
-    x: usize,
-    y: usize,
-    width: usize,
-    height: usize,
+    x: u32,
+    y: u32,
+    width: u32,
+    height: u32,
     visible: bool,
     opacity: f64,
-    offset_x: usize,
-    offset_y: usize,
+    offset_x: u32,
+    offset_y: u32,
     properties: Properties,
     encoding: Encoding,
     data: Vec<TileId>,
@@ -184,7 +184,7 @@ impl Layer {
 
         let width = t.get("width")?;
         let height = t.get("height")?;
-        let mut tile_data = Vec::with_capacity(width * height);
+        let mut tile_data = Vec::with_capacity((width * height) as usize);
 
         for tile in t
             .get::<_, LuaTable>("data")?
@@ -287,8 +287,8 @@ impl Map {
 
     pub fn get_tile_at(
         &self,
-        x: usize,
-        y: usize,
+        x: u32,
+        y: u32,
         coordinate_space: CoordSpace,
     ) -> Vec<(TileId, LayerId)> {
         let mut tile_layer_buff = Vec::new();
@@ -301,7 +301,10 @@ impl Map {
         for layer in self.layers.iter() {
             // We subtract top from y * self.meta_data.width since tiled stores it's tiles top left
             // to bottom right, and we want to index bottom left to top right
-            if let Some(tile_id) = layer.data.get((offset - (y * self.meta_data.width)) + x) {
+            if let Some(tile_id) = layer
+                .data
+                .get(((offset - (y * self.meta_data.width)) + x) as usize)
+            {
                 // TODO: there should be a better way to ID a layer than this
                 if tile_id.to_index().is_some() {
                     tile_layer_buff.push((*tile_id, layer.id));
@@ -313,8 +316,8 @@ impl Map {
 
     pub fn get_tile_in_layer(
         &self,
-        x: usize,
-        y: usize,
+        x: u32,
+        y: u32,
         layer: LayerId,
         coordinate_space: CoordSpace,
     ) -> Option<TileId> {
@@ -328,25 +331,22 @@ impl Map {
 
     pub fn get_tiles_in_bb(
         &self,
-        bb: Box2<f32>,
+        bb: Box2<u32>,
         coordinate_space: CoordSpace,
-    ) -> impl Iterator<Item = (Vec<(TileId, LayerId)>, usize, usize)> + '_ {
+    ) -> impl Iterator<Item = (Vec<(TileId, LayerId)>, u32, u32)> + '_ {
         let box_in_tiles = match coordinate_space {
             CoordSpace::Pixel => (
                 (
-                    (bb.mins.x / (self.meta_data.tilewidth as f32)).floor() as usize,
-                    (bb.mins.y / (self.meta_data.tileheight as f32)).floor() as usize,
+                    (bb.mins.x / (self.meta_data.tilewidth)),
+                    (bb.mins.y / (self.meta_data.tileheight)),
                 ),
                 (
-                    (bb.maxs.x / (self.meta_data.tilewidth as f32)).ceil() as usize,
-                    (bb.maxs.y / (self.meta_data.tileheight as f32)).ceil() as usize,
+                    (bb.maxs.x as f32 / (self.meta_data.tilewidth as f32)).ceil() as u32,
+                    (bb.maxs.y as f32 / (self.meta_data.tileheight as f32)).ceil() as u32,
                 ),
             ),
 
-            CoordSpace::Tile => (
-                (bb.mins.x as usize, bb.mins.y as usize),
-                (bb.maxs.x as usize, bb.maxs.y as usize),
-            ),
+            CoordSpace::Tile => ((bb.mins.x, bb.mins.y), (bb.maxs.x, bb.maxs.y)),
         };
         ((box_in_tiles.0 .1)..(box_in_tiles.1 .1)).flat_map(move |y| {
             ((box_in_tiles.0 .0)..(box_in_tiles.1 .0))
@@ -356,26 +356,23 @@ impl Map {
 
     pub fn get_tiles_in_bb_in_layer(
         &self,
-        bb: Box2<f32>,
+        bb: Box2<u32>,
         layer_id: LayerId,
         coordinate_space: CoordSpace,
-    ) -> impl Iterator<Item = (TileId, usize, usize)> + '_ {
+    ) -> impl Iterator<Item = (TileId, u32, u32)> + '_ {
         let box_in_tiles = match coordinate_space {
             CoordSpace::Pixel => (
                 (
-                    (bb.mins.x / (self.meta_data.tilewidth as f32)).floor() as usize,
-                    (bb.mins.y / (self.meta_data.tileheight as f32)).floor() as usize,
+                    (bb.mins.x / (self.meta_data.tilewidth)),
+                    (bb.mins.y / (self.meta_data.tileheight)),
                 ),
                 (
-                    (bb.maxs.x / (self.meta_data.tilewidth as f32)).ceil() as usize,
-                    (bb.maxs.y / (self.meta_data.tileheight as f32)).ceil() as usize,
+                    (bb.maxs.x as f32 / (self.meta_data.tilewidth as f32)).ceil() as u32,
+                    (bb.maxs.y as f32 / (self.meta_data.tileheight as f32)).ceil() as u32,
                 ),
             ),
 
-            CoordSpace::Tile => (
-                (bb.mins.x as usize, bb.mins.y as usize),
-                (bb.maxs.x as usize, bb.maxs.y as usize),
-            ),
+            CoordSpace::Tile => ((bb.mins.x, bb.mins.y), (bb.maxs.x, bb.maxs.y)),
         };
         ((box_in_tiles.0 .1)..(box_in_tiles.1 .1)).flat_map(move |y| {
             ((box_in_tiles.0 .0)..(box_in_tiles.1 .0)).filter_map(move |x| {
@@ -416,7 +413,7 @@ impl LayerBatch {
 
         for y_cord in 0..layer.height {
             for x_cord in 0..layer.width {
-                let tile = layer.data[y_cord * layer.width + x_cord];
+                let tile = layer.data[(y_cord * layer.width + x_cord) as usize];
                 // Tile indices start at 1, 0 represents no tile, so we offset the tile by 1
                 // first, and skip making the instance param if the tile is 0
                 if let Some(index) = tile.to_index() {

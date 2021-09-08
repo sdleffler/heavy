@@ -177,10 +177,12 @@ impl EventHandler for SmbOneOne {
                 // Check to see if this object might collide with the world.
                 if let Some(collider) = maybe_collider {
                     let next_pos = pos.integrate(vel, TIMESTEP);
+
                     let mut swept_aabb = collider.compute_swept_aabb(pos, &next_pos);
+                    let u32_swept_aabb = boxf32_to_u32(swept_aabb);
 
                     for (tile, x, y) in self.map.get_tiles_in_bb_in_layer(
-                        swept_aabb,
+                        u32_swept_aabb,
                         *self.map.layer_map.get("Foreground").unwrap(),
                         CoordSpace::Pixel,
                     ) {
@@ -232,9 +234,10 @@ impl EventHandler for SmbOneOne {
 
                     let next_pos = pos.integrate(vel, TIMESTEP);
                     let mut swept_aabb = collider.compute_swept_aabb(pos, &next_pos);
+                    let u32_swept_aabb = boxf32_to_u32(swept_aabb);
 
                     for (tile, x, y) in self.map.get_tiles_in_bb_in_layer(
-                        swept_aabb,
+                        u32_swept_aabb,
                         *self.map.layer_map.get("Foreground").unwrap(),
                         CoordSpace::Pixel,
                     ) {
@@ -280,7 +283,7 @@ impl EventHandler for SmbOneOne {
             self.x_scroll += 0.25;
             if self.x_scroll
                 > ((self.map.meta_data.width * self.map.meta_data.tilewidth)
-                    - (engine.mq().screen_size().0 as usize / 4)) as f32
+                    - (engine.mq().screen_size().0 as u32 / 4)) as f32
             {
                 self.x_scroll = 0.;
             }
@@ -356,6 +359,12 @@ impl EventHandler for SmbOneOne {
     fn mouse_motion_event(&mut self, _engine: &Engine, _x: f32, _y: f32) {
         // quiet
     }
+}
+
+fn boxf32_to_u32(f32_box: Box2<f32>) -> Box2<u32> {
+    let point_u32_mins = Point2::new(f32_box.mins.x as u32, f32_box.mins.y as u32);
+    let point_u32_maxs = Point2::new(f32_box.maxs.x as u32, f32_box.maxs.y as u32);
+    Box2::from_corners(point_u32_mins, point_u32_maxs)
 }
 
 fn main() {
