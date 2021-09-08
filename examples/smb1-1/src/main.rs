@@ -185,18 +185,19 @@ impl EventHandler for SmbOneOne {
                         CoordSpace::Pixel,
                     ) {
                         let mut tile_bb = Box2::<f32>::invalid();
-                        for tileset in &self.map.tilesets {
-                            if let Some(object_group) =
-                                tileset.get_tile(&tile).and_then(|t| t.objectgroup.as_ref())
-                            {
-                                for object in &object_group.objects {
-                                    tile_bb.merge(&Box2::new(
-                                        object.x + (x * self.map.meta_data.tilewidth) as f32,
-                                        object.y + (y * self.map.meta_data.tileheight) as f32,
-                                        object.width,
-                                        object.height,
-                                    ));
-                                }
+                        if let Some(object_group) = self
+                            .map
+                            .tilesets
+                            .get_tile(&tile)
+                            .and_then(|t| t.objectgroup.as_ref())
+                        {
+                            for object in &object_group.objects {
+                                tile_bb.merge(&Box2::new(
+                                    object.x + (x * self.map.meta_data.tilewidth) as f32,
+                                    object.y + (y * self.map.meta_data.tileheight) as f32,
+                                    object.width,
+                                    object.height,
+                                ));
                             }
                         }
 
@@ -238,18 +239,19 @@ impl EventHandler for SmbOneOne {
                         CoordSpace::Pixel,
                     ) {
                         let mut tile_bb = Box2::<f32>::invalid();
-                        for tileset in &self.map.tilesets {
-                            if let Some(object_group) =
-                                tileset.get_tile(&tile).and_then(|t| t.objectgroup.as_ref())
-                            {
-                                for object in &object_group.objects {
-                                    tile_bb.merge(&Box2::new(
-                                        object.x + (x * self.map.meta_data.tilewidth) as f32,
-                                        object.y + (y * self.map.meta_data.tileheight) as f32,
-                                        object.width,
-                                        object.height,
-                                    ));
-                                }
+                        if let Some(object_group) = self
+                            .map
+                            .tilesets
+                            .get_tile(&tile)
+                            .and_then(|t| t.objectgroup.as_ref())
+                        {
+                            for object in &object_group.objects {
+                                tile_bb.merge(&Box2::new(
+                                    object.x + (x * self.map.meta_data.tilewidth) as f32,
+                                    object.y + (y * self.map.meta_data.tileheight) as f32,
+                                    object.width,
+                                    object.height,
+                                ));
                             }
                         }
 

@@ -77,7 +77,7 @@ pub enum RenderOrder {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Copy, Hash)]
-pub struct TileId(u32);
+pub struct TileId(u32, usize);
 
 impl TileId {
     pub fn to_index(&self) -> Option<usize> {
@@ -170,11 +170,56 @@ pub struct Layer {
     data: Vec<TileId>,
 }
 
+impl Layer {
+    pub fn from_lua(t: &LuaTable, llid: u32, tile_buffer: &[TileId]) -> Result<Layer, Error> {
+        let layer_type = match t.get::<_, LuaString>("type")?.to_str()? {
+            "tilelayer" => LayerType::Tile,
+            s => return Err(anyhow!("Got an unsupported tilelayer type: {}", s)),
+        };
+
+        let encoding = match t.get::<_, LuaString>("encoding")?.to_str()? {
+            "lua" => Encoding::Lua,
+            e => return Err(anyhow!("Got an unsupported encoding type: {}", e)),
+        };
+
+        let width = t.get("width")?;
+        let height = t.get("height")?;
+        let mut tile_data = Vec::with_capacity(width * height);
+
+        for tile in t
+            .get::<_, LuaTable>("data")?
+            .sequence_values::<LuaInteger>()
+        {
+            tile_data.push(tile_buffer[tile? as usize]);
+        }
+
+        Ok(Layer {
+            id: LayerId {
+                glid: t.get("id")?,
+                llid,
+            },
+            name: t.get::<_, LuaString>("name")?.to_str()?.to_owned(),
+            x: t.get("x")?,
+            y: t.get("y")?,
+            visible: t.get("visible")?,
+            opacity: t.get("opacity")?,
+            offset_x: t.get("offsetx")?,
+            offset_y: t.get("offsety")?,
+            data: tile_data,
+            properties: Properties::from_lua(t)?,
+            encoding,
+            layer_type,
+            width,
+            height,
+        })
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Map {
     pub meta_data: MapMetaData,
     pub layers: Vec<Layer>,
-    pub tilesets: Vec<Tileset>,
+    pub tilesets: Tilesets,
     pub layer_map: HashMap<String, LayerId>,
 }
 
@@ -198,6 +243,22 @@ impl Map {
         let tiled_lua_table = lua_chunk.eval::<LuaTable>()?;
         let meta_data = MapMetaData::from_lua(&tiled_lua_table)?;
 
+        let mut tilesets = Vec::new();
+        let mut tile_buffer = vec![TileId(0, 0)];
+
+        for (tileset, i) in tiled_lua_table
+            .get::<_, LuaTable>("tilesets")?
+            .sequence_values::<LuaTable>()
+            .zip(0..)
+        {
+            let tileset = Tileset::from_lua(&tileset?, path_prefix, i)?;
+            tile_buffer.reserve(tileset.tilecount as usize);
+            for tile_id_num in tileset.first_gid..tileset.tilecount {
+                tile_buffer.push(TileId(tile_id_num, i));
+            }
+            tilesets.push(tileset);
+        }
+
         let mut layers = Vec::new();
         let mut layer_map = HashMap::new();
 
@@ -206,20 +267,11 @@ impl Map {
             .sequence_values::<LuaTable>()
             .zip(0..)
         {
-            let layer = Layer::from_lua(&layer?, i)?;
+            let layer = Layer::from_lua(&layer?, i, &tile_buffer)?;
 
             layer_map.insert(layer.name.clone(), layer.id);
 
             layers.push(layer);
-        }
-
-        let mut tilesets = Vec::new();
-
-        for tileset in tiled_lua_table
-            .get::<_, LuaTable>("tilesets")?
-            .sequence_values::<LuaTable>()
-        {
-            tilesets.push(Tileset::from_lua(&tileset?, path_prefix)?);
         }
 
         drop(tiled_lua_table);
@@ -228,7 +280,7 @@ impl Map {
         Ok(Map {
             meta_data,
             layers,
-            tilesets,
+            tilesets: Tilesets(tilesets),
             layer_map,
         })
     }
@@ -368,8 +420,8 @@ impl LayerBatch {
                 // Tile indices start at 1, 0 represents no tile, so we offset the tile by 1
                 // first, and skip making the instance param if the tile is 0
                 if let Some(index) = tile.to_index() {
-                    let (uvs, tileset_id) = ts_atlas.render_data[index];
-                    batches[tileset_id].insert(
+                    let uvs = ts_atlas.render_data[index];
+                    batches[tile.1].insert(
                         Instance::new()
                             .src(uvs)
                             .color(Color::new(1.0, 1.0, 1.0, layer.opacity as f32))
@@ -503,7 +555,7 @@ pub struct Tile {
 }
 
 impl Tile {
-    pub fn from_lua(tile_table: &LuaTable) -> Result<Self, Error> {
+    pub fn from_lua(tile_table: &LuaTable, tileset_num: usize) -> Result<Self, Error> {
         let objectgroup = match tile_table.get::<_, LuaTable>("objectGroup") {
             Ok(t) => Some(ObjectGroup::from_lua(&t)?),
             Err(_) => None,
@@ -512,7 +564,10 @@ impl Tile {
         Ok(Tile {
             // We have to add 1 here, because Tiled Data stores TileIds + 1, so for consistency,
             // we add 1 here
-            id: TileId(tile_table.get::<_, LuaInteger>("id")? as u32 + 1u32),
+            id: TileId(
+                tile_table.get::<_, LuaInteger>("id")? as u32 + 1,
+                tileset_num,
+            ),
             tile_type: tile_table.get("type").ok(),
             probability: tile_table.get("probability").unwrap_or(0.0),
             animation: None,
@@ -560,7 +615,7 @@ pub struct Tileset {
     pub tile_height: u32,
     pub spacing: u32,
     pub margin: u32,
-    pub tilecount: Option<u32>,
+    pub tilecount: u32,
     pub columns: u32,
     pub tiles: HashMap<TileId, Tile>,
     pub properties: Properties,
@@ -568,10 +623,14 @@ pub struct Tileset {
 }
 
 impl Tileset {
-    pub fn from_lua(ts: &LuaTable, path_prefix: Option<&str>) -> Result<Tileset, Error> {
+    pub fn from_lua(
+        ts: &LuaTable,
+        path_prefix: Option<&str>,
+        tileset_number: usize,
+    ) -> Result<Tileset, Error> {
         let mut tiles = HashMap::new();
         for tile_table in ts.get::<_, LuaTable>("tiles")?.sequence_values() {
-            let tile = Tile::from_lua(&tile_table?)?;
+            let tile = Tile::from_lua(&tile_table?, tileset_number)?;
             tiles.insert(tile.id, tile);
         }
 
@@ -590,24 +649,33 @@ impl Tileset {
         })
     }
 
-    pub fn get_tile(&self, tile_id: &TileId) -> Option<&Tile> {
+    fn get_tile(&self, tile_id: &TileId) -> Option<&Tile> {
         self.tiles.get(tile_id)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Tilesets(Vec<Tileset>);
+
+impl Tilesets {
+    pub fn get_tile(&self, tile_id: &TileId) -> Option<&Tile> {
+        self.0[tile_id.1].get_tile(tile_id)
     }
 }
 
 pub struct TilesetAtlas {
     // Box2<f32> is the uvs, the second usize is an index into a texture vec
     // that relates the uv to the texture
-    render_data: Vec<(Box2<f32>, usize)>,
+    render_data: Vec<Box2<f32>>,
     textures: Vec<CachedTexture>,
 }
 
 impl TilesetAtlas {
-    pub fn new(tilesets: &[Tileset], engine: &Engine) -> Result<Self, Error> {
-        let mut textures = Vec::with_capacity(tilesets.len());
+    pub fn new(tilesets: &Tilesets, engine: &Engine) -> Result<Self, Error> {
+        let mut textures = Vec::with_capacity(tilesets.0.len());
         let mut render_data = Vec::new();
 
-        for (i, tileset) in (0..).zip(tilesets.iter()) {
+        for tileset in tilesets.0.iter() {
             if tileset.images.len() > 1 {
                 return Err(anyhow!(
                     "Multiple images per tilesets aren't supported yet. Expected 1 image, got {}",
@@ -625,36 +693,27 @@ impl TilesetAtlas {
 
             drop(acquired_lock);
 
-            if let Some(tile_count) = tileset.tilecount {
-                let rows = tile_count / tileset.columns;
-                let top = (rows * (tileset.spacing + tileset.tile_height)) + tileset.margin;
-                for row in 1..=rows {
-                    for column in 0..tileset.columns {
-                        render_data.push((
-                            Box2::new(
-                                (tileset.margin
-                                    + ((column * tileset.tile_width) + column * tileset.spacing))
-                                    as f32
-                                    / texture_obj.width() as f32,
-                                (tileset.spacing
-                                    + (top
-                                        - (tileset.margin
-                                            + ((row * tileset.tile_height)
-                                                + row * tileset.spacing))))
-                                    as f32
-                                    / texture_obj.height() as f32,
-                                tileset.tile_width as f32 / texture_obj.width() as f32,
-                                tileset.tile_height as f32 / texture_obj.height() as f32,
-                            ),
-                            i,
-                        ));
-                    }
+            let rows = tileset.tilecount / tileset.columns;
+            let top = (rows * (tileset.spacing + tileset.tile_height)) + tileset.margin;
+            for row in 1..=rows {
+                for column in 0..tileset.columns {
+                    render_data.push(Box2::new(
+                        (tileset.margin
+                            + ((column * tileset.tile_width) + column * tileset.spacing))
+                            as f32
+                            / texture_obj.width() as f32,
+                        (tileset.spacing
+                            + (top
+                                - (tileset.margin
+                                    + ((row * tileset.tile_height) + row * tileset.spacing))))
+                            as f32
+                            / texture_obj.height() as f32,
+                        tileset.tile_width as f32 / texture_obj.width() as f32,
+                        tileset.tile_height as f32 / texture_obj.height() as f32,
+                    ));
                 }
-                textures.push(CachedTexture::from(texture_obj));
-            } else {
-                return Err(anyhow!("Tile count was None for some reason! Check the tiled map,
-                                    and if it's indeed missing, let Maxim Veligan (maximveligan.gmail.com) know"));
             }
+            textures.push(CachedTexture::from(texture_obj));
         }
 
         Ok(TilesetAtlas {
@@ -677,47 +736,5 @@ impl Drawable for TilesetAtlas {
 impl DrawableMut for TilesetAtlas {
     fn draw_mut(&mut self, ctx: &mut Graphics, instance: Instance) {
         self.draw(ctx, instance);
-    }
-}
-
-impl Layer {
-    pub fn from_lua(t: &LuaTable, llid: u32) -> Result<Layer, Error> {
-        let layer_type = match t.get::<_, LuaString>("type")?.to_str()? {
-            "tilelayer" => LayerType::Tile,
-            s => return Err(anyhow!("Got an unsupported tilelayer type: {}", s)),
-        };
-
-        let encoding = match t.get::<_, LuaString>("encoding")?.to_str()? {
-            "lua" => Encoding::Lua,
-            e => return Err(anyhow!("Got an unsupported encoding type: {}", e)),
-        };
-
-        let width = t.get("width")?;
-        let height = t.get("height")?;
-        let mut tile_data = Vec::with_capacity(width * height);
-
-        for tile in t.get::<_, LuaTable>("data")?.sequence_values() {
-            tile_data.push(TileId(tile?));
-        }
-
-        Ok(Layer {
-            id: LayerId {
-                glid: t.get("id")?,
-                llid,
-            },
-            name: t.get::<_, LuaString>("name")?.to_str()?.to_owned(),
-            x: t.get("x")?,
-            y: t.get("y")?,
-            visible: t.get("visible")?,
-            opacity: t.get("opacity")?,
-            offset_x: t.get("offsetx")?,
-            offset_y: t.get("offsety")?,
-            data: tile_data,
-            properties: Properties::from_lua(t)?,
-            encoding,
-            layer_type,
-            width,
-            height,
-        })
     }
 }
