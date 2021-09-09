@@ -171,7 +171,16 @@ impl TileId {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct LayerId {
+pub struct TileLayerId {
+    // global layer id and local layer id
+    // global layer id is set by tiled, local layer id is generated sequentially in the order
+    // that the layers are parsed
+    glid: u32,
+    llid: u32,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub struct ObjectLayerId {
     // global layer id and local layer id
     // global layer id is set by tiled, local layer id is generated sequentially in the order
     // that the layers are parsed
@@ -236,7 +245,7 @@ impl MapMetaData {
 #[derive(Debug, Clone)]
 pub struct TileLayer {
     layer_type: LayerType,
-    id: LayerId,
+    id: TileLayerId,
     name: String,
     x: u32,
     y: u32,
@@ -275,7 +284,7 @@ impl TileLayer {
         }
 
         Ok(TileLayer {
-            id: LayerId {
+            id: TileLayerId {
                 glid: t.get("id")?,
                 llid,
             },
@@ -304,7 +313,8 @@ pub struct Map {
     pub tile_layers: Vec<TileLayer>,
     pub object_layers: Vec<ObjectLayer>,
     pub tilesets: Tilesets,
-    pub layer_map: HashMap<String, LayerId>,
+    pub tile_layer_map: HashMap<String, TileLayerId>,
+    pub object_layer_map: HashMap<String, ObjectLayerId>,
     obj_slab: slab::Slab<Object>,
     obj_id_to_ref_map: HashMap<ObjectId, ObjectRef>,
 }
@@ -349,30 +359,36 @@ impl Map {
         let mut tile_layers = Vec::new();
         let mut object_layers = Vec::new();
 
-        let mut layer_map = HashMap::new();
+        let mut tile_layer_map = HashMap::new();
+        let mut object_layer_map = HashMap::new();
+
         let mut obj_id_to_ref_map = HashMap::new();
 
-        for (layer, i) in tiled_lua_table
+        let mut tile_llid = 0;
+        let mut obj_llid = 0;
+
+        for layer in tiled_lua_table
             .get::<_, LuaTable>("layers")?
             .sequence_values::<LuaTable>()
-            .zip(0..)
         {
             let layer = layer?;
             let layer_type = LayerType::from_lua(&layer)?;
             match layer_type {
                 LayerType::Tile => {
-                    let tile_layer = TileLayer::from_lua(&layer, i, &tile_buffer)?;
-                    layer_map.insert(tile_layer.name.clone(), tile_layer.id);
+                    let tile_layer = TileLayer::from_lua(&layer, tile_llid, &tile_buffer)?;
+                    tile_layer_map.insert(tile_layer.name.clone(), tile_layer.id);
                     tile_layers.push(tile_layer);
+                    tile_llid += 1;
                 }
                 LayerType::Object => {
                     let (obj_group, obj_ids_and_refs) =
-                        ObjectGroup::from_lua(&layer, i, true, &mut obj_slab)?;
+                        ObjectGroup::from_lua(&layer, obj_llid, true, &mut obj_slab)?;
                     for (obj_id, obj_ref) in obj_ids_and_refs.iter() {
                         obj_id_to_ref_map.insert(obj_id.clone(), *obj_ref);
                     }
-                    layer_map.insert(obj_group.name.clone(), obj_group.id);
+                    object_layer_map.insert(obj_group.name.clone(), obj_group.id);
                     object_layers.push(obj_group);
+                    obj_llid += 1;
                 }
             }
         }
@@ -385,7 +401,8 @@ impl Map {
             tile_layers,
             tilesets: Tilesets(tilesets),
             object_layers,
-            layer_map,
+            tile_layer_map,
+            object_layer_map,
             obj_slab,
             obj_id_to_ref_map,
         })
@@ -396,7 +413,7 @@ impl Map {
         x: u32,
         y: u32,
         coordinate_space: CoordSpace,
-    ) -> Vec<(TileId, LayerId)> {
+    ) -> Vec<(TileId, TileLayerId)> {
         let mut tile_layer_buff = Vec::new();
         let (x, y) = match coordinate_space {
             CoordSpace::Pixel => (x / self.meta_data.tilewidth, y / self.meta_data.tileheight),
@@ -424,22 +441,32 @@ impl Map {
         &self,
         x: u32,
         y: u32,
-        layer: LayerId,
+        layer: TileLayerId,
         coordinate_space: CoordSpace,
     ) -> Option<TileId> {
-        for (tile, g_layer) in self.get_tile_at(x, y, coordinate_space) {
-            if layer == g_layer {
-                return Some(tile);
-            }
+        let (x, y) = match coordinate_space {
+            CoordSpace::Pixel => (x / self.meta_data.tilewidth, y / self.meta_data.tileheight),
+            CoordSpace::Tile => (x, y),
+        };
+
+        let offset = (self.meta_data.height * self.meta_data.width) - self.meta_data.width;
+
+        let layer = &self.tile_layers[layer.llid as usize];
+
+        match layer
+            .data
+            .get(((offset - (y * self.meta_data.width)) + x) as usize)
+        {
+            Some(t_id) if t_id.to_index().is_some() => Some(*t_id),
+            Some(_) | None => None,
         }
-        None
     }
 
     pub fn get_tiles_in_bb(
         &self,
         bb: Box2<u32>,
         coordinate_space: CoordSpace,
-    ) -> impl Iterator<Item = (Vec<(TileId, LayerId)>, u32, u32)> + '_ {
+    ) -> impl Iterator<Item = (Vec<(TileId, TileLayerId)>, u32, u32)> + '_ {
         let box_in_tiles = match coordinate_space {
             CoordSpace::Pixel => (
                 (
@@ -463,7 +490,7 @@ impl Map {
     pub fn get_tiles_in_bb_in_layer(
         &self,
         bb: Box2<u32>,
-        layer_id: LayerId,
+        layer_id: TileLayerId,
         coordinate_space: CoordSpace,
     ) -> impl Iterator<Item = (TileId, u32, u32)> + '_ {
         let box_in_tiles = match coordinate_space {
@@ -490,6 +517,23 @@ impl Map {
 
     pub fn get_obj(&self, obj_ref: &ObjectRef) -> &Object {
         &self.obj_slab[obj_ref.0]
+    }
+
+    pub fn get_objs_from_obj_group<'a>(
+        &'a self,
+        obj_group: &'a ObjectGroup,
+    ) -> impl Iterator<Item = &'a Object> + 'a {
+        obj_group.get_obj_refs().map(move |o| &self.obj_slab[o.0])
+    }
+
+    pub fn get_obj_grp_from_tile_id(&self, tileid: &TileId) -> Option<&ObjectGroup> {
+        self.tilesets
+            .get_tile(tileid)
+            .and_then(|t| t.objectgroup.as_ref())
+    }
+
+    pub fn get_obj_grp_from_layer_id(&self, obj_layer_id: &ObjectLayerId) -> &ObjectGroup {
+        &self.object_layers[obj_layer_id.llid as usize]
     }
 }
 
@@ -770,7 +814,7 @@ pub struct ObjectGroup {
     pub draworder: DrawOrder,
     pub object_refs: Vec<ObjectRef>,
     pub color: Color,
-    pub id: LayerId,
+    pub id: ObjectLayerId,
     pub obj_group_type: ObjGroupType,
     /**
      * Layer index is not preset for tile collision boxes
@@ -804,7 +848,7 @@ impl ObjectGroup {
 
         Ok((
             ObjectGroup {
-                id: LayerId {
+                id: ObjectLayerId {
                     glid: objg_table.get("id")?,
                     llid,
                 },
@@ -823,6 +867,10 @@ impl ObjectGroup {
             },
             obj_ids_and_refs,
         ))
+    }
+
+    pub fn get_obj_refs(&self) -> impl Iterator<Item = &ObjectRef> + '_ {
+        self.object_refs.iter()
     }
 }
 
@@ -951,8 +999,7 @@ impl Tilesets {
 }
 
 pub struct TilesetAtlas {
-    // Box2<f32> is the uvs, the second usize is an index into a texture vec
-    // that relates the uv to the texture
+    // Box2<f32> is the uvs
     render_data: Vec<Box2<f32>>,
     textures: Vec<CachedTexture>,
 }

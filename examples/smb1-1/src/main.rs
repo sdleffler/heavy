@@ -183,18 +183,12 @@ impl EventHandler for SmbOneOne {
 
                 for (tile, x, y) in self.map.get_tiles_in_bb_in_layer(
                     pixel_aabb,
-                    *self.map.layer_map.get("Foreground").unwrap(),
+                    *self.map.tile_layer_map.get("Foreground").unwrap(),
                     CoordSpace::Pixel,
                 ) {
                     let mut tile_bb = Box2::<f32>::invalid();
-                    if let Some(object_group) = self
-                        .map
-                        .tilesets
-                        .get_tile(&tile)
-                        .and_then(|t| t.objectgroup.as_ref())
-                    {
-                        for object_ref in &object_group.object_refs {
-                            let object = self.map.get_obj(object_ref);
+                    if let Some(object_group) = self.map.get_obj_grp_from_tile_id(&tile) {
+                        for object in self.map.get_objs_from_obj_group(object_group) {
                             tile_bb.merge(&Box2::new(
                                 object.x + (x * self.map.meta_data.tilewidth) as f32,
                                 object.y + (y * self.map.meta_data.tileheight) as f32,
@@ -231,18 +225,12 @@ impl EventHandler for SmbOneOne {
 
                 for (tile, x, y) in self.map.get_tiles_in_bb_in_layer(
                     pixel_aabb,
-                    *self.map.layer_map.get("Foreground").unwrap(),
+                    *self.map.tile_layer_map.get("Foreground").unwrap(),
                     CoordSpace::Pixel,
                 ) {
                     let mut tile_bb = Box2::<f32>::invalid();
-                    if let Some(object_group) = self
-                        .map
-                        .tilesets
-                        .get_tile(&tile)
-                        .and_then(|t| t.objectgroup.as_ref())
-                    {
-                        for object_ref in &object_group.object_refs {
-                            let object = self.map.get_obj(object_ref);
+                    if let Some(object_group) = self.map.get_obj_grp_from_tile_id(&tile) {
+                        for object in self.map.get_objs_from_obj_group(object_group) {
                             tile_bb.merge(&Box2::new(
                                 object.x + (x * self.map.meta_data.tilewidth) as f32,
                                 object.y + (y * self.map.meta_data.tileheight) as f32,
