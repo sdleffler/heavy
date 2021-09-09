@@ -35,7 +35,8 @@ impl DrawableMut for Sprite {
             tx: instance.tx * self.params.tx,
             ..self.params
         };
-        self.texture.draw_mut(ctx, params);
+        self.texture
+            .draw_mut(ctx, params.scale2(params.src.extents()));
     }
 }
 
@@ -47,7 +48,9 @@ impl Drawable for Sprite {
             tx: instance.tx * self.params.tx,
             ..self.params
         };
-        self.texture.get().draw(ctx, params);
+        self.texture
+            .get()
+            .draw(ctx, params.scale2(params.src.extents()));
     }
 }
 
