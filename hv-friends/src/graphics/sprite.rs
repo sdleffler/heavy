@@ -482,6 +482,11 @@ impl SpriteSheet {
         }
     }
 
+    /// Get the ID which will be returned by the next call to `insert_frame`.
+    pub fn next_frame_id(&self) -> FrameId {
+        FrameId(self.frames.len() as u32)
+    }
+
     /// Insert a new frame and get back its "frame ID". Frame IDs are created sequentially; the
     /// `u32` inside will always be the next `u32` after the previously returned `FrameId`. This is
     /// very important because tags deal with *ranges* of `FrameId`s.
