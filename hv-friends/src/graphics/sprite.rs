@@ -307,7 +307,7 @@ impl LuaUserData for SpriteBatch {
     Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash,
 )]
 #[serde(transparent)]
-pub struct TagId(u32);
+pub struct TagId(pub u32);
 
 impl<'lua> ToLua<'lua> for TagId {
     fn to_lua(self, lua: &'lua Lua) -> LuaResult<LuaValue<'lua>> {
@@ -325,7 +325,7 @@ impl<'lua> FromLua<'lua> for TagId {
     Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash,
 )]
 #[serde(transparent)]
-pub struct FrameId(u32);
+pub struct FrameId(pub u32);
 
 impl<'lua> ToLua<'lua> for FrameId {
     fn to_lua(self, lua: &'lua Lua) -> LuaResult<LuaValue<'lua>> {
@@ -358,9 +358,9 @@ impl From<aseprite::Direction> for Direction {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Tag {
-    pub name: String,
-    pub from: u32,
-    pub to: u32,
+    pub name: Option<String>,
+    pub from: FrameId,
+    pub to: FrameId,
     pub direction: Direction,
 }
 
@@ -374,41 +374,46 @@ pub enum NextFrame {
 impl Tag {
     pub fn first_frame(&self) -> FrameId {
         match self.direction {
-            Direction::Forward | Direction::Pingpong => FrameId(self.from),
-            Direction::Reverse => FrameId(self.to),
+            Direction::Forward | Direction::Pingpong => self.from,
+            Direction::Reverse => self.to,
         }
     }
 
     pub fn last_frame(&self) -> FrameId {
         match self.direction {
-            Direction::Forward | Direction::Pingpong => FrameId(self.to),
-            Direction::Reverse => FrameId(self.from),
+            Direction::Forward | Direction::Pingpong => self.to,
+            Direction::Reverse => self.from,
         }
     }
 
     /// Returns `Err` if this next frame would loop the animation, `Ok` otherwise.
-    pub fn next_frame(&self, FrameId(current): FrameId) -> Result<FrameId, FrameId> {
+    pub fn next_frame(&self, current: FrameId) -> Result<FrameId, FrameId> {
         match self.direction {
-            Direction::Forward if current == self.to => Err(FrameId(self.from)),
-            Direction::Reverse if current == self.from => Err(FrameId(self.to)),
+            Direction::Forward if current == self.to => Err(self.from),
+            Direction::Reverse if current == self.from => Err(self.to),
             Direction::Pingpong if current == self.to => {
-                Err(FrameId(na::max(self.to - 1, self.from)))
+                Err(FrameId(na::max(self.to.0 - 1, self.from.0)))
             }
             Direction::Pingpong if current == self.from => {
-                Err(FrameId(na::min(self.from + 1, self.to)))
+                Err(FrameId(na::min(self.from.0 + 1, self.to.0)))
             }
-            Direction::Forward => Ok(FrameId(current + 1)),
-            Direction::Reverse => Ok(FrameId(current - 1)),
+            Direction::Forward => Ok(FrameId(current.0 + 1)),
+            Direction::Reverse => Ok(FrameId(current.0 - 1)),
             Direction::Pingpong => todo!("pingpong is broken!"),
         }
     }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct Frame {
+pub struct FrameSource {
     pub frame: Box2<u32>,
     pub frame_source: Box2<u32>,
     pub source_size: Vector2<u32>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct Frame {
+    pub source: Option<FrameSource>,
     pub offset: Vector2<f32>,
     pub uvs: Box2<f32>,
     pub duration: u32,
@@ -416,7 +421,7 @@ pub struct Frame {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SpriteSheet {
-    pub image: String,
+    pub image: Option<String>,
     pub tag_ids: HashMap<String, TagId>,
     pub tags: Vec<Tag>,
     pub frames: Vec<Frame>,
@@ -456,6 +461,47 @@ impl ops::Index<SpriteFrame> for SpriteSheet {
 }
 
 impl SpriteSheet {
+    /// Create a new, empty spritesheet.
+    pub fn new(size: Vector2<u32>) -> Self {
+        Self {
+            image: None,
+            tag_ids: HashMap::new(),
+            tags: vec![Tag {
+                name: None,
+                from: FrameId(0),
+                to: FrameId(0),
+                direction: Direction::Forward,
+            }],
+            frames: vec![Frame {
+                source: None,
+                uvs: Box2::new(0., 0., 1., 1.),
+                offset: Vector2::zeros(),
+                duration: 1,
+            }],
+            size,
+        }
+    }
+
+    /// Insert a new frame and get back its "frame ID". Frame IDs are created sequentially; the
+    /// `u32` inside will always be the next `u32` after the previously returned `FrameId`. This is
+    /// very important because tags deal with *ranges* of `FrameId`s.
+    pub fn insert_frame(&mut self, frame: Frame) -> FrameId {
+        let id = self.frames.len();
+        self.frames.push(frame);
+        FrameId(id as u32)
+    }
+
+    /// Insert a new tag and get back its "tag ID". Like frame IDs, tag IDs are also created
+    /// sequentially, but we care less because we don't deal with ranges of tags.
+    pub fn insert_tag(&mut self, tag: Tag) -> TagId {
+        let tag_id = TagId(self.tags.len() as u32);
+        if let Some(name) = tag.name.clone() {
+            self.tag_ids.insert(name, tag_id);
+        }
+        self.tags.push(tag);
+        tag_id
+    }
+
     pub fn from_reader<R: Read>(reader: &mut R) -> Result<Self> {
         let mut buf = String::new();
         reader.read_to_string(&mut buf)?;
@@ -489,9 +535,11 @@ impl SpriteSheet {
             );
 
             frames.push(Frame {
-                frame,
-                frame_source,
-                source_size,
+                source: Some(FrameSource {
+                    frame,
+                    frame_source,
+                    source_size,
+                }),
                 offset,
                 uvs,
                 duration,
@@ -499,17 +547,17 @@ impl SpriteSheet {
         }
 
         let mut tags = vec![Tag {
-            name: String::new(),
-            from: 0,
-            to: frames.len() as u32 - 1,
+            name: None,
+            from: FrameId(0),
+            to: FrameId(frames.len() as u32 - 1),
             direction: Direction::Forward,
         }];
 
         for frame_tag in spritesheet_data.meta.frame_tags.into_iter().flatten() {
             tags.push(Tag {
-                name: frame_tag.name,
-                from: frame_tag.from,
-                to: frame_tag.to,
+                name: Some(frame_tag.name),
+                from: FrameId(frame_tag.from),
+                to: FrameId(frame_tag.to),
                 direction: Direction::from(frame_tag.direction),
             });
         }
@@ -517,14 +565,11 @@ impl SpriteSheet {
         let tag_ids = tags
             .iter()
             .enumerate()
-            .map(|(i, tag)| (tag.name.clone(), TagId(i as u32)))
+            .filter_map(|(i, tag)| tag.name.clone().map(|n| (n, TagId(i as u32))))
             .collect::<HashMap<_, _>>();
 
         Ok(Self {
-            image: spritesheet_data
-                .meta
-                .image
-                .ok_or_else(|| anyhow!("no image path"))?,
+            image: spritesheet_data.meta.image,
             tag_ids,
             tags,
             frames,
