@@ -812,6 +812,10 @@ impl<'a> hecs::serialize::column::DeserializeContext for SerdeContext<'a> {
 /// Deserialize a space from two separate deserializers containing the Rust objects and Lua values.
 /// Most useful if you're doing something which requires storing serialized [`Space`]s in memory, as
 /// otherwise serializing/deserializing from a single chunk of bytes is less efficient.
+///
+/// # Locking behavior
+///
+/// Transient mutable borrows: [`Space`] (as passed in as parameter)
 pub fn deserialize_separate<'de, D, E>(
     space: &Shared<Space>,
     lua: &Lua,
@@ -870,6 +874,10 @@ where
 
 /// Serialize a space to two separate serializers, one for Rust objects and the other for Lua
 /// values.
+///
+/// # Locking behavior
+///
+/// Transient immutable borrows: [`Space`] (as passed in as parameter)
 pub fn serialize_separate<S, T>(
     shared_space: &Shared<Space>,
     lua: &Lua,
@@ -903,6 +911,10 @@ where
 }
 
 /// Serialize a space to a writer as a single chunk of bytes.
+///
+/// # Locking behavior
+///
+/// Transient immutable borrows: [`Space`] (as passed in as parameter)
 pub fn serialize_whole<W: Write>(space: &Shared<Space>, lua: &Lua, writer: W) -> Result<()> {
     let mut lua_object_buf = Vec::new();
     let mut ecs_object_buf = Vec::new();
@@ -924,6 +936,10 @@ pub fn serialize_whole<W: Write>(space: &Shared<Space>, lua: &Lua, writer: W) ->
 }
 
 /// Deserialize a space as a single chunk of bytes, from a reader.
+///
+/// # Locking behavior
+///
+/// Transient mutable borrows: [`Space`] (as passed in as parameter)
 pub fn deserialize_whole<R: Read>(space: &Shared<Space>, lua: &Lua, reader: R) -> Result<()> {
     let (ecs_object_buf, lua_object_buf): (Vec<u8>, Vec<u8>) = bincode::deserialize_from(reader)?;
 

@@ -190,12 +190,24 @@ impl Object {
 
     /// Convert this object into its corresponding Lua object table, returning `None` if it does not
     /// have one.
+    ///
+    /// # Locking behavior
+    ///
+    /// Transient immutable borrows: [`ObjectTableRegistry`], [`Spaces`], object's owning [`Space`]
+    ///
+    /// [`ObjectTableRegistry`]: self::object_table::ObjectTableRegistry
     pub fn try_to_table<'lua>(&self, lua: &'lua Lua) -> Result<Option<LuaTable<'lua>>> {
         Ok(FromLua::from_lua(self.to_lua(lua)?, lua)?)
     }
 
     /// Convert this object into its corresponding Lua object table, returning an error if it does
     /// not have one.
+    ///
+    /// # Locking behavior
+    ///
+    /// Transient immutable borrows: [`ObjectTableRegistry`], [`Spaces`], object's owning [`Space`]
+    ///
+    /// [`ObjectTableRegistry`]: self::object_table::ObjectTableRegistry
     pub fn to_table<'lua>(&self, lua: &'lua Lua) -> Result<LuaTable<'lua>> {
         self.try_to_table(lua)?
             .ok_or_else(|| anyhow!("Object {:?} has no associated object table!", self))

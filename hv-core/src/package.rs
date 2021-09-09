@@ -23,7 +23,13 @@ pub struct LoadedModule<'lua> {
     pub loaded: LuaFunction<'lua>,
 }
 
-/// Load a Lua file as a function.
+/// Load a Lua file as a function.  
+///
+/// # Locking behavior
+///
+/// Transient immutable borrows: [`Filesystem`]
+///
+/// [`Filesystem`]: crate::filesystem::Filesystem
 pub fn load<'lua>(engine: &Engine, lua: &'lua Lua, module: &str) -> LuaResult<LoadedModule<'lua>> {
     let package = lua.named_registry_value::<_, LuaTable>(HV_PACKAGE)?;
     let package_path = package.get::<_, LuaString>("path")?;
@@ -75,6 +81,12 @@ pub fn load<'lua>(engine: &Engine, lua: &'lua Lua, module: &str) -> LuaResult<Lo
 ///
 /// The limitations of opening files through this `require` are the same as opening
 /// any file through the `Filesystem`.
+///
+/// # Locking behavior
+///
+/// Transient immutable borrows: [`Filesystem`]
+///
+/// [`Filesystem`]: crate::filesystem::Filesystem
 pub fn require<'lua>(engine: &Engine, lua: &'lua Lua, module: String) -> LuaResult<LuaValue<'lua>> {
     let package = lua.named_registry_value::<_, LuaTable>(HV_PACKAGE)?;
     let loaded_modules = package.get::<_, LuaTable>("modules")?;
