@@ -9,6 +9,7 @@ edition = "2018"
 hv-core = { path = "../hv-core" }
 hv-friends = { path = "../hv-friends" }
 log = "0.4.14"
+slab = "0.4.4"
 
 [dev-dependencies]
 simple_logger = "1.13.0"

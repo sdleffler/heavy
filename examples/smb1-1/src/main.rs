@@ -71,7 +71,7 @@ struct SmbOneOne {
     space: Shared<Space>,
     input_binding: InputBinding<Axis, Button>,
     input_state: Shared<InputState<Axis, Button>>,
-    layer_batches: Vec<hv_tiled::LayerBatch>,
+    tile_layer_batches: Vec<hv_tiled::TileLayerBatch>,
     x_scroll: f32,
     map: hv_tiled::Map,
     timer: TimeContext,
@@ -119,10 +119,10 @@ impl SmbOneOne {
 
         let tileset_atlas = hv_tiled::TilesetAtlas::new(&map.tilesets, engine)?;
 
-        let mut layer_batches = Vec::with_capacity(map.layers.len());
+        let mut tile_layer_batches = Vec::with_capacity(map.tile_layers.len());
 
-        for layer in map.layers.iter() {
-            layer_batches.push(hv_tiled::LayerBatch::new(
+        for layer in map.tile_layers.iter() {
+            tile_layer_batches.push(hv_tiled::TileLayerBatch::new(
                 layer,
                 &tileset_atlas,
                 engine,
@@ -137,7 +137,7 @@ impl SmbOneOne {
             input_binding: default_input_bindings(),
             input_state,
             space,
-            layer_batches,
+            tile_layer_batches,
             x_scroll: 0.,
             map,
             timer: TimeContext::new(),
@@ -193,7 +193,8 @@ impl EventHandler for SmbOneOne {
                         .get_tile(&tile)
                         .and_then(|t| t.objectgroup.as_ref())
                     {
-                        for object in &object_group.objects {
+                        for object_ref in &object_group.object_refs {
+                            let object = self.map.get_obj(object_ref);
                             tile_bb.merge(&Box2::new(
                                 object.x + (x * self.map.meta_data.tilewidth) as f32,
                                 object.y + (y * self.map.meta_data.tileheight) as f32,
@@ -240,7 +241,8 @@ impl EventHandler for SmbOneOne {
                         .get_tile(&tile)
                         .and_then(|t| t.objectgroup.as_ref())
                     {
-                        for object in &object_group.objects {
+                        for object_ref in &object_group.object_refs {
+                            let object = self.map.get_obj(object_ref);
                             tile_bb.merge(&Box2::new(
                                 object.x + (x * self.map.meta_data.tilewidth) as f32,
                                 object.y + (y * self.map.meta_data.tileheight) as f32,
@@ -302,8 +304,8 @@ impl EventHandler for SmbOneOne {
         gfx.modelview_mut().push(None);
         gfx.modelview_mut().scale2(Vector2::new(4.0, 4.0));
 
-        for layer_batch in self.layer_batches.iter_mut() {
-            layer_batch.draw_mut(&mut gfx, Instance::new());
+        for tile_layer_batch in self.tile_layer_batches.iter_mut() {
+            tile_layer_batch.draw_mut(&mut gfx, Instance::new());
         }
 
         gfx.modelview_mut().pop();

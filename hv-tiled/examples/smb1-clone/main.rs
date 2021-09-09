@@ -16,7 +16,7 @@ use hv_friends::{
 };
 
 struct MarioBros {
-    layer_batches: Vec<hv_tiled::LayerBatch>,
+    tile_layer_batches: Vec<hv_tiled::TileLayerBatch>,
     x_scroll: u32,
     map: hv_tiled::Map,
     timer: TimeContext,
@@ -29,11 +29,11 @@ impl MarioBros {
 
         let tileset_atlas = hv_tiled::TilesetAtlas::new(&map.tilesets, engine)?;
 
-        let mut layer_batches = Vec::with_capacity(map.layers.len());
+        let mut tile_layer_batches = Vec::with_capacity(map.tile_layers.len());
 
-        for layer in map.layers.iter() {
-            layer_batches.push(hv_tiled::LayerBatch::new(
-                layer,
+        for tile_layer in map.tile_layers.iter() {
+            tile_layer_batches.push(hv_tiled::TileLayerBatch::new(
+                tile_layer,
                 &tileset_atlas,
                 engine,
                 &map.meta_data,
@@ -44,7 +44,7 @@ impl MarioBros {
         simple_handler.init(engine)?;
 
         Ok(MarioBros {
-            layer_batches,
+            tile_layer_batches,
             x_scroll: 0,
             timer: TimeContext::new(),
             map,
@@ -70,7 +70,7 @@ impl EventHandler for MarioBros {
 
     fn draw(&mut self, engine: &Engine) -> Result<()> {
         let graphics_lock = engine.get::<GraphicsLock>();
-        for layer_batch in self.layer_batches.iter_mut() {
+        for layer_batch in self.tile_layer_batches.iter_mut() {
             layer_batch.draw_mut(
                 &mut GraphicsLockExt::lock(&graphics_lock),
                 Instance::default()
