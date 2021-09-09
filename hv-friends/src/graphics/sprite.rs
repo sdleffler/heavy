@@ -482,9 +482,19 @@ impl SpriteSheet {
         }
     }
 
-    /// Get the ID which will be returned by the next call to `insert_frame`.
+    /// Get the ID which will be returned by the next call to `insert_frame`. Useful for
+    /// constructing new tags programmatically; call this to get the index of the first frame of the
+    /// tag before you insert a bunch of frames in sequence, and then call [`last_frame_id`] to get
+    /// the last ID of the tag, giving you the `from` and `to` fields needed to construct a [`Tag`].
     pub fn next_frame_id(&self) -> FrameId {
         FrameId(self.frames.len() as u32)
+    }
+
+    /// Get the ID of the very last frame currently in the spritesheet. Will panic if the
+    /// spritesheet has no frames in it.
+    pub fn last_frame_id(&self) -> FrameId {
+        assert!(!self.frames.is_empty());
+        FrameId((self.frames.len() - 1) as u32)
     }
 
     /// Insert a new frame and get back its "frame ID". Frame IDs are created sequentially; the
