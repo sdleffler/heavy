@@ -17,7 +17,7 @@ use hv_friends::{
 
 struct MarioBros {
     tile_layer_batches: Vec<hv_tiled::TileLayerBatch>,
-    x_scroll: u32,
+    x_scroll: f32,
     map: hv_tiled::Map,
     timer: TimeContext,
 }
@@ -45,7 +45,7 @@ impl MarioBros {
 
         Ok(MarioBros {
             tile_layer_batches,
-            x_scroll: 0,
+            x_scroll: 0.0,
             timer: TimeContext::new(),
             map,
         })
@@ -57,12 +57,12 @@ impl EventHandler for MarioBros {
         self.timer.tick();
         let mut counter = 0;
         while self.timer.check_update_time_forced(60, &mut counter) {
-            self.x_scroll += 1;
+            self.x_scroll += 1.0;
             if self.x_scroll
-                > ((self.map.meta_data.width * self.map.meta_data.tilewidth)
-                    - (engine.mq().screen_size().0 as u32 / 4))
+                > ((self.map.meta_data.width as f32 * self.map.meta_data.tilewidth as f32)
+                    - (engine.mq().screen_size().0 / 4.0))
             {
-                self.x_scroll = 0;
+                self.x_scroll = 0.0;
             }
         }
         Ok(())
@@ -70,14 +70,21 @@ impl EventHandler for MarioBros {
 
     fn draw(&mut self, engine: &Engine) -> Result<()> {
         let graphics_lock = engine.get::<GraphicsLock>();
-        for layer_batch in self.tile_layer_batches.iter_mut() {
-            layer_batch.draw_mut(
-                &mut GraphicsLockExt::lock(&graphics_lock),
-                Instance::default()
-                    .scale2(Vector2::new(4.0, 4.0))
-                    .translate2(Vector2::new((self.x_scroll as f32) * -1.0, 0.0)),
-            );
+        let mut gfx = graphics_lock.lock();
+        let scale = 4.0;
+
+        gfx.modelview_mut()
+            .origin()
+            .translate2((Vector2::new(self.x_scroll * -1.0, 0.0) * scale).map(|t| t.floor()));
+        gfx.modelview_mut().push(None);
+        gfx.modelview_mut().scale2(Vector2::new(4.0, 4.0));
+
+        for tile_layer_batch in self.tile_layer_batches.iter_mut() {
+            tile_layer_batch.draw_mut(&mut gfx, Instance::new());
         }
+
+        gfx.modelview_mut().pop();
+
         Ok(())
     }
 }

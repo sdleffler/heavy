@@ -35,8 +35,9 @@ pub enum Property {
     Bool(bool),
     Float(f64),
     Int(i64),
-    Color(u32),
     String(String),
+    Obj(ObjectId),
+    Color(u32),
     File(String),
 }
 
@@ -123,6 +124,7 @@ impl Properties {
                 LuaValue::Integer(i) => Property::Int(i),
                 LuaValue::Number(n) => Property::Float(n),
                 LuaValue::String(s) => Property::String(s.to_str()?.to_owned()),
+                LuaValue::Table(t) => Property::Obj(ObjectId::new(t.get("id")?, false)), // I believe tables will only come through for Object properties
                 l => {
                     return Err(anyhow!(
                         "Got an unexpected value in the properties section: {:?}",
@@ -676,9 +678,6 @@ pub struct ObjectId {
     from_obj_layer: bool,
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct ObjectRef(usize);
-
 impl ObjectId {
     fn new(id: u32, from_obj_layer: bool) -> Self {
         ObjectId { id, from_obj_layer }
@@ -691,6 +690,9 @@ impl ObjectId {
         }
     }
 }
+
+#[derive(Debug, Clone, Copy)]
+pub struct ObjectRef(usize);
 
 #[derive(Debug, Clone)]
 pub struct Object {
@@ -728,12 +730,6 @@ impl Object {
             LuaShapeResolution::ObjectShape(s) => (Some(s), None),
             LuaShapeResolution::Text(t) => (None, Some(t)),
         };
-
-        println!(
-            "{}",
-            obj_table.get::<_, LuaString>("name")?.to_str()?.to_owned()
-        );
-
         Ok(Object {
             id: ObjectId::new(obj_table.get("id")?, from_obj_layer),
             name: obj_table.get::<_, LuaString>("name")?.to_str()?.to_owned(),
