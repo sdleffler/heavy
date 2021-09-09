@@ -283,7 +283,7 @@ impl EventHandler for SmbOneOne {
                     self.x_scroll = scroll;
                 }
 
-                LuaTable::from_lua(object.to_lua(&lua)?, &lua)?.set("is_grounded", is_grounded)?;
+                object.to_table(&lua)?.set("is_grounded", is_grounded)?;
             }
             self.input_state.borrow_mut().update(TIMESTEP);
         }
