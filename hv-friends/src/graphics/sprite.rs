@@ -432,12 +432,17 @@ impl Frame {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SpriteSheet {
+pub struct SpriteSheetSource {
     pub image: Option<String>,
+    pub size: Vector2<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SpriteSheet {
+    pub source: Option<SpriteSheetSource>,
     pub tag_ids: HashMap<String, TagId>,
     pub tags: Vec<Tag>,
     pub frames: Vec<Frame>,
-    pub size: Vector2<u32>,
 }
 
 impl ops::Index<TagId> for SpriteSheet {
@@ -472,11 +477,17 @@ impl ops::Index<SpriteFrame> for SpriteSheet {
     }
 }
 
+impl Default for SpriteSheet {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SpriteSheet {
     /// Create a new, empty spritesheet.
-    pub fn new(size: Vector2<u32>) -> Self {
+    pub fn new() -> Self {
         Self {
-            image: None,
+            source: None,
             tag_ids: HashMap::new(),
             tags: vec![Tag {
                 name: None,
@@ -490,7 +501,6 @@ impl SpriteSheet {
                 offset: Vector2::zeros(),
                 duration: 1,
             }],
-            size,
         }
     }
 
@@ -596,11 +606,13 @@ impl SpriteSheet {
             .collect::<HashMap<_, _>>();
 
         Ok(Self {
-            image: spritesheet_data.meta.image,
+            source: Some(SpriteSheetSource {
+                image: spritesheet_data.meta.image,
+                size,
+            }),
             tag_ids,
             tags,
             frames,
-            size,
         })
     }
 
