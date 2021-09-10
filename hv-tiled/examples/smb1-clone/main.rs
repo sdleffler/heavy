@@ -27,14 +27,16 @@ impl MarioBros {
         // let space = engine.get::<Spaces>().borrow_mut().create_space();
         let map = hv_tiled::Map::new("/mario_bros_1-1.lua", engine, None)?;
 
-        let tileset_atlas = hv_tiled::TilesetAtlas::new(&map.tilesets, engine)?;
+        let tileset_uvs = hv_tiled::TilesetUVs::new(&map.tilesets, engine)?;
+        let sprite_sheets = map.make_sprite_sheets(&tileset_uvs);
+        let render_data = tileset_uvs.make_tileset_animated_render_data(sprite_sheets);
 
         let mut tile_layer_batches = Vec::with_capacity(map.tile_layers.len());
 
         for tile_layer in map.tile_layers.iter() {
             tile_layer_batches.push(hv_tiled::TileLayerBatch::new(
                 tile_layer,
-                &tileset_atlas,
+                &render_data,
                 engine,
                 &map.meta_data,
             ));
@@ -53,10 +55,15 @@ impl MarioBros {
 }
 
 impl EventHandler for MarioBros {
-    fn update(&mut self, engine: &Engine, _dt: f32) -> Result<()> {
+    fn update(&mut self, engine: &Engine, dt: f32) -> Result<()> {
         self.timer.tick();
         let mut counter = 0;
+
         while self.timer.check_update_time_forced(60, &mut counter) {
+            for tile_layer_batch in self.tile_layer_batches.iter_mut() {
+                tile_layer_batch.update_batches(dt);
+            }
+
             self.x_scroll += 1.0;
             if self.x_scroll
                 > ((self.map.meta_data.width as f32 * self.map.meta_data.tilewidth as f32)

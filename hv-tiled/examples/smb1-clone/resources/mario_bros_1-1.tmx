@@ -338,10 +338,6 @@
  </objectgroup>
  <objectgroup id="20" name="Flag">
   <object id="46" name="Flag Pole" gid="105" x="3207" y="112" width="16" height="16"/>
-  <object id="74" gid="1" x="313.25" y="249.875" width="16" height="16"/>
-  <object id="77" x="166.952" y="131.383" width="197.5" height="60" rotation="26.7545">
-   <text fontfamily="MS Gothic" pixelsize="32" wrap="1" color="#9614c8" bold="1" italic="1" underline="1" strikeout="1" halign="right" valign="bottom">Salutations</text>
-  </object>
  </objectgroup>
  <objectgroup id="21" name="Characters">
   <object id="55" name="Mario" x="48" y="240" width="16" height="16">

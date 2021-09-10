@@ -117,14 +117,16 @@ impl SmbOneOne {
 
         let map = hv_tiled::Map::new("/maps/mario_bros_1-1.lua", engine, Some("maps/"))?;
 
-        let tileset_atlas = hv_tiled::TilesetAtlas::new(&map.tilesets, engine)?;
+        let tileset_uvs = hv_tiled::TilesetUVs::new(&map.tilesets, engine)?;
+        let sprite_sheets = map.make_sprite_sheets(&tileset_uvs);
+        let render_data = tileset_uvs.make_tileset_animated_render_data(sprite_sheets);
 
         let mut tile_layer_batches = Vec::with_capacity(map.tile_layers.len());
 
-        for layer in map.tile_layers.iter() {
+        for tile_layer in map.tile_layers.iter() {
             tile_layer_batches.push(hv_tiled::TileLayerBatch::new(
-                layer,
-                &tileset_atlas,
+                tile_layer,
+                &render_data,
                 engine,
                 &map.meta_data,
             ));
@@ -148,12 +150,16 @@ impl SmbOneOne {
 }
 
 impl EventHandler for SmbOneOne {
-    fn update(&mut self, engine: &Engine, _dt: f32) -> Result<()> {
+    fn update(&mut self, engine: &Engine, dt: f32) -> Result<()> {
         let lua = engine.lua();
 
         self.timer.tick();
         let mut counter = 0;
         while self.timer.check_update_time_forced(60, &mut counter) {
+            for tile_layer_batch in self.tile_layer_batches.iter_mut() {
+                tile_layer_batch.update_batches(dt);
+            }
+
             for (obj, ()) in self
                 .space
                 .borrow_mut()
@@ -293,7 +299,9 @@ impl EventHandler for SmbOneOne {
         gfx.modelview_mut().scale2(Vector2::new(4.0, 4.0));
 
         for tile_layer_batch in self.tile_layer_batches.iter_mut() {
-            tile_layer_batch.draw_mut(&mut gfx, Instance::new());
+            if tile_layer_batch.visible {
+                tile_layer_batch.draw_mut(&mut gfx, Instance::new());
+            }
         }
 
         gfx.modelview_mut().pop();

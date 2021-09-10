@@ -2,8 +2,11 @@ use hv_core::{engine::Engine, prelude::*};
 
 use hv_friends::{
     graphics::{
+        sprite::{
+            CachedSpriteSheet, Direction, Frame, SpriteFrame, SpriteSheet, SpriteTag, Tag, TagId,
+        },
         CachedTexture, Color, Drawable, DrawableMut, Graphics, GraphicsLock, GraphicsLockExt,
-        Instance, OwnedTexture, SpriteBatch,
+        Instance, OwnedTexture, SpriteBatch, SpriteId,
     },
     math::Box2,
     math::Vector2,
@@ -535,16 +538,65 @@ impl Map {
     pub fn get_obj_grp_from_layer_id(&self, obj_layer_id: &ObjectLayerId) -> &ObjectGroup {
         &self.object_layers[obj_layer_id.llid as usize]
     }
+
+    pub fn make_sprite_sheets(
+        &self,
+        ts_atlas: &TilesetUVs,
+    ) -> Vec<(SpriteSheet, Vec<(TileId, TagId)>)> {
+        let mut sprite_sheets = Vec::new();
+        for tileset in self.tilesets.0.iter() {
+            let mut sprite_sheet = SpriteSheet::new();
+            let mut tile_tag_buffer = Vec::new();
+
+            for (_, tile) in tileset.tiles.iter() {
+                if let Some(animation) = &tile.animation {
+                    let from = sprite_sheet.next_frame_id();
+
+                    for (tile_id, duration) in animation.0.iter() {
+                        sprite_sheet.insert_frame(Frame {
+                            source: None,
+                            offset: Vector2::new(0.0, 0.0),
+                            uvs: ts_atlas.uvs[tile_id.0 as usize],
+                            duration: *duration,
+                        });
+                    }
+
+                    let tag_id = sprite_sheet.insert_tag(Tag {
+                        name: None,
+                        from,
+                        to: sprite_sheet.last_frame_id(),
+                        direction: Direction::Forward,
+                    });
+
+                    tile_tag_buffer.push((tile.id, tag_id));
+                }
+            }
+            sprite_sheets.push((sprite_sheet, tile_tag_buffer));
+        }
+        sprite_sheets
+    }
 }
 
 // TODO: implement this struct. How do we want to draw objects?
 pub struct ObjectLayerBatch;
 
-pub struct TileLayerBatch(Vec<SpriteBatch>);
+#[derive(Debug, Clone)]
+pub struct SpriteSheetState {
+    frame: SpriteFrame,
+    tag: SpriteTag,
+    animated_sprite_index: SpriteId,
+    animated_sprite_tag: TagId,
+}
+
+pub struct TileLayerBatch {
+    sprite_batches_and_sheets: Vec<(SpriteBatch, CachedSpriteSheet)>,
+    sprite_sheet_info: Vec<Vec<SpriteSheetState>>,
+    pub visible: bool,
+}
 
 impl DrawableMut for TileLayerBatch {
     fn draw_mut(&mut self, ctx: &mut Graphics, instance: Instance) {
-        for batch in self.0.iter_mut() {
+        for (batch, _) in self.sprite_batches_and_sheets.iter_mut() {
             batch.draw_mut(ctx, instance);
         }
     }
@@ -553,17 +605,23 @@ impl DrawableMut for TileLayerBatch {
 impl TileLayerBatch {
     pub fn new(
         layer: &TileLayer,
-        ts_atlas: &TilesetAtlas,
+        ts_render_data: &TilesetRenderData,
         engine: &Engine,
         map_meta_data: &MapMetaData,
     ) -> Self {
         // We need 1 sprite batch per texture
-        let mut batches = Vec::with_capacity(ts_atlas.textures.len());
+        let mut batches_and_sheets = Vec::with_capacity(ts_render_data.textures.len());
+        let mut ss_state: Vec<Vec<SpriteSheetState>> =
+            vec![Vec::new(); ts_render_data.textures.len()];
+
         let graphics_lock = engine.get::<GraphicsLock>();
 
-        for texture in ts_atlas.textures.iter() {
+        for (sheet, i) in ts_render_data.sprite_sheets.iter().zip(0..) {
             let mut acquired_lock = GraphicsLockExt::lock(&graphics_lock);
-            batches.push(SpriteBatch::new(&mut acquired_lock, texture.clone()));
+            batches_and_sheets.push((
+                SpriteBatch::new(&mut acquired_lock, ts_render_data.textures[i].clone()),
+                CachedSpriteSheet::new_uncached(sheet.clone()),
+            ));
             drop(acquired_lock);
         }
 
@@ -575,8 +633,15 @@ impl TileLayerBatch {
                 // Tile indices start at 1, 0 represents no tile, so we offset the tile by 1
                 // first, and skip making the instance param if the tile is 0
                 if let Some(index) = tile.to_index() {
-                    let uvs = ts_atlas.render_data[index];
-                    batches[tile.1].insert(
+                    let (uvs, tid) = match ts_render_data.render_data[index] {
+                        TileRenderType::Animated(tid) => (
+                            ts_render_data.sprite_sheets[tile.1].frames[0].uvs,
+                            Some(tid),
+                        ),
+                        TileRenderType::Static(uv) => (uv, None),
+                    };
+
+                    let sprite_id = batches_and_sheets[tile.1].0.insert(
                         Instance::new()
                             .src(uvs)
                             .color(Color::new(1.0, 1.0, 1.0, layer.opacity as f32))
@@ -586,10 +651,34 @@ impl TileLayerBatch {
                                 (top - ((y_cord + 1) * map_meta_data.tileheight)) as f32,
                             )),
                     );
+                    if let Some(t) = tid {
+                        let (frame, tag) = ts_render_data.sprite_sheets[tile.1].at_tag(t, true);
+                        ss_state[tile.1].push(SpriteSheetState {
+                            frame,
+                            tag,
+                            animated_sprite_index: sprite_id,
+                            animated_sprite_tag: t,
+                        });
+                    }
                 }
             }
         }
-        TileLayerBatch(batches)
+
+        TileLayerBatch {
+            sprite_batches_and_sheets: batches_and_sheets,
+            sprite_sheet_info: ss_state,
+            visible: layer.visible,
+        }
+    }
+
+    pub fn update_batches(&mut self, dt: f32) {
+        for (i, (batch, sheet)) in self.sprite_batches_and_sheets.iter_mut().enumerate() {
+            for ss_state in self.sprite_sheet_info[i].iter_mut() {
+                let sprite_sheet = sheet.get_cached();
+                batch[ss_state.animated_sprite_index].src = sprite_sheet[ss_state.frame.0].uvs;
+                sprite_sheet.update_animation(dt, &mut ss_state.tag, &mut ss_state.frame);
+            }
+        }
     }
 }
 
@@ -874,9 +963,23 @@ impl ObjectGroup {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone)]
 // The u32 here represents the duration, TileId is which TileId is assocated with said duration
-pub struct Animation(Vec<(u32, TileId)>);
+pub struct Animation(Vec<(TileId, u32)>);
+
+impl Animation {
+    pub fn from_lua(t: LuaTable, tileset: usize) -> Result<Self, Error> {
+        let mut animation_buffer = Vec::new();
+        for animation in t.sequence_values() {
+            let animation: LuaTable = animation?;
+            animation_buffer.push((
+                TileId(animation.get("tileid")?, tileset),
+                animation.get("duration")?,
+            ));
+        }
+        Ok(Animation(animation_buffer))
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct Tile {
@@ -908,7 +1011,10 @@ impl Tile {
             ),
             tile_type: tile_table.get("type").ok(),
             probability: tile_table.get("probability").unwrap_or(0.0),
-            animation: None,
+            animation: match tile_table.get::<_, LuaTable>("animation") {
+                Ok(t) => Some(Animation::from_lua(t, tileset_num)?),
+                Err(_) => None,
+            },
             properties: match tile_table.get::<_, LuaTable>("properties") {
                 Ok(_) => Properties::from_lua(tile_table)?,
                 Err(_) => Properties(HashMap::new()),
@@ -998,16 +1104,28 @@ impl Tilesets {
     }
 }
 
-pub struct TilesetAtlas {
-    // Box2<f32> is the uvs
-    render_data: Vec<Box2<f32>>,
+#[derive(Debug, Clone)]
+pub enum TileRenderType {
+    Static(Box2<f32>),
+    Animated(TagId),
+}
+
+pub struct TilesetRenderData {
+    render_data: Vec<TileRenderType>,
+    sprite_sheets: Vec<SpriteSheet>,
     textures: Vec<CachedTexture>,
 }
 
-impl TilesetAtlas {
+pub struct TilesetUVs {
+    // Box2<f32> is the uvs
+    uvs: Vec<Box2<f32>>,
+    textures: Vec<CachedTexture>,
+}
+
+impl TilesetUVs {
     pub fn new(tilesets: &Tilesets, engine: &Engine) -> Result<Self, Error> {
         let mut textures = Vec::with_capacity(tilesets.0.len());
-        let mut render_data = Vec::new();
+        let mut uvs = Vec::new();
 
         for tileset in tilesets.0.iter() {
             if tileset.images.len() > 1 {
@@ -1031,7 +1149,7 @@ impl TilesetAtlas {
             let top = (rows * (tileset.spacing + tileset.tile_height)) + tileset.margin;
             for row in 1..=rows {
                 for column in 0..tileset.columns {
-                    render_data.push(Box2::new(
+                    uvs.push(Box2::new(
                         (tileset.margin
                             + ((column * tileset.tile_width) + column * tileset.spacing))
                             as f32
@@ -1050,14 +1168,36 @@ impl TilesetAtlas {
             textures.push(CachedTexture::from(texture_obj));
         }
 
-        Ok(TilesetAtlas {
+        Ok(TilesetUVs { uvs, textures })
+    }
+
+    pub fn make_tileset_animated_render_data(
+        &self,
+        sprite_data: Vec<(SpriteSheet, Vec<(TileId, TagId)>)>,
+    ) -> TilesetRenderData {
+        let mut render_data: Vec<TileRenderType> = self
+            .uvs
+            .iter()
+            .map(|uv| TileRenderType::Static(*uv))
+            .collect();
+
+        for (_, tile_tag_pairs) in sprite_data.iter() {
+            for (tile_id, tag_id) in tile_tag_pairs.iter() {
+                if let Some(i) = tile_id.to_index() {
+                    render_data[i] = TileRenderType::Animated(*tag_id);
+                }
+            }
+        }
+
+        TilesetRenderData {
             render_data,
-            textures,
-        })
+            sprite_sheets: sprite_data.into_iter().map(|s| s.0).collect(),
+            textures: self.textures.clone(),
+        }
     }
 }
 
-impl Drawable for TilesetAtlas {
+impl Drawable for TilesetUVs {
     fn draw(&self, ctx: &mut Graphics, instance: Instance) {
         let mut y_offset = 0.0;
         for texture in self.textures.iter() {
@@ -1067,7 +1207,7 @@ impl Drawable for TilesetAtlas {
     }
 }
 
-impl DrawableMut for TilesetAtlas {
+impl DrawableMut for TilesetUVs {
     fn draw_mut(&mut self, ctx: &mut Graphics, instance: Instance) {
         self.draw(ctx, instance);
     }
