@@ -387,7 +387,7 @@ impl Tag {
     }
 
     /// Returns `Err` if this next frame would loop the animation, `Ok` otherwise.
-    pub fn next_frame(&self, current: FrameId) -> Result<FrameId, FrameId> {
+    pub fn next_frame(&self, current: FrameId, is_ponged: bool) -> Result<FrameId, FrameId> {
         match self.direction {
             Direction::Forward if current == self.to => Err(self.from),
             Direction::Reverse if current == self.from => Err(self.to),
@@ -399,7 +399,10 @@ impl Tag {
             }
             Direction::Forward => Ok(FrameId(current.0 + 1)),
             Direction::Reverse => Ok(FrameId(current.0 - 1)),
-            Direction::Pingpong => todo!("pingpong is broken!"),
+            Direction::Pingpong => match is_ponged {
+                false => Ok(FrameId(current.0 + 1)),
+                true => Ok(FrameId(current.0 - 1)),
+            },
         }
     }
 }
@@ -417,6 +420,15 @@ pub struct Frame {
     pub offset: Vector2<f32>,
     pub uvs: Box2<f32>,
     pub duration: u32,
+}
+
+impl Frame {
+    pub fn to_instance(&self) -> Instance {
+        Instance::new()
+            .src(self.uvs)
+            .translate2(self.offset)
+            .scale2(self.uvs.extents())
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -605,31 +617,38 @@ impl SpriteSheet {
     fn update_animation_inner(
         &self,
         dt: f32,
-        tag: &SpriteTag,
+        tag_state: &SpriteTag,
         SpriteFrame(frame): &SpriteFrame,
     ) -> Option<(SpriteTag, Option<SpriteFrame>)> {
-        if !tag.is_paused {
-            let mut new_tag = SpriteTag {
-                remaining: tag.remaining - dt * 1_000.,
-                ..*tag
+        if !tag_state.is_paused {
+            let mut new_tag_state = SpriteTag {
+                remaining: tag_state.remaining - dt * 1_000.,
+                ..*tag_state
             };
 
-            if new_tag.remaining < 0. {
-                match self[new_tag.tag_id].next_frame(*frame) {
-                    Err(_) if !tag.should_loop => Some((
+            if new_tag_state.remaining < 0. {
+                let tag = &self[new_tag_state.tag_id];
+                match tag.next_frame(*frame, new_tag_state.is_ponged) {
+                    Err(_) if !tag_state.should_loop => Some((
                         SpriteTag {
                             is_paused: true,
-                            ..new_tag
+                            ..new_tag_state
                         },
-                        Some(SpriteFrame(self[new_tag.tag_id].last_frame())),
+                        Some(SpriteFrame(self[new_tag_state.tag_id].last_frame())),
                     )),
-                    Ok(new_frame) | Err(new_frame) => {
-                        new_tag.remaining += self[new_frame].duration as f32;
-                        Some((new_tag, Some(SpriteFrame(new_frame))))
+                    result @ (Ok(new_frame) | Err(new_frame)) => {
+                        if matches!(tag.direction, Direction::Pingpong) && result.is_err() {
+                            // If we wrapped and this tag is set to ping-pong, then we need to flip
+                            // the direction.
+                            new_tag_state.is_ponged = !new_tag_state.is_ponged;
+                        }
+
+                        new_tag_state.remaining += self[new_frame].duration as f32;
+                        Some((new_tag_state, Some(SpriteFrame(new_frame))))
                     }
                 }
             } else {
-                Some((new_tag, None))
+                Some((new_tag_state, None))
             }
         } else {
             None
@@ -650,6 +669,7 @@ impl SpriteSheet {
                 remaining: self[ff].duration as f32,
                 is_paused: false,
                 should_loop,
+                is_ponged: false,
             },
         )
     }
@@ -698,6 +718,9 @@ pub struct SpriteTag {
     pub is_paused: bool,
     /// Whether this animation should loop, or pause on the last frame.
     pub should_loop: bool,
+    /// Whether this animation is going forward or backward; only used for `PingPong` direction, to
+    /// store the state of which direction we're currently going.
+    pub is_ponged: bool,
 }
 
 impl Default for SpriteTag {
@@ -707,6 +730,7 @@ impl Default for SpriteTag {
             remaining: 0.,
             is_paused: false,
             should_loop: true,
+            is_ponged: false,
         }
     }
 }
@@ -768,45 +792,3 @@ impl SpriteSheetCache {
         self.inner.reload_all()
     }
 }
-
-// impl LuaComponentInterface for SpriteAnimation {
-//     fn accessor<'lua>(lua: &'lua Lua, entity: Entity) -> LuaResult<LuaValue<'lua>> {
-//         SpriteAnimationAccessor(entity).to_lua(lua)
-//     }
-
-//     fn bundler<'lua>(
-//         lua: &'lua Lua,
-//         args: LuaValue<'lua>,
-//         builder: &mut EntityBuilder,
-//     ) -> LuaResult<()> {
-//         let table = LuaTable::from_lua(args, lua)?;
-//         let path = table
-//             .get::<_, LuaString>("path")
-//             .log_error_err(module_path!())?;
-
-//         let tmp = lua.fetch_one::<DefaultCache>()?;
-//         let mut sprite_sheet = tmp
-//             .borrow()
-//             .get::<SpriteSheet>(&Key::from_path(path.to_str()?))
-//             .to_lua_err()?;
-
-//         let should_loop = table.get::<_, Option<bool>>("should_loop")?.unwrap_or(true);
-
-//         let tag_id = match table
-//             .get::<_, Option<LuaString>>("tag")
-//             .log_warn_err(module_path!())?
-//         {
-//             Some(tag_name) => sprite_sheet.load_cached().get_tag(tag_name.to_str()?),
-//             None => None,
-//         }
-//         .unwrap_or_default();
-//         let (frame, tag) = sprite_sheet.load_cached().at_tag(tag_id, should_loop);
-
-//         builder.add(SpriteAnimation {
-//             frame,
-//             tag,
-//             sheet: sprite_sheet,
-//         });
-//         Ok(())
-//     }
-// }

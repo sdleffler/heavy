@@ -25,7 +25,6 @@ use crate::{
     math::*,
 };
 
-pub mod atlas;
 pub mod basic;
 pub mod bindings;
 pub mod buffer;
