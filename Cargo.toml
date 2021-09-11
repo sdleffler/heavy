@@ -19,3 +19,6 @@ codegen-units = 1
 
 [profile.release]
 codegen-units = 1
+
+[patch.crates-io]
+thunderdome = { git = "https://github.com/sdleffler/thunderdome" }

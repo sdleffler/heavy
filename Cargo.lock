@@ -2177,8 +2177,7 @@ dependencies = [
 [[package]]
 name = "thunderdome"
 version = "0.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "87b4947742c93ece24a0032141d9caa3d853752e694a57e35029dd2bd08673e0"
+source = "git+https://github.com/sdleffler/thunderdome#5af345e7e9bdea6fef15f5ac0df3196a3063b2ba"
 
 [[package]]
 name = "tiff"

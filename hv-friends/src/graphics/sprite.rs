@@ -173,9 +173,49 @@ impl SpriteBatch {
     }
 
     #[inline]
-    pub fn remove(&mut self, index: SpriteId) {
+    pub fn remove(&mut self, index: SpriteId) -> Option<Instance> {
         self.dirty = true;
-        self.sprites.remove(index.0);
+        self.sprites.remove(index.0)
+    }
+
+    #[inline]
+    pub fn remove_by_slot(&mut self, slot: u32) -> Option<(SpriteId, Instance)> {
+        self.dirty = true;
+        self.sprites
+            .remove_by_slot(slot)
+            .map(|(index, instance)| (SpriteId(index), instance))
+    }
+
+    #[inline]
+    pub fn insert_at(&mut self, sprite_id: SpriteId, instance: Instance) -> Option<Instance> {
+        self.dirty = true;
+        self.sprites.insert_at(sprite_id.0, instance)
+    }
+
+    #[inline]
+    pub fn insert_at_slot(
+        &mut self,
+        slot: u32,
+        instance: Instance,
+    ) -> (SpriteId, Option<Instance>) {
+        self.dirty = true;
+        let (index, old_instance) = self.sprites.insert_at_slot(slot, instance);
+        (SpriteId(index), old_instance)
+    }
+
+    #[inline]
+    pub fn get_by_slot(&self, slot: u32) -> Option<(SpriteId, &Instance)> {
+        self.sprites
+            .get_by_slot(slot)
+            .map(|(index, instance)| (SpriteId(index), instance))
+    }
+
+    #[inline]
+    pub fn get_by_slot_mut(&mut self, slot: u32) -> Option<(SpriteId, &mut Instance)> {
+        self.dirty = true;
+        self.sprites
+            .get_by_slot_mut(slot)
+            .map(|(index, instance)| (SpriteId(index), instance))
     }
 
     #[inline]
