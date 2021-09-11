@@ -1,3 +1,15 @@
+//! # Love2D-like graphics API
+//!
+//! Provides a Love2D-like graphics API to both Lua and Rust, with Love2D-esque graphics state on
+//! the Lua side provided by [`LuaGraphicsState`] and a more flexible and speed-oriented API on the
+//! Rust side. Comes with default shaders for doing most 2D game rendering.
+//!
+//! # Locking behavior and the [`Engine`]
+//!
+//! Internally, in order to access the graphics context, the [`GraphicsLock`] type must lock both
+//! its graphics state *and* the window/graphics context type stored in [`Engine`]. This locking
+//! behavior is mutex-based and not [`RwLock`]-based, so care must be taken accordingly. 
+
 use std::{
     mem,
     ptr::NonNull,
@@ -78,10 +90,18 @@ fn quad_indices() -> [u16; 6] {
     [0, 1, 2, 0, 2, 3]
 }
 
+/// Represents the parameters available for a single instance using the default shaders and render
+/// pipeline.
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub struct Instance {
+    /// The source rectangle in UV coordinates for which this instance's vertices' UV coordinates
+    /// should be interpreted in. Defaults to `Box2::new(0., 0., 1., 1.)`, which in essence is the
+    /// "identity" value.
     pub src: Box2<f32>,
+    /// The local transform of this instance. Defaults to `Transform3::identity()`.
     pub tx: Transform3<f32>,
+    /// The color of this instance. Defaults to [`Color::WHITE`], which in essence is the "identity"
+    /// value.
     pub color: Color,
 }
 
@@ -96,21 +116,25 @@ impl Default for Instance {
 }
 
 impl Instance {
+    /// Construct a new `Instance` with default parameters.
     #[inline]
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Builder method for setting the source rectangle of an `Instance`.
     #[inline]
     pub fn src(self, src: Box2<f32>) -> Self {
         Self { src, ..self }
     }
 
+    /// Builder method for setting the color of an `Instance`.
     #[inline]
     pub fn color(self, color: Color) -> Self {
         Self { color, ..self }
     }
 
+    /// Builder method for right-multiplying a 2D rotation onto the transform of an `Instance`.
     #[inline]
     pub fn rotate2(self, angle: f32) -> Self {
         Self {
@@ -122,6 +146,7 @@ impl Instance {
         }
     }
 
+    /// Builder method for right-multiplying a 2D translation onto the transform of an `Instance`.
     #[inline]
     pub fn translate2(self, v: Vector2<f32>) -> Self {
         Self {
@@ -130,6 +155,8 @@ impl Instance {
         }
     }
 
+    /// Builder method for right-multiplying a potentially non-uniform 2D scaling onto the transform
+    /// of an `Instance`.
     #[inline]
     pub fn scale2(self, v: Vector2<f32>) -> Self {
         Self {
@@ -139,6 +166,7 @@ impl Instance {
         }
     }
 
+    /// Builder method for right-multiplying a 3D translation onto the transform of an `Instance`.
     #[inline]
     pub fn translate3(self, v: Vector3<f32>) -> Self {
         Self {
@@ -147,6 +175,8 @@ impl Instance {
         }
     }
 
+    /// Builder method for right-multiplying a general 3D transform onto the transform of an
+    /// `Instance`.
     #[inline]
     pub fn transform3(self, tx: &Transform3<f32>) -> Self {
         Self {
@@ -155,6 +185,17 @@ impl Instance {
         }
     }
 
+    /// Calculate the AABB resulting from transforming the given AABB by the internal transform of
+    /// this `Instance`. The result is a conservative approximation which would contain any shape
+    /// the original AABB was calculated from if that shape were to be transformed by this
+    /// instance's transform (see [`Box2::transformed_by`]).
+    #[inline]
+    pub fn transform_aabb(&self, aabb: &Box2<f32>) -> Box2<f32> {
+        aabb.transformed_by(self.tx.matrix())
+    }
+
+    /// Convert this `Instance` to the corresponding [`InstanceProperties`], for use in an instance
+    /// buffer with the default ([`basic`]) shader and vertex/uniform types.
     #[inline]
     pub fn to_instance_properties(&self) -> InstanceProperties {
         let mins = self.src.mins;
@@ -164,11 +205,6 @@ impl Instance {
             tx: *self.tx.matrix(),
             color: LinearColor::from(self.color),
         }
-    }
-
-    #[inline]
-    pub fn transform_aabb(&self, aabb: &Box2<f32>) -> Box2<f32> {
-        aabb.transformed_by(self.tx.matrix())
     }
 }
 
@@ -211,10 +247,16 @@ impl LuaUserData for Instance {
     }
 }
 
+/// An object which can be drawn with a mutable borrow. This is strictly more general than
+/// [`Drawable`], as it can allow the object being drawn to update itself or deal with cached state.
 pub trait DrawableMut {
     fn draw_mut(&mut self, ctx: &mut Graphics, instance: Instance);
 }
 
+/// An object which can be drawn with an immutable borrow. Not everything can be drawn with an
+/// immutable borrow; [`SpriteBatch`] for example will only push a new buffer to the GPU if it is
+/// modified, and has to deal with resetting a `dirty` flag and using its internal memory to perform
+/// the resulting buffer manipulations.
 pub trait Drawable: DrawableMut {
     fn draw(&self, ctx: &mut Graphics, instance: Instance);
 }
@@ -278,6 +320,10 @@ impl<T: DrawableMut + ?Sized> Drawable for Shared<T> {
     }
 }
 
+/// Represents a filter mode for a texture/other image operations.
+///
+/// If you are doing pixel art, you probably want to be using [`FilterMode::Nearest`]. We currently
+/// do not support more complex filtering than [`FilterMode::Linear`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum FilterMode {
     Nearest,
@@ -296,12 +342,14 @@ impl<'lua> FromLua<'lua> for FilterMode {
     }
 }
 
-/// `BlendEquation` represents the different types of equations that can be
-/// used to blend colors
+/// `BlendEquation` represents the different types of equations that can be used to blend colors.
 #[derive(Debug, Clone, Copy)]
 pub enum BlendEquation {
+    /// Represents an equation which adds together the source and destination colors.
     Add,
+    /// Represents an equation which subtracts the destination color from the source color.
     Sub,
+    /// Represents an equation which subtracts the source color from the destination color.
     ReverseSub,
 }
 
@@ -315,20 +363,31 @@ impl From<BlendEquation> for mq::Equation {
     }
 }
 
-/// `BlendFactor` represents the different factors that can be used when
-/// blending two colors
+/// `BlendFactor` represents the different factors that can be used when blending two colors.
 #[derive(Debug, Clone, Copy)]
 pub enum BlendFactor {
+    /// Multiply the parameter by zero (ignore).
     Zero,
+    /// Multiply the parameter by one (no-op).
     One,
+    /// Component-wise multiply the parameter by the source color.
     SourceColor,
+    /// Multiply the parameter by the source alpha component.
     SourceAlpha,
+    /// Component-wise multiply the parameter by the destination color.
     DestinationColor,
+    /// Multiply the parameter by the destination alpha component.
     DestinationAlpha,
+    /// Component-wise multiply the parameter by `1 - <source color component>`.
     OneMinusSourceColor,
+    /// Multiply the parameter by `1 - <source alpha component>`.
     OneMinusSourceAlpha,
+    /// Component-wise multiply the parameter by `1 - <destination color component>`.
     OneMinusDestinationColor,
+    /// Multiply the parameter by `1 - <destination alpha component>`.
     OneMinusDestinationAlpha,
+    /// Honestly no idea what this does, but miniquad/OpenGL support it. I'll have to look it up
+    /// sometime.
     SourceAlphaSaturate,
 }
 
@@ -355,8 +414,8 @@ impl From<BlendFactor> for mq::BlendFactor {
     }
 }
 
-/// `BlendMode` represents a struct that encapsulates all of the different
-/// fields required to blend two colors
+/// `BlendMode` represents a formula used when blending a "source" color with a "destination" color,
+/// for example when drawing onto a buffer which already has color data in it.
 #[derive(Debug, Copy, Clone)]
 pub struct BlendMode {
     eq: BlendEquation,
@@ -375,6 +434,19 @@ impl Default for BlendMode {
 }
 
 impl BlendMode {
+    /// Create a new blend mode from an equation, source factor, and destination factor. The blend
+    /// equation that this represents looks like this:
+    ///
+    /// ```text
+    /// match eq {
+    ///     BlendEquation::Add => src * source_color + dst * destination_color,
+    ///     BlendEquation::Sub => src * source_color - dst * destination_color,
+    ///     BlendEquation::ReverseSub => dst * destination_color - src * source_color,
+    /// }
+    /// ```
+    /// 
+    /// The default blend mode is `BlendMode::new(BlendEquation::Add, BlendFactor::SourceAlpha,
+    /// BlendFactor::OneMinusSourceAlpha)`.
     pub fn new(eq: BlendEquation, src: BlendFactor, dst: BlendFactor) -> Self {
         Self { eq, src, dst }
     }
