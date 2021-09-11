@@ -1,3 +1,16 @@
+//! # Heavy Friends - Love2D-like APIs and more for the Heavy framework
+//!
+//! *Slow down upon the teeth of Orange*
+//! *In the midst of this slumber, there is a glow*
+//! *That is the heliocentric theory of Green*
+//! *Huge falling shadows, swallowing me up*
+//! *Heaviness brought together, lifting me up*
+//!
+//! Heavy Friends (`hv-friends`) builds upon the `hv-core` crate, adding graphics APIs, useful math
+//! constructs, basic collision testing, scene stacks, camera math helpers, and more, as well as Lua
+//! integration for all of the above. Its API is heavily inspired by the Rust `ggez` crate and Lua
+//! Love2D framework.
+
 #![feature(float_interpolation)]
 
 use hv_core::{
@@ -35,17 +48,16 @@ use crate::{
 #[doc(hidden)]
 pub fn link_me() {}
 
+/// A simple event handler for projects which are entirely or almost entirely Lua-controlled. It
+/// loads a Lua file by using the `hv.package.require` function, runs it, and then calls the Lua
+/// hooks it finds in the `hv` table (`hv.update`, `hv.draw`, `hv.load`, etc.) which are named much
+/// like their Love2D equivalents.
 pub struct SimpleHandler {
     entrypoint: String,
 }
 
-impl Default for SimpleHandler {
-    fn default() -> Self {
-        Self::new("main")
-    }
-}
-
 impl SimpleHandler {
+    /// Create a new `SimpleHandler` which loads the given module as its "main" Lua entrypoint.
     pub fn new(s: impl AsRef<str>) -> Self {
         Self {
             entrypoint: s.as_ref().to_owned(),

@@ -1,3 +1,7 @@
+//! # The [`Transform`] trait and [`Tx`] copyable dynamic transform type.
+//!
+//! Contains Lua-friendly transform math for 2D and 3D usage.
+
 use hv_core::{prelude::*, xsbox::CopyBox};
 use std::{
     any::Any,
@@ -193,6 +197,10 @@ macro_rules! impl_convert_delegated {
     () => {};
 }
 
+/// The `Transform` trait is used to describe and dispatch the various types of transformations we
+/// might want to use from Lua or Rust. In order for a `Transform` to be used with the [`Tx`] type,
+/// it must also be [`Copy`], though we cannot add that to the `Transform` trait because it would
+/// cease to be object-safe. (This is still enforced by a bound on [`Tx::new`], though.)
 pub trait Transform<T: RealField + Copy>: fmt::Debug + Send + Sync + Any {
     #[doc(hidden)]
     fn as_any(&self) -> &dyn Any;
@@ -200,36 +208,73 @@ pub trait Transform<T: RealField + Copy>: fmt::Debug + Send + Sync + Any {
     #[doc(hidden)]
     fn as_any_mut(&mut self) -> &mut dyn Any;
 
+    /// In-place, right-multiply this transform onto `to`. In other words, something like:
+    /// ```text
+    /// *to *= self;
+    /// ```
+    ///
+    /// Internally, this must dispatch to whatever `.transform` method is most appropriate.
+    /// `append_to` mostly exists as a way to dispatch as such, and you usually should have no need
+    /// to use it directly; the [`Tx`] type implements the necessary [`Mul`] and [`MulAssign`]
+    /// traits which use this internally.
     fn append_to(&self, to: &mut Tx<T>);
 
+    /// Like [`Transform::append_to`], but rather than just right-multiplying `self` on we first
+    /// take the inverse of self. So, something like:
+    /// ```text
+    /// *to *= self.inverse();
+    /// ```
+    ///
+    /// Like `append_to`, this mostly exists as a way to dispatch things and has a default
+    /// implementation which should likely be overriden for some performance gain, and also is
+    /// internally used by [`Tx`]'s [`Div`] and [`DivAssign`] implementations so you should never
+    /// need to use this directly.
     fn append_inverse_to(&self, to: &mut Tx<T>) {
         self.inverse().append_to(to);
     }
 
+    /// Convert this [`Transform`] to the most general form we support, an arbitrary 4x4
+    /// transformation matrix.
     fn to_homogeneous_mat4(&self) -> Matrix4<T>;
 
+    /// Right-multiply by a [`Transform2`]. The default implementation dispatches to
+    /// [`Transform::transform3`], converting the [`Transform2`] into a 3x3 transformation matrix
+    /// and augmenting it with the proper terms to convert it into a 4x4 transformation matrix
+    /// before converting that matrix to a [`Transform3`].
     fn transform2(&self, tx: &Transform2<T>) -> Tx<T> {
         self.transform3(&Transform3::from_matrix_unchecked(
             homogeneous_mat3_to_mat4(&tx.to_homogeneous()),
         ))
     }
 
+    /// Right-multiply by a [`Transform3`].
     fn transform3(&self, tx: &Transform3<T>) -> Tx<T>;
 
+    /// Transform a 2D point. The default implementation dispatches to
+    /// [`Transform::transform_point3`], using a Z coordinate of zero and then discarding the Z
+    /// coordinate of the result.
     fn transform_point2(&self, pt: &Point2<T>) -> Point2<T> {
         self.transform_point3(&Point3::new(pt.x, pt.y, T::zero()))
             .xy()
     }
 
+    /// Transform a 3D point. The default implementation (which should likely be overridden for some
+    /// performance gain) converts this transform to a [`Matrix4`] and calls
+    /// [`Matrix4::transform_point`].
     fn transform_point3(&self, pt: &Point3<T>) -> Point3<T> {
         self.to_homogeneous_mat4().transform_point(pt)
     }
 
+    /// Transform a 2D point by the inverse of this transform. Similarly to
+    /// [`Transform::transform_point2`], the default implementation dispatches to
+    /// [`Transform::inverse_transform_point3`] using a Z coordinate of zero and then discarding the
+    /// Z coordinate of the result.
     fn inverse_transform_point2(&self, pt: &Point2<T>) -> Point2<T> {
         self.inverse_transform_point3(&Point3::new(pt.x, pt.y, T::zero()))
             .xy()
     }
 
+    /// Transform a 3D point by the inverse of this transform.
     fn inverse_transform_point3(&self, pt: &Point3<T>) -> Point3<T> {
         self.inverse_transform_point2(&pt.xy())
             .coords
@@ -237,22 +282,36 @@ pub trait Transform<T: RealField + Copy>: fmt::Debug + Send + Sync + Any {
             .into()
     }
 
+    /// Transform a 2D vector. This does not take into account any translational components of the
+    /// transform, treating the vector as a direction with magnitude.
     fn transform_vector2(&self, v: &Vector2<T>) -> Vector2<T> {
         self.transform_vector3(&v.push(T::zero())).xy()
     }
 
+    /// Transform a 3D vector. This does not take into account any translational components of the
+    /// transform, treating the vector as a direction with magnitude.
     fn transform_vector3(&self, v: &Vector3<T>) -> Vector3<T> {
         self.to_homogeneous_mat4().transform_vector(v)
     }
 
+    /// Transform a 2D vector by the inverse of this transform. For a 2D transform this will always
+    /// be the inverse of [`Transform::transform_vector2`].
     fn inverse_transform_vector2(&self, v: &Vector2<T>) -> Vector2<T> {
         self.inverse_transform_vector3(&v.push(T::zero())).xy()
     }
 
+    /// Transform a 3D vector by the inverse of this transform. For a 3D transform this will always
+    /// be the inverse of [`Transform::transform_vector3`].
     fn inverse_transform_vector3(&self, v: &Vector3<T>) -> Vector3<T> {
         self.inverse_transform_vector2(&v.xy()).push(v.z)
     }
 
+    /// Transform a position and rotation by this transform. This is like a combination transform of
+    /// point and vector, treating the direction of the [`Position2`] as a vector. This should
+    /// probably be overridden for performance whenever possible, as the default implementation has
+    /// to convert the angle of the [`Position2`] to a unit vector and then normalize the
+    /// transformed vector before converting it back to the internal [`UnitComplex`] rotation
+    /// encoding used by [`Position2`].
     fn transform_position2(&self, p: &Position2<T>) -> Position2<T> {
         let new_tr = Translation2::from(self.transform_point2(&p.center()).coords);
         let new_dir = self
@@ -266,6 +325,7 @@ pub trait Transform<T: RealField + Copy>: fmt::Debug + Send + Sync + Any {
         Position2::from(Isometry2::from_parts(new_tr, new_angle))
     }
 
+    /// For a 2D transform, this will always be the inverse of [`Transform::transform_position2`].
     fn inverse_transform_position2(&self, p: &Position2<T>) -> Position2<T> {
         let new_tr = Translation2::from(self.inverse_transform_point2(&p.center()).coords);
         let new_dir = self
@@ -279,34 +339,76 @@ pub trait Transform<T: RealField + Copy>: fmt::Debug + Send + Sync + Any {
         Position2::from(Isometry2::from_parts(new_tr, new_angle))
     }
 
+    /// Calculate the inverse of this transform.
     fn inverse(&self) -> Tx<T>;
+
+    /// Reset this transform to the identity.
     fn reset(&mut self);
 
+    /// Right-multiply by a [`Projective2`].
     fn projective2(&self, tx: &Projective2<T>) -> Tx<T>;
+    /// Right-multiply by a [`Projective3`].
     fn projective3(&self, tx: &Projective3<T>) -> Tx<T>;
+    /// Right-multiply by an [`Affine2`].
     fn affine2(&self, tx: &Affine2<T>) -> Tx<T>;
+    /// Right-multiply by an [`Affine3`].
     fn affine3(&self, tx: &Affine3<T>) -> Tx<T>;
+    /// Right-multiply by a [`Similarity2`].
     fn similarity2(&self, sim: &Similarity2<T>) -> Tx<T>;
+    /// Right-multiply by an [`Isometry2`].
     fn isometry2(&self, iso: &Isometry2<T>) -> Tx<T>;
+    /// Right-multiply by a 2D rotation given as an angle.
     fn rotate2(&self, f: T) -> Tx<T>;
+    /// Right-multiply by a 2D vector of scaling factors.
     fn scale2(&self, v: &Vector2<T>) -> Tx<T>;
+    /// Right-multiply by a 2D translation.
     fn translate2(&self, v: &Vector2<T>) -> Tx<T>;
 
+    /// Try to convert this [`Transform`] to a [`Transform2`]. In the case that the transform is
+    /// inconvertible (if it is a transform with 3D components, for example) this will return
+    /// `None`.
     fn to_transform2(&self) -> Option<Transform2<T>>;
+
+    /// Try to convert this [`Transform`] to a [`Transform3`].
     fn to_transform3(&self) -> Option<Transform3<T>>;
+
+    /// Try to convert this [`Transform`] to a [`Projective2`]. In the case that the transform is
+    /// inconvertible (if it is a non-invertible transform or has 3D components, for example) this
+    /// will return `None`.
     fn to_projective2(&self) -> Option<Projective2<T>>;
+
+    /// Try to convert this [`Transform`] to a [`Projective3`]. In the case that the transform is
+    /// inconvertible (if it is non-invertible, for example) this will return `None`.
     fn to_projective3(&self) -> Option<Projective3<T>>;
+
+    /// Try to convert this [`Transform`] to an [`Affine2`]. In the case that the transform is
+    /// inconvertible (if it has projective components or is non-invertible or has 3D components,
+    /// for example) this will return `None`.
     fn to_affine2(&self) -> Option<Affine2<T>>;
+
+    /// Try to convert this [`Transform`] to an [`Affine3`]. In the case that the transform is
+    /// inconvertible (if it has projective components or is non-invertible, for example) this will
+    /// return `None`.
     fn to_affine3(&self) -> Option<Affine3<T>>;
+
+    /// Try to convert this [`Transform`] to a [`Similarity2`]. In the case that the transform is
+    /// inconvertible (if it has affine or projective or 3D components or is non-invertible, for
+    /// example) this will return `None`.
     fn to_similarity2(&self) -> Option<Similarity2<T>>;
+
+    /// Try to convert this [`Transform`] to an [`Isometry2`]. In the case that the transform is
+    /// inconvertible (if it has scaling or affine or projective or 3D components or is
+    /// non-invertible, for example) this will return `None`.
     fn to_isometry2(&self) -> Option<Isometry2<T>>;
 }
 
 impl<T: RealField + Copy> dyn Transform<T> {
+    /// Try to downcast this [`Transform`] to a specific transform type.
     pub fn downcast_ref<U: Transform<T> + Copy>(&self) -> Option<&U> {
         self.as_any().downcast_ref()
     }
 
+    /// Try to mutably downcast this [`Transform`] to a specific transform type.
     pub fn downcast_mut<U: Transform<T> + Copy>(&mut self) -> Option<&mut U> {
         self.as_any_mut().downcast_mut()
     }
@@ -719,6 +821,8 @@ impl<T: RealField + Copy> Transform<T> for Isometry2<T> {
     }
 }
 
+/// A [`Transform`] representing the identity/no-op transform. Can be more general and efficient
+/// than using a specific transform type's identity value.
 #[derive(Debug, Clone, Copy)]
 pub struct Identity;
 
@@ -860,14 +964,26 @@ impl<T: RealField + Copy> Default for Tx<T> {
     }
 }
 
+/// A general, dynamically dispatched, [`Copy`] 2D and 3D transform type.
+///
+/// Internally, this uses a [`CopyBox`] to allow for a copyable [`Transform<T>`] trait object. It is
+/// always slightly larger (by one pointer) than a [`Matrix4`], but internally can store any
+/// transform which satisfies [`Transform`]. Currently, the implemented transforms skew heavily
+/// towards 2D rather than 3D use but eventually [`Tx`] will be a fully-featured general 2D or 3D
+/// transform type useful for conversions between Rust and Lua and general transform-oriented math
+/// in Lua.
 #[derive(Debug, Clone, Copy)]
 pub struct Tx<T: RealField + Copy>(CopyBox<dyn Transform<T>, [T; 16]>);
 
 impl<T: RealField + Copy> Tx<T> {
+    /// Create a new [`Tx`] from a given [`Transform`].
     pub fn new(tx: impl Transform<T> + Copy + 'static) -> Self {
         Self(hv_core::xsbox!(tx))
     }
 
+    /// Create a new [`Tx`] containing an identity transform.
+    ///
+    /// Internally, uses [`Identity`] to represent the most general possible identity transform.
     pub fn identity() -> Self {
         Self::new(Identity)
     }
