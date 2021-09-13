@@ -14,13 +14,23 @@ use crate::{
     math::*,
 };
 
+/// An image plus an instance parameter. Useful for drawing a single piece of a spritesheet, for
+/// example, without dealing with the extra machinery required for a spritebatch. [`Sprite`] will
+/// also, unlike a type from the [`texture`] family, scale itself according to the provided UVs so
+/// that by default it is always at the correct pixel scale; if you use UVs from `(0, 0)` to `(0.5,
+/// 0.5)` on a 16x16 texture, for example, then the [`Sprite`] will render an 8x8 chunk of it.
+///
+/// [`texture`]: crate::graphics::texture
 #[derive(Debug, Clone)]
 pub struct Sprite {
+    /// The instance parameters for this.
     pub params: Instance,
+    /// The sprite's texture.
     pub texture: CachedTexture,
 }
 
 impl Sprite {
+    /// Create a new sprite from a texture type and an instance.
     pub fn new(texture: impl Into<CachedTexture>, params: Instance) -> Self {
         Self {
             params,
@@ -60,9 +70,21 @@ impl LuaUserData for Sprite {
     }
 }
 
-/// Represents the index of a `Sprite` within a `SpriteBatch`
+/// Represents the index of a "sprite" within a [`SpriteBatch`].
+///
+/// Useful for uniquely identifying a "live" sprite in a batch, if not using the slot API instead.
+/// Internally this is a generational index (a slot plus a generation counter), so unlike a slot,
+/// this won't end up referring to a "resurrected" index in the [`SpriteBatch`]. This isn't often an
+/// issue, but for more information, please look into the "ABA problem".
 #[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq, Hash)]
 pub struct SpriteId(Index);
+
+impl SpriteId {
+    /// Get the slot of this `SpriteId`.
+    pub fn slot(self) -> u32 {
+        self.0.slot()
+    }
+}
 
 impl<'lua> ToLua<'lua> for SpriteId {
     fn to_lua(self, lua: &'lua Lua) -> LuaResult<LuaValue<'lua>> {
@@ -76,6 +98,7 @@ impl<'lua> FromLua<'lua> for SpriteId {
     }
 }
 
+/// An iterator offering immutable access to all of the sprite instances in a batch.
 pub struct SpriteBatchIter<'a> {
     iter: thunderdome::Iter<'a, Instance>,
 }
@@ -88,6 +111,7 @@ impl<'a> Iterator for SpriteBatchIter<'a> {
     }
 }
 
+/// An iterator offering mutable access to all of the sprite instances in a batch.
 pub struct SpriteBatchIterMut<'a> {
     iter: thunderdome::IterMut<'a, Instance>,
 }
@@ -100,12 +124,17 @@ impl<'a> Iterator for SpriteBatchIterMut<'a> {
     }
 }
 
+/// A collection of [`Instance`]s with an associated texture, rendered efficiently as an instanced
+/// batch.
+///
+/// If you have a lot of [`Sprite`]s using the same texture, this is a much more efficient way to
+/// render them. Way more efficient.
 #[derive(Debug)]
 pub struct SpriteBatch {
     sprites: Arena<Instance>,
     // Used to store the result of converting InstanceParams to InstanceProperties
     instances: Vec<InstanceProperties>,
-    /// Capacity is used to store the length of the buffers inside of mq::Bindings
+    // Capacity is used to store the length of the buffers inside of mq::Bindings
     capacity: usize,
     bindings: mq::Bindings,
     dirty: bool,
@@ -130,6 +159,7 @@ impl ops::IndexMut<SpriteId> for SpriteBatch {
 }
 
 impl SpriteBatch {
+    /// Create a new spritebatch for the given texture.
     pub fn new<T>(ctx: &mut Graphics, texture: T) -> Self
     where
         T: Into<CachedTexture>,
@@ -138,6 +168,7 @@ impl SpriteBatch {
         Self::with_capacity(ctx, texture, DEFAULT_SPRITEBATCH_CAPACITY)
     }
 
+    /// Create a new spritebatch for the given texture and with the given initial capacity.
     pub fn with_capacity<T>(ctx: &mut Graphics, texture: T, capacity: usize) -> Self
     where
         T: Into<CachedTexture>,
@@ -166,18 +197,23 @@ impl SpriteBatch {
         }
     }
 
+    /// Insert a single sprite into the batch as an instance parameter, and get a unique identifier
+    /// referring to it.
     #[inline]
     pub fn insert(&mut self, param: Instance) -> SpriteId {
         self.dirty = true;
         SpriteId(self.sprites.insert(param))
     }
 
+    /// Remove a sprite from the batch, by its ID.
     #[inline]
     pub fn remove(&mut self, index: SpriteId) -> Option<Instance> {
         self.dirty = true;
         self.sprites.remove(index.0)
     }
 
+    /// Remove a sprite from the batch, using only its slot and ignoring the generational component
+    /// of its ID. Returns the corresponding sprite ID that was removed if successful.
     #[inline]
     pub fn remove_by_slot(&mut self, slot: u32) -> Option<(SpriteId, Instance)> {
         self.dirty = true;
@@ -186,12 +222,15 @@ impl SpriteBatch {
             .map(|(index, instance)| (SpriteId(index), instance))
     }
 
+    /// Insert a sprite with a particular index.
     #[inline]
     pub fn insert_at(&mut self, sprite_id: SpriteId, instance: Instance) -> Option<Instance> {
         self.dirty = true;
         self.sprites.insert_at(sprite_id.0, instance)
     }
 
+    /// Insert a sprite at a given slot. Useful if the [`SpriteBatch`] is being used as a mostly
+    /// dense but array of sprites.
     #[inline]
     pub fn insert_at_slot(
         &mut self,
@@ -203,6 +242,8 @@ impl SpriteBatch {
         (SpriteId(index), old_instance)
     }
 
+    /// Borrow a sprite at a given slot, if present, ignoring its generation. If present, returns
+    /// the corresponding sprite ID (with generational component.)
     #[inline]
     pub fn get_by_slot(&self, slot: u32) -> Option<(SpriteId, &Instance)> {
         self.sprites
@@ -210,6 +251,8 @@ impl SpriteBatch {
             .map(|(index, instance)| (SpriteId(index), instance))
     }
 
+    /// Mutably borrow a sprite at a given slot, if present, ignoring its generation. If present,
+    /// returns the corresponding sprite ID (with generational component.)
     #[inline]
     pub fn get_by_slot_mut(&mut self, slot: u32) -> Option<(SpriteId, &mut Instance)> {
         self.dirty = true;
@@ -218,17 +261,20 @@ impl SpriteBatch {
             .map(|(index, instance)| (SpriteId(index), instance))
     }
 
+    /// Clear the spritebatch, removing all sprites in  it.
     #[inline]
     pub fn clear(&mut self) {
         self.dirty = true;
         self.sprites.clear();
     }
 
+    /// Get a reference to the texture in this spritebatch.
     #[inline]
     pub fn texture(&self) -> &CachedTexture {
         &self.texture
     }
 
+    /// Set the texture of this spritebatch directly. There should not often be a need for this.
     #[inline]
     pub fn set_texture(&mut self, texture: impl Into<CachedTexture>) {
         let mut new_texture = texture.into();
@@ -239,6 +285,9 @@ impl SpriteBatch {
         }
     }
 
+    /// Update the underlying GPU instance buffer with the current sprite data. This is called
+    /// automatically by [`DrawableMut::draw_mut`], and is why [`SpriteBatch`] does not implement
+    /// [`Drawable`].
     pub fn flush(&mut self, ctx: &mut Graphics) {
         let texture = self.texture.get_cached();
 
@@ -277,12 +326,14 @@ impl SpriteBatch {
         self.dirty = false;
     }
 
+    /// Get an iterator immutably borrowing the instances in this batch.
     pub fn iter(&self) -> SpriteBatchIter<'_> {
         SpriteBatchIter {
             iter: self.sprites.iter(),
         }
     }
 
+    /// Get an iterator mutably borrowing the instances in this batch.
     pub fn iter_mut(&mut self) -> SpriteBatchIterMut<'_> {
         SpriteBatchIterMut {
             iter: self.sprites.iter_mut(),
