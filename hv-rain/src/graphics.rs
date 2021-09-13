@@ -2,7 +2,7 @@ use hv_core::{engine::LuaResource, mlua::prelude::*};
 use hv_friends::graphics::{
     pipeline::Pipeline,
     sprite::{CachedSpriteSheet, SpriteFrame, SpriteTag},
-    SpriteBatch,
+    CachedTexture, SpriteBatch,
 };
 use std::ops;
 use thunderdome::{Arena, Index};
@@ -33,7 +33,7 @@ impl LuaUserData for ProjectileSprite {}
 
 pub struct ProjectileSpriteBatch {
     pub sheet: CachedSpriteSheet,
-    pub sprites: SpriteBatch,
+    pub sprites: SpriteBatch<CachedTexture>,
     pub pipeline: Option<Pipeline>,
 }
 

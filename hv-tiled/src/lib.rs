@@ -2,11 +2,9 @@ use hv_core::{engine::Engine, prelude::*};
 
 use hv_friends::{
     graphics::{
-        sprite::{
-            Direction, Frame, SpriteFrame, SpriteSheet, SpriteTag, Tag, TagId,
-        },
+        sprite::{Direction, Frame, SpriteFrame, SpriteSheet, SpriteTag, Tag, TagId},
         CachedTexture, Color, Drawable, DrawableMut, Graphics, GraphicsLock, GraphicsLockExt,
-        Instance, OwnedTexture, SpriteBatch, SpriteId,
+        Instance, SpriteBatch, SpriteId, Texture,
     },
     math::Box2,
     math::Vector2,
@@ -554,7 +552,7 @@ pub struct SpriteSheetState {
 pub struct TileLayerBatch {
     sprite_sheet_info: Vec<Vec<SpriteSheetState>>,
     pub sprite_id_map: HashMap<(u32, u32), SpriteId>,
-    sprite_batches: Vec<SpriteBatch>,
+    sprite_batches: Vec<SpriteBatch<CachedTexture>>,
     pub visible: bool,
     pub opacity: f64,
 }
@@ -576,7 +574,8 @@ impl TileLayerBatch {
     ) -> Self {
         // We need 1 sprite batch per texture
         let mut sprite_batches = Vec::with_capacity(ts_render_data.textures_and_spritesheets.len());
-        let mut ss_state: Vec<Vec<SpriteSheetState>> = vec![Vec::new(); ts_render_data.textures_and_spritesheets.len()];
+        let mut ss_state: Vec<Vec<SpriteSheetState>> =
+            vec![Vec::new(); ts_render_data.textures_and_spritesheets.len()];
         let mut sprite_id_map = HashMap::new();
 
         let graphics_lock = engine.get::<GraphicsLock>();
@@ -1101,7 +1100,7 @@ impl TilesetRenderData {
             ))?;
             let graphics_lock = engine.get::<GraphicsLock>();
             let mut acquired_lock = GraphicsLockExt::lock(&graphics_lock);
-            let texture_obj = OwnedTexture::from_reader(&mut acquired_lock, &mut tileset_img_path)?;
+            let texture_obj = Texture::from_reader(&mut acquired_lock, &mut tileset_img_path)?;
 
             drop(acquired_lock);
 

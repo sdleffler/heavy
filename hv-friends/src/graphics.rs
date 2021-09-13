@@ -58,7 +58,7 @@ pub use color::{Color, LinearColor};
 pub use mesh::{DrawMode, Mesh, MeshBuilder};
 pub use render_pass::{OwnedRenderPass, RenderPass};
 pub use sprite::{Sprite, SpriteBatch, SpriteId};
-pub use texture::{CachedTexture, OwnedTexture, SharedTexture};
+pub use texture::{CachedTexture, Texture, SharedTexture};
 pub use transform_stack::TransformStack;
 
 fn quad_vertices() -> [Vertex; 4] {

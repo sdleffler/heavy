@@ -9,6 +9,29 @@ use std::{
 
 use crate::error::*;
 
+/// Types which can be converted from mutable references to immutable references. Similar to an
+/// unholy mixture of [`AsRef`] and [`AsMut`]. Can be used to generically quantify over `T`,
+/// [`Shared<T>`], and [`CacheRef<T>`].
+///
+/// [`Shared<T>`]: crate::shared::Shared
+pub trait AsCached<T> {
+    /// Get an immutable reference to a `T` from this type, potentially using a cache along the way
+    /// to improve access speed.
+    fn as_cached(&mut self) -> &T;
+}
+
+impl<T> AsCached<T> for T {
+    fn as_cached(&mut self) -> &T {
+        self
+    }
+}
+
+impl<T> AsCached<T> for Handle<T> {
+    fn as_cached(&mut self) -> &T {
+        self.get_cached()
+    }
+}
+
 /// The type of a guarded immutable reference to a cached value.
 pub type Guard<T> = arc_swap::Guard<Arc<T>>;
 
@@ -19,14 +42,14 @@ impl<T: Eq + Hash> Key for T {}
 /// Describes an object which can be used to load a cached value.
 pub trait Loader<K, T> {
     /// Load the value corresponding to a given key.
-    fn load(&mut self, key: &K) -> Result<Handle<T>>;
+    fn load(&mut self, key: &K) -> Result<UncachedHandle<T>>;
 }
 
 /// A customizable cache for loading values which may later be re-loaded and swapped out with new
 /// values.
 pub struct SwappableCache<K: Key, T, L: Loader<K, T>> {
     loader: L,
-    map: HashMap<K, Handle<T>>,
+    map: HashMap<K, UncachedHandle<T>>,
 }
 
 impl<K: Key, T, L: Loader<K, T>> SwappableCache<K, T, L> {
@@ -39,7 +62,7 @@ impl<K: Key, T, L: Loader<K, T>> SwappableCache<K, T, L> {
     }
 
     /// Returns the cached value if present or loads a fresh value and returns a handle to it.
-    pub fn get_or_load(&mut self, key: K) -> Result<Handle<T>> {
+    pub fn get_or_load(&mut self, key: K) -> Result<UncachedHandle<T>> {
         match self.map.entry(key) {
             Entry::Occupied(occupied) => Ok(occupied.get().clone()),
             Entry::Vacant(vacant) => {
@@ -70,11 +93,11 @@ impl<K: Key, T, L: Loader<K, T>> SwappableCache<K, T, L> {
 
 /// A shared handle to a possibly cached value.
 #[derive(Debug)]
-pub struct Handle<T> {
+pub struct UncachedHandle<T> {
     inner: Arc<ArcSwap<T>>,
 }
 
-impl<T> Clone for Handle<T> {
+impl<T> Clone for UncachedHandle<T> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
@@ -82,7 +105,7 @@ impl<T> Clone for Handle<T> {
     }
 }
 
-impl<T> Handle<T> {
+impl<T> UncachedHandle<T> {
     /// Construct a new [`Handle`] from the value it wraps, whether inside or outside a cache.
     pub fn new(t: T) -> Self {
         Self {
@@ -105,8 +128,8 @@ impl<T> Handle<T> {
     }
 
     /// Convert this [`Handle`] into a [`CacheRef`], allowing for speedier repeated access.
-    pub fn into_cached(self) -> CacheRef<T> {
-        CacheRef {
+    pub fn into_cached(self) -> Handle<T> {
+        Handle {
             inner: Cache::new(self.inner),
         }
     }
@@ -117,13 +140,14 @@ impl<T> Handle<T> {
     }
 }
 
-/// A [`Handle<T>`] but with an added cached reference which allows for faster access.
+/// Similar to an [`UncachedHandle<T>`] but with an added cached reference which allows for faster
+/// access.
 #[derive(Debug)]
-pub struct CacheRef<T> {
+pub struct Handle<T> {
     inner: Cache<Arc<ArcSwap<T>>, Arc<T>>,
 }
 
-impl<T> Clone for CacheRef<T> {
+impl<T> Clone for Handle<T> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
@@ -131,7 +155,7 @@ impl<T> Clone for CacheRef<T> {
     }
 }
 
-impl<T> CacheRef<T> {
+impl<T> Handle<T> {
     /// Construct a [`CacheRef`] which actually does not belong to a cache.
     pub fn new_uncached(object: T) -> Self {
         Self {
