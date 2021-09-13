@@ -2,7 +2,7 @@ use hv_core::{
     engine::{Engine, EngineRef, LuaResource},
     mq,
     prelude::*,
-    swappable_cache::{CacheRef, Guard, Handle, Loader, SwappableCache},
+    swappable_cache::{AsCached, CacheRef, Guard, Handle, Loader, SwappableCache},
 };
 use std::{io::Read, ops::Deref, path::Path, sync::Arc};
 
@@ -14,19 +14,12 @@ use crate::{
 };
 
 /// A type which represents a handle to a GPU-allocated texture.
-pub trait AsTexture {
-    /// Get a reference to the underlying owned texture. Requires mutable access to the self type so
-    /// that if the underlying texture is something like a [`CachedTexture`], we can speed up the
-    /// access.
-    fn as_texture(&mut self) -> &OwnedTexture;
-}
-
 #[derive(Debug)]
-pub struct OwnedTexture {
+pub struct Texture {
     pub handle: mq::Texture,
 }
 
-impl OwnedTexture {
+impl Texture {
     /// Create a texture from a given buffer of RGBA image data.
     pub fn from_rgba8(ctx: &mut Graphics, width: u16, height: u16, bytes: &[u8]) -> Self {
         let tex = mq::Texture::from_rgba8(ctx.mq_mut(), width, height, bytes);
@@ -76,19 +69,13 @@ impl OwnedTexture {
     }
 }
 
-impl AsTexture for OwnedTexture {
-    fn as_texture(&mut self) -> &OwnedTexture {
-        self
-    }
-}
-
-impl DrawableMut for OwnedTexture {
+impl DrawableMut for Texture {
     fn draw_mut(&mut self, ctx: &mut Graphics, instance: Instance) {
         self.draw(ctx, instance);
     }
 }
 
-impl Drawable for OwnedTexture {
+impl Drawable for Texture {
     fn draw(&self, ctx: &mut Graphics, instance: Instance) {
         ctx.state.quad_bindings.vertex_buffers[1].update(
             &mut ctx.mq,
@@ -103,9 +90,7 @@ impl Drawable for OwnedTexture {
     }
 }
 
-impl LuaUserData for OwnedTexture {}
-
-impl Drop for OwnedTexture {
+impl Drop for Texture {
     fn drop(&mut self) {
         self.handle.delete();
     }
@@ -113,17 +98,17 @@ impl Drop for OwnedTexture {
 
 #[derive(Debug, Clone)]
 pub struct SharedTexture {
-    pub shared: Arc<OwnedTexture>,
+    pub shared: Arc<Texture>,
 }
 
-impl AsTexture for SharedTexture {
-    fn as_texture(&mut self) -> &OwnedTexture {
+impl AsCached<Texture> for SharedTexture {
+    fn as_cached(&mut self) -> &Texture {
         &self.shared
     }
 }
 
 impl Deref for SharedTexture {
-    type Target = OwnedTexture;
+    type Target = Texture;
 
     fn deref(&self) -> &Self::Target {
         &self.shared
@@ -133,13 +118,13 @@ impl Deref for SharedTexture {
 impl From<mq::Texture> for SharedTexture {
     fn from(texture: mq::Texture) -> Self {
         Self {
-            shared: Arc::new(OwnedTexture::from_inner(texture)),
+            shared: Arc::new(Texture::from_inner(texture)),
         }
     }
 }
 
-impl From<OwnedTexture> for SharedTexture {
-    fn from(owned: OwnedTexture) -> Self {
+impl From<Texture> for SharedTexture {
+    fn from(owned: Texture) -> Self {
         Self {
             shared: Arc::new(owned),
         }
@@ -160,33 +145,33 @@ impl Drawable for SharedTexture {
 
 #[derive(Debug, Clone)]
 pub struct CachedTexture {
-    pub cached: CacheRef<OwnedTexture>,
+    pub cached: CacheRef<Texture>,
 }
 
-impl AsTexture for CachedTexture {
-    fn as_texture(&mut self) -> &OwnedTexture {
-        self.cached.get_cached()
+impl AsCached<Texture> for CachedTexture {
+    fn as_cached(&mut self) -> &Texture {
+        self.cached.as_cached()
     }
 }
 
 impl From<mq::Texture> for CachedTexture {
     fn from(texture: mq::Texture) -> Self {
         Self {
-            cached: CacheRef::new_uncached(OwnedTexture::from_inner(texture)),
+            cached: CacheRef::new_uncached(Texture::from_inner(texture)),
         }
     }
 }
 
-impl From<OwnedTexture> for CachedTexture {
-    fn from(owned: OwnedTexture) -> Self {
+impl From<Texture> for CachedTexture {
+    fn from(owned: Texture) -> Self {
         Self {
             cached: CacheRef::new_uncached(owned),
         }
     }
 }
 
-impl From<Handle<OwnedTexture>> for CachedTexture {
-    fn from(handle: Handle<OwnedTexture>) -> Self {
+impl From<Handle<Texture>> for CachedTexture {
+    fn from(handle: Handle<Texture>) -> Self {
         Self {
             cached: handle.into_cached(),
         }
@@ -194,11 +179,11 @@ impl From<Handle<OwnedTexture>> for CachedTexture {
 }
 
 impl CachedTexture {
-    pub fn get(&self) -> Guard<OwnedTexture> {
+    pub fn get(&self) -> Guard<Texture> {
         self.cached.get()
     }
 
-    pub fn get_cached(&mut self) -> &OwnedTexture {
+    pub fn get_cached(&mut self) -> &Texture {
         self.cached.get_cached()
     }
 
@@ -249,17 +234,17 @@ impl FilesystemTextureLoader {
     }
 }
 
-impl<P: AsRef<Path>> Loader<P, OwnedTexture> for FilesystemTextureLoader {
-    fn load(&mut self, key: &P) -> Result<Handle<OwnedTexture>> {
+impl<P: AsRef<Path>> Loader<P, Texture> for FilesystemTextureLoader {
+    fn load(&mut self, key: &P) -> Result<Handle<Texture>> {
         let engine = self.engine_ref.upgrade();
         let mut file = engine.fs().open(key)?;
-        let texture = OwnedTexture::from_reader(&mut self.gfx_lock.lock(), &mut file)?;
+        let texture = Texture::from_reader(&mut self.gfx_lock.lock(), &mut file)?;
         Ok(Handle::new(texture))
     }
 }
 
 pub struct TextureCache {
-    inner: SwappableCache<String, OwnedTexture, FilesystemTextureLoader>,
+    inner: SwappableCache<String, Texture, FilesystemTextureLoader>,
 }
 
 impl LuaUserData for TextureCache {}

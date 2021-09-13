@@ -6,7 +6,7 @@ use hv_friends::{
             CachedSpriteSheet, Direction, Frame, SpriteFrame, SpriteSheet, SpriteTag, Tag, TagId,
         },
         CachedTexture, Color, Drawable, DrawableMut, Graphics, GraphicsLock, GraphicsLockExt,
-        Instance, OwnedTexture, SpriteBatch, SpriteId,
+        Instance, SpriteBatch, SpriteId, Texture,
     },
     math::Box2,
     math::Vector2,
@@ -1141,7 +1141,7 @@ impl TilesetUVs {
             ))?;
             let graphics_lock = engine.get::<GraphicsLock>();
             let mut acquired_lock = GraphicsLockExt::lock(&graphics_lock);
-            let texture_obj = OwnedTexture::from_reader(&mut acquired_lock, &mut tileset_img_path)?;
+            let texture_obj = Texture::from_reader(&mut acquired_lock, &mut tileset_img_path)?;
 
             drop(acquired_lock);
 

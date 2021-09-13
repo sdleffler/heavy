@@ -9,7 +9,7 @@ use ordered_float::NotNan;
 use crate::{
     graphics::{
         CachedTexture, Color, Drawable, DrawableMut, Graphics, GraphicsLock, GraphicsLockExt,
-        Instance, OwnedTexture, SpriteBatch,
+        Instance, SpriteBatch, Texture,
     },
     math::*,
 };
@@ -228,7 +228,7 @@ impl FontAtlas {
         }
 
         let texture_obj =
-            OwnedTexture::from_rgba8(ctx, texture_width as u16, texture_height as u16, &texture);
+            Texture::from_rgba8(ctx, texture_width as u16, texture_height as u16, &texture);
 
         Ok(FontAtlas {
             font_texture: CachedTexture::from(texture_obj),

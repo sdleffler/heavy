@@ -3,14 +3,14 @@ use hv_core::{
     engine::{Engine, EngineRef, LuaResource},
     mq,
     prelude::*,
-    swappable_cache::{CacheRef, Guard, Handle, Loader, SwappableCache},
+    swappable_cache::{AsCached, CacheRef, Guard, Handle, Loader, SwappableCache},
 };
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, io::Read, mem, ops, path::Path};
 use thunderdome::{Arena, Index};
 
 use crate::{
-    graphics::{texture::AsTexture, Drawable, DrawableMut, Graphics, Instance, InstanceProperties},
+    graphics::{Drawable, DrawableMut, Graphics, Instance, InstanceProperties, Texture},
     math::*,
 };
 
@@ -22,33 +22,33 @@ use crate::{
 ///
 /// [`texture`]: crate::graphics::texture
 #[derive(Debug, Clone)]
-pub struct Sprite<T: AsTexture> {
+pub struct Sprite<T: AsCached<Texture>> {
     /// The instance parameters for this.
     pub params: Instance,
     /// The sprite's texture.
     pub texture: T,
 }
 
-impl<T: AsTexture> Sprite<T> {
+impl<T: AsCached<Texture>> Sprite<T> {
     /// Create a new sprite from a texture type and an instance.
     pub fn new(texture: T, params: Instance) -> Self {
         Self { params, texture }
     }
 }
 
-impl<T: AsTexture> DrawableMut for Sprite<T> {
+impl<T: AsCached<Texture>> DrawableMut for Sprite<T> {
     fn draw_mut(&mut self, ctx: &mut Graphics, instance: Instance) {
         let params = Instance {
             tx: instance.tx * self.params.tx,
             ..self.params
         };
         self.texture
-            .as_texture()
+            .as_cached()
             .draw(ctx, params.scale2(params.src.extents()));
     }
 }
 
-impl<T: AsTexture> LuaUserData for Sprite<T> {
+impl<T: AsCached<Texture>> LuaUserData for Sprite<T> {
     fn add_methods<'lua, M: LuaUserDataMethods<'lua, Self>>(methods: &mut M) {
         crate::lua::add_drawable_methods(methods);
     }
@@ -114,7 +114,7 @@ impl<'a> Iterator for SpriteBatchIterMut<'a> {
 /// If you have a lot of [`Sprite`]s using the same texture, this is a much more efficient way to
 /// render them. Way more efficient.
 #[derive(Debug)]
-pub struct SpriteBatch<T: AsTexture> {
+pub struct SpriteBatch<T: AsCached<Texture>> {
     sprites: Arena<Instance>,
     // Used to store the result of converting InstanceParams to InstanceProperties
     instances: Vec<InstanceProperties>,
@@ -125,7 +125,7 @@ pub struct SpriteBatch<T: AsTexture> {
     texture: T,
 }
 
-impl<T: AsTexture> ops::Index<SpriteId> for SpriteBatch<T> {
+impl<T: AsCached<Texture>> ops::Index<SpriteId> for SpriteBatch<T> {
     type Output = Instance;
 
     #[inline]
@@ -134,7 +134,7 @@ impl<T: AsTexture> ops::Index<SpriteId> for SpriteBatch<T> {
     }
 }
 
-impl<T: AsTexture> ops::IndexMut<SpriteId> for SpriteBatch<T> {
+impl<T: AsCached<Texture>> ops::IndexMut<SpriteId> for SpriteBatch<T> {
     #[inline]
     fn index_mut(&mut self, index: SpriteId) -> &mut Self::Output {
         self.dirty = true;
@@ -142,7 +142,7 @@ impl<T: AsTexture> ops::IndexMut<SpriteId> for SpriteBatch<T> {
     }
 }
 
-impl<T: AsTexture> SpriteBatch<T> {
+impl<T: AsCached<Texture>> SpriteBatch<T> {
     /// Create a new spritebatch for the given texture.
     pub fn new(ctx: &mut Graphics, texture: T) -> Self {
         const DEFAULT_SPRITEBATCH_CAPACITY: usize = 64;
@@ -160,7 +160,7 @@ impl<T: AsTexture> SpriteBatch<T> {
         let bindings = mq::Bindings {
             vertex_buffers: vec![ctx.state.quad_bindings.vertex_buffers[0], instances],
             index_buffer: ctx.state.quad_bindings.index_buffer,
-            images: vec![texture.as_texture().handle],
+            images: vec![texture.as_cached().handle],
         };
 
         Self {
@@ -261,7 +261,7 @@ impl<T: AsTexture> SpriteBatch<T> {
     /// automatically by [`DrawableMut::draw_mut`], and is why [`SpriteBatch`] does not implement
     /// [`Drawable`].
     pub fn flush(&mut self, ctx: &mut Graphics) {
-        let texture = self.texture.as_texture();
+        let texture = self.texture.as_cached();
 
         if !self.dirty && texture.handle == self.bindings.images[0] {
             return;
@@ -316,7 +316,7 @@ impl<T: AsTexture> SpriteBatch<T> {
 /// TODO: FIXME(sleffy) maybe? This implementation ignores the color and src parameters
 /// of the `InstanceParam`. Not sure there's much to be done about that, though, since
 /// the spritebatch has its own instance parameters.
-impl<T: AsTexture> DrawableMut for SpriteBatch<T> {
+impl<T: AsCached<Texture>> DrawableMut for SpriteBatch<T> {
     fn draw_mut(&mut self, ctx: &mut Graphics, instance: Instance) {
         self.flush(ctx);
 
@@ -332,7 +332,7 @@ impl<T: AsTexture> DrawableMut for SpriteBatch<T> {
     }
 }
 
-impl<T: AsTexture> LuaUserData for SpriteBatch<T>
+impl<T: AsCached<Texture>> LuaUserData for SpriteBatch<T>
 where
     T: for<'lua> ToLua<'lua> + for<'lua> FromLua<'lua> + Clone,
 {
