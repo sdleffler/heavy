@@ -2,7 +2,7 @@ use hv_core::{
     engine::{Engine, EngineRef, LuaResource},
     mq,
     prelude::*,
-    swappable_cache::{AsCached, CacheRef, Guard, Handle, Loader, SwappableCache},
+    swappable_cache::{AsCached, Guard, Handle, Loader, SwappableCache, UncachedHandle},
 };
 use std::{io::Read, ops::Deref, path::Path, sync::Arc};
 
@@ -145,7 +145,7 @@ impl Drawable for SharedTexture {
 
 #[derive(Debug, Clone)]
 pub struct CachedTexture {
-    pub cached: CacheRef<Texture>,
+    pub cached: Handle<Texture>,
 }
 
 impl AsCached<Texture> for CachedTexture {
@@ -157,7 +157,7 @@ impl AsCached<Texture> for CachedTexture {
 impl From<mq::Texture> for CachedTexture {
     fn from(texture: mq::Texture) -> Self {
         Self {
-            cached: CacheRef::new_uncached(Texture::from_inner(texture)),
+            cached: Handle::new_uncached(Texture::from_inner(texture)),
         }
     }
 }
@@ -165,13 +165,13 @@ impl From<mq::Texture> for CachedTexture {
 impl From<Texture> for CachedTexture {
     fn from(owned: Texture) -> Self {
         Self {
-            cached: CacheRef::new_uncached(owned),
+            cached: Handle::new_uncached(owned),
         }
     }
 }
 
-impl From<Handle<Texture>> for CachedTexture {
-    fn from(handle: Handle<Texture>) -> Self {
+impl From<UncachedHandle<Texture>> for CachedTexture {
+    fn from(handle: UncachedHandle<Texture>) -> Self {
         Self {
             cached: handle.into_cached(),
         }
@@ -194,11 +194,11 @@ impl CachedTexture {
     }
 
     pub fn ptr_eq(lhs: &Self, rhs: &Self) -> bool {
-        CacheRef::ptr_eq(&lhs.cached, &rhs.cached)
+        Handle::ptr_eq(&lhs.cached, &rhs.cached)
     }
 
     pub fn ptr_eq_cached(lhs: &mut Self, rhs: &mut Self) -> bool {
-        CacheRef::ptr_eq_cached(&mut lhs.cached, &mut rhs.cached)
+        Handle::ptr_eq_cached(&mut lhs.cached, &mut rhs.cached)
     }
 }
 
@@ -235,11 +235,11 @@ impl FilesystemTextureLoader {
 }
 
 impl<P: AsRef<Path>> Loader<P, Texture> for FilesystemTextureLoader {
-    fn load(&mut self, key: &P) -> Result<Handle<Texture>> {
+    fn load(&mut self, key: &P) -> Result<UncachedHandle<Texture>> {
         let engine = self.engine_ref.upgrade();
         let mut file = engine.fs().open(key)?;
         let texture = Texture::from_reader(&mut self.gfx_lock.lock(), &mut file)?;
-        Ok(Handle::new(texture))
+        Ok(UncachedHandle::new(texture))
     }
 }
 

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use hv_core::{
     engine::{Engine, EngineRef, WeakResourceCache},
-    swappable_cache::{CacheRef, Guard, Handle, Loader, SwappableCache},
+    swappable_cache::{Guard, Handle, Loader, SwappableCache, UncachedHandle},
 };
 use ordered_float::NotNan;
 
@@ -315,13 +315,13 @@ impl DrawableMut for FontAtlas {
 
 #[derive(Debug, Clone)]
 pub struct CachedFontAtlas {
-    inner: CacheRef<FontAtlas>,
+    inner: Handle<FontAtlas>,
 }
 
 impl CachedFontAtlas {
     pub fn new_uncached(font_atlas: FontAtlas) -> Self {
         Self {
-            inner: CacheRef::new_uncached(font_atlas),
+            inner: Handle::new_uncached(font_atlas),
         }
     }
 
@@ -563,14 +563,14 @@ pub struct FontLoader {
 }
 
 impl Loader<String, Font> for FontLoader {
-    fn load(&mut self, key: &String) -> Result<Handle<Font>> {
+    fn load(&mut self, key: &String) -> Result<UncachedHandle<Font>> {
         use rusttype as rt;
         let engine = self.engine.upgrade();
         let mut file = engine.fs().open(key)?;
         let mut buf = Vec::new();
         file.read_to_end(&mut buf)?;
         let font = rt::Font::try_from_vec(buf).ok_or_else(|| anyhow!("error parsing font"))?;
-        Ok(Handle::new(Font { inner: font }))
+        Ok(UncachedHandle::new(Font { inner: font }))
     }
 }
 
@@ -581,7 +581,7 @@ pub struct FontAtlasLoader {
 }
 
 impl Loader<FontAtlasKey, FontAtlas> for FontAtlasLoader {
-    fn load(&mut self, key: &FontAtlasKey) -> Result<Handle<FontAtlas>> {
+    fn load(&mut self, key: &FontAtlasKey) -> Result<UncachedHandle<FontAtlas>> {
         let engine = self.engine.upgrade();
         let mut font = self.font_cache.get_or_load(key.path.clone())?.into_cached();
         let gfx_lock = self.weak_gfx_cache.get::<_, Error>(|| Ok(engine.get()))?;
@@ -603,7 +603,7 @@ impl Loader<FontAtlasKey, FontAtlas> for FontAtlasLoader {
             )?,
         };
 
-        Ok(Handle::new(atlas))
+        Ok(UncachedHandle::new(atlas))
     }
 }
 

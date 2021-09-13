@@ -3,7 +3,7 @@ use hv_core::{
     engine::{Engine, EngineRef, LuaResource},
     mq,
     prelude::*,
-    swappable_cache::{AsCached, CacheRef, Guard, Handle, Loader, SwappableCache},
+    swappable_cache::{AsCached, Guard, Handle, Loader, SwappableCache, UncachedHandle},
 };
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, io::Read, mem, ops, path::Path};
@@ -755,13 +755,13 @@ impl SpriteSheet {
 
 #[derive(Debug, Clone)]
 pub struct CachedSpriteSheet {
-    handle: CacheRef<SpriteSheet>,
+    handle: Handle<SpriteSheet>,
 }
 
 impl CachedSpriteSheet {
     pub fn new_uncached(sprite_sheet: SpriteSheet) -> Self {
         Self {
-            handle: CacheRef::new_uncached(sprite_sheet),
+            handle: Handle::new_uncached(sprite_sheet),
         }
     }
 
@@ -835,11 +835,11 @@ impl FilesystemSpriteSheetLoader {
 }
 
 impl<P: AsRef<Path>> Loader<P, SpriteSheet> for FilesystemSpriteSheetLoader {
-    fn load(&mut self, key: &P) -> Result<Handle<SpriteSheet>> {
+    fn load(&mut self, key: &P) -> Result<UncachedHandle<SpriteSheet>> {
         let engine = self.engine.upgrade();
         let mut file = engine.fs().open(key)?;
         let sprite_sheet = SpriteSheet::from_reader(&mut file)?;
-        Ok(Handle::new(sprite_sheet))
+        Ok(UncachedHandle::new(sprite_sheet))
     }
 }
 
