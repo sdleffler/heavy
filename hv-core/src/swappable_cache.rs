@@ -9,6 +9,29 @@ use std::{
 
 use crate::error::*;
 
+/// Types which can be converted from mutable references to immutable references. Similar to an
+/// unholy mixture of [`AsRef`] and [`AsMut`]. Can be used to generically quantify over `T`,
+/// [`Shared<T>`], and [`CacheRef<T>`].
+///
+/// [`Shared<T>`]: crate::shared::Shared
+pub trait AsCached<T> {
+    /// Get an immutable reference to a `T` from this type, potentially using a cache along the way
+    /// to improve access speed.
+    fn as_cached(&mut self) -> &T;
+}
+
+impl<T> AsCached<T> for T {
+    fn as_cached(&mut self) -> &T {
+        self
+    }
+}
+
+impl<T> AsCached<T> for CacheRef<T> {
+    fn as_cached(&mut self) -> &T {
+        self.get_cached()
+    }
+}
+
 /// The type of a guarded immutable reference to a cached value.
 pub type Guard<T> = arc_swap::Guard<Arc<T>>;
 
