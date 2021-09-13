@@ -13,6 +13,14 @@ use crate::{
     math::*,
 };
 
+/// A type which represents a handle to a GPU-allocated texture.
+pub trait AsTexture {
+    /// Get a reference to the underlying owned texture. Requires mutable access to the self type so
+    /// that if the underlying texture is something like a [`CachedTexture`], we can speed up the
+    /// access.
+    fn as_texture(&mut self) -> &OwnedTexture;
+}
+
 #[derive(Debug)]
 pub struct OwnedTexture {
     pub handle: mq::Texture,
@@ -68,6 +76,12 @@ impl OwnedTexture {
     }
 }
 
+impl AsTexture for OwnedTexture {
+    fn as_texture(&mut self) -> &OwnedTexture {
+        self
+    }
+}
+
 impl DrawableMut for OwnedTexture {
     fn draw_mut(&mut self, ctx: &mut Graphics, instance: Instance) {
         self.draw(ctx, instance);
@@ -100,6 +114,12 @@ impl Drop for OwnedTexture {
 #[derive(Debug, Clone)]
 pub struct SharedTexture {
     pub shared: Arc<OwnedTexture>,
+}
+
+impl AsTexture for SharedTexture {
+    fn as_texture(&mut self) -> &OwnedTexture {
+        &self.shared
+    }
 }
 
 impl Deref for SharedTexture {
@@ -141,6 +161,12 @@ impl Drawable for SharedTexture {
 #[derive(Debug, Clone)]
 pub struct CachedTexture {
     pub cached: CacheRef<OwnedTexture>,
+}
+
+impl AsTexture for CachedTexture {
+    fn as_texture(&mut self) -> &OwnedTexture {
+        self.cached.get_cached()
+    }
 }
 
 impl From<mq::Texture> for CachedTexture {

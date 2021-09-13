@@ -589,7 +589,7 @@ pub struct SpriteSheetState {
 }
 
 pub struct TileLayerBatch {
-    sprite_batches_and_sheets: Vec<(SpriteBatch, CachedSpriteSheet)>,
+    sprite_batches_and_sheets: Vec<(SpriteBatch<CachedTexture>, CachedSpriteSheet)>,
     sprite_sheet_info: Vec<Vec<SpriteSheetState>>,
     pub visible: bool,
 }

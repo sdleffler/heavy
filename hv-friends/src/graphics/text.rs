@@ -338,7 +338,7 @@ const DEFAULT_TEXT_BUFFER_SIZE: usize = 64;
 
 #[derive(Debug)]
 pub struct Text {
-    batch: SpriteBatch,
+    batch: SpriteBatch<CachedTexture>,
 }
 
 impl Text {
