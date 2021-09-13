@@ -19,7 +19,7 @@ use hv_friends::{
     math::*,
     Position, SimpleHandler, Velocity,
 };
-use hv_tiled::{BoxExt, CoordSpace};
+use hv_tiled::{BoxExt, CoordSpace, TilesetRenderData};
 
 const TIMESTEP: f32 = 1. / 60.;
 
@@ -75,7 +75,7 @@ struct SmbOneOne {
     x_scroll: f32,
     map: hv_tiled::Map,
     timer: TimeContext,
-
+    ts_render_data: TilesetRenderData,
     to_update: Vec<Object>,
 }
 
@@ -117,16 +117,14 @@ impl SmbOneOne {
 
         let map = hv_tiled::Map::new("/maps/mario_bros_1-1.lua", engine, Some("maps/"))?;
 
-        let tileset_uvs = hv_tiled::TilesetUVs::new(&map.tilesets, engine)?;
-        let sprite_sheets = map.make_sprite_sheets(&tileset_uvs);
-        let render_data = tileset_uvs.make_tileset_animated_render_data(sprite_sheets);
+        let ts_render_data = hv_tiled::TilesetRenderData::new(&map.tilesets, engine)?;
 
         let mut tile_layer_batches = Vec::with_capacity(map.tile_layers.len());
 
         for tile_layer in map.tile_layers.iter() {
             tile_layer_batches.push(hv_tiled::TileLayerBatch::new(
                 tile_layer,
-                &render_data,
+                &ts_render_data,
                 engine,
                 &map.meta_data,
             ));
@@ -143,7 +141,7 @@ impl SmbOneOne {
             x_scroll: 0.,
             map,
             timer: TimeContext::new(),
-
+            ts_render_data,
             to_update: Vec::new(),
         })
     }
@@ -157,7 +155,7 @@ impl EventHandler for SmbOneOne {
         let mut counter = 0;
         while self.timer.check_update_time_forced(60, &mut counter) {
             for tile_layer_batch in self.tile_layer_batches.iter_mut() {
-                tile_layer_batch.update_batches(dt);
+                tile_layer_batch.update_batches(dt, &self.ts_render_data);
             }
 
             for (obj, ()) in self

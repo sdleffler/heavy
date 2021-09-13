@@ -14,12 +14,14 @@ use hv_friends::{
     math::Vector2,
     SimpleHandler,
 };
+use hv_tiled::TilesetRenderData;
 
 struct MarioBros {
     tile_layer_batches: Vec<hv_tiled::TileLayerBatch>,
     x_scroll: f32,
     map: hv_tiled::Map,
     timer: TimeContext,
+    ts_render_data: TilesetRenderData,
 }
 
 impl MarioBros {
@@ -27,16 +29,14 @@ impl MarioBros {
         // let space = engine.get::<Spaces>().borrow_mut().create_space();
         let map = hv_tiled::Map::new("/mario_bros_1-1.lua", engine, None)?;
 
-        let tileset_uvs = hv_tiled::TilesetUVs::new(&map.tilesets, engine)?;
-        let sprite_sheets = map.make_sprite_sheets(&tileset_uvs);
-        let render_data = tileset_uvs.make_tileset_animated_render_data(sprite_sheets);
+        let ts_render_data = hv_tiled::TilesetRenderData::new(&map.tilesets, engine)?;
 
         let mut tile_layer_batches = Vec::with_capacity(map.tile_layers.len());
 
         for tile_layer in map.tile_layers.iter() {
             tile_layer_batches.push(hv_tiled::TileLayerBatch::new(
                 tile_layer,
-                &render_data,
+                &ts_render_data,
                 engine,
                 &map.meta_data,
             ));
@@ -50,6 +50,7 @@ impl MarioBros {
             x_scroll: 0.0,
             timer: TimeContext::new(),
             map,
+            ts_render_data,
         })
     }
 }
@@ -61,7 +62,7 @@ impl EventHandler for MarioBros {
 
         while self.timer.check_update_time_forced(60, &mut counter) {
             for tile_layer_batch in self.tile_layer_batches.iter_mut() {
-                tile_layer_batch.update_batches(dt);
+                tile_layer_batch.update_batches(dt, &self.ts_render_data);
             }
 
             self.x_scroll += 1.0;
