@@ -549,12 +549,58 @@ pub struct SpriteSheetState {
     animated_sprite_tag: TagId,
 }
 
+pub struct TileLayerBatches(Vec<TileLayerBatch>);
+
+impl TileLayerBatches {
+    pub fn new(
+        tile_layers: &[TileLayer],
+        ts_render_data: &TilesetRenderData,
+        map: &Map,
+        engine: &Engine,
+    ) -> Self {
+        let mut batches = Vec::with_capacity(tile_layers.len());
+        for tile_layer in tile_layers.iter() {
+            batches.push(TileLayerBatch::new(
+                tile_layer,
+                ts_render_data,
+                engine,
+                &map.meta_data,
+            ));
+        }
+        TileLayerBatches(batches)
+    }
+
+    pub fn update_all_batches(&mut self, dt: f32, ts_render_data: &TilesetRenderData) {
+        for tile_layer_batch in self.0.iter_mut() {
+            tile_layer_batch.update_batches(dt, ts_render_data);
+        }
+    }
+
+    pub fn get_tile_batch_layers(&mut self) -> impl Iterator<Item = &mut TileLayerBatch> + '_ {
+        self.0.iter_mut()
+    }
+}
+
+impl DrawableMut for TileLayerBatches {
+    fn draw_mut(&mut self, ctx: &mut Graphics, instance: Instance) {
+        for tile_layer in self.0.iter_mut() {
+            if tile_layer.visible {
+                for batch in tile_layer.sprite_batches.iter_mut() {
+                    batch.draw_mut(ctx, instance.translate2(Vector2::new(tile_layer.offx, tile_layer.offy)));
+                }
+            }
+        }
+    }
+}
+
 pub struct TileLayerBatch {
     sprite_sheet_info: Vec<Vec<SpriteSheetState>>,
     pub sprite_id_map: HashMap<(u32, u32), SpriteId>,
     sprite_batches: Vec<SpriteBatch<CachedTexture>>,
     pub visible: bool,
     pub opacity: f64,
+    pub offx: f32,
+    pub offy: f32,
 }
 
 impl DrawableMut for TileLayerBatch {
@@ -627,6 +673,8 @@ impl TileLayerBatch {
             sprite_sheet_info: ss_state,
             visible: layer.visible,
             opacity: layer.opacity,
+            offx: (layer.x * map_meta_data.tilewidth) as f32,
+            offy: (layer.y * map_meta_data.tileheight) as f32,
             sprite_batches,
             sprite_id_map,
         }
