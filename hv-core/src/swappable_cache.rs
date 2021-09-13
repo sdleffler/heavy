@@ -140,7 +140,8 @@ impl<T> UncachedHandle<T> {
     }
 }
 
-/// A [`SwappableHandle<T>`] but with an added cached reference which allows for faster access.
+/// Similar to an [`UncachedHandle<T>`] but with an added cached reference which allows for faster
+/// access.
 #[derive(Debug)]
 pub struct Handle<T> {
     inner: Cache<Arc<ArcSwap<T>>, Arc<T>>,
