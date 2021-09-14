@@ -1,7 +1,7 @@
 use hv_core::{engine::LuaResource, mlua::prelude::*};
 use hv_friends::graphics::{
     pipeline::Pipeline,
-    sprite::{CachedSpriteSheet, SpriteFrame, SpriteTag},
+    sprite::{AnimationState, CachedSpriteSheet},
     CachedTexture, SpriteBatch,
 };
 use std::ops;
@@ -25,8 +25,7 @@ impl<'lua> FromLua<'lua> for ProjectileSpriteBatchId {
 #[derive(Debug, Clone, Copy)]
 pub struct ProjectileSprite {
     pub batch_id: ProjectileSpriteBatchId,
-    pub tag: SpriteTag,
-    pub frame: SpriteFrame,
+    pub animation_state: AnimationState,
 }
 
 impl LuaUserData for ProjectileSprite {}

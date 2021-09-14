@@ -31,7 +31,7 @@ use crate::{
         lua::{LuaDrawMode, LuaGraphicsState},
         pipeline::{Pipeline, PipelineRegistry, ShaderRegistry},
         render_pass::RenderPassRegistry,
-        sprite::{CachedSpriteSheet, SpriteAnimationState, SpriteSheetCache},
+        sprite::{CachedSpriteSheet, SpriteAnimation, SpriteSheetCache},
         texture::TextureCache,
     },
     math::*,
@@ -821,12 +821,11 @@ pub(crate) fn open<'lua>(lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lu
                 .get_tag(tag.to_str()?)
                 .ok_or_else(|| anyhow!("no such tag"))
                 .to_lua_err()?;
-            let (frame, tag) = sheet.at_tag(tag_id, should_loop.unwrap_or(true));
+            let animation = sheet.at_tag(tag_id, should_loop.unwrap_or(true));
 
-            Ok(SpriteAnimationState {
+            Ok(SpriteAnimation {
                 sheet: sprite_sheet,
-                frame,
-                tag,
+                animation,
             })
         };
 

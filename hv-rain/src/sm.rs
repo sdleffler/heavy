@@ -583,7 +583,7 @@ impl State for Sprite {
         _fsm: &mut StateMachine,
     ) -> Transition {
         if self.wait
-            && matches!(projectile_state.sprite.as_ref(), Some(sprite) if !sprite.tag.is_paused)
+            && matches!(projectile_state.sprite.as_ref(), Some(sprite) if !sprite.animation_state.is_paused)
         {
             Transition::None
         } else {

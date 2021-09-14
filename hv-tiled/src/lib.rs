@@ -2,7 +2,7 @@ use hv_core::{engine::Engine, prelude::*};
 
 use hv_friends::{
     graphics::{
-        sprite::{Direction, Frame, SpriteFrame, SpriteSheet, SpriteTag, Tag, TagId},
+        sprite::{AnimationState, Direction, Frame, SpriteSheet, Tag, TagId},
         CachedTexture, Color, Drawable, DrawableMut, Graphics, GraphicsLock, GraphicsLockExt,
         Instance, SpriteBatch, SpriteId, Texture,
     },
@@ -543,8 +543,7 @@ pub struct ObjectLayerBatch;
 
 #[derive(Debug, Clone)]
 pub struct SpriteSheetState {
-    frame: SpriteFrame,
-    tag: SpriteTag,
+    animation_state: AnimationState,
     animated_sprite_index: SpriteId,
     animated_sprite_tag: TagId,
 }
@@ -608,13 +607,12 @@ impl TileLayerBatch {
                     sprite_id_map.insert((x_cord, y_cord), sprite_id);
 
                     if let Some(t) = ts_render_data.tile_to_tag_map.get(&tile) {
-                        let (frame, tag) = ts_render_data.textures_and_spritesheets
+                        let animation_state = ts_render_data.textures_and_spritesheets
                             [tile.1 as usize]
                             .1
                             .at_tag(*t, true);
                         ss_state[tile.1 as usize].push(SpriteSheetState {
-                            frame,
-                            tag,
+                            animation_state,
                             animated_sprite_index: sprite_id,
                             animated_sprite_tag: *t,
                         });
@@ -636,8 +634,9 @@ impl TileLayerBatch {
         for (i, batch) in self.sprite_batches.iter_mut().enumerate() {
             for ss_state in self.sprite_sheet_info[i].iter_mut() {
                 let sprite_sheet = &ts_render_data.textures_and_spritesheets[i].1;
-                batch[ss_state.animated_sprite_index].src = sprite_sheet[ss_state.frame.0].uvs;
-                sprite_sheet.update_animation(dt, &mut ss_state.tag, &mut ss_state.frame);
+                batch[ss_state.animated_sprite_index].src =
+                    sprite_sheet[ss_state.animation_state.frame_id].uvs;
+                sprite_sheet.update_animation(dt, &mut ss_state.animation_state);
             }
         }
     }
