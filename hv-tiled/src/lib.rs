@@ -142,6 +142,7 @@ impl Properties {
 #[derive(Debug, Clone)]
 pub enum Encoding {
     Lua,
+    Base64,
 }
 
 #[derive(Debug, Clone)]
@@ -275,18 +276,26 @@ impl TileLayer {
 
         let encoding = match t.get::<_, LuaString>("encoding")?.to_str()? {
             "lua" => Encoding::Lua,
+            "base64" => Encoding::Base64,
             e => return Err(anyhow!("Got an unsupported encoding type: {}", e)),
         };
 
-        let width = t.get("width")?;
-        let height = t.get("height")?;
-        let mut tile_data = Vec::with_capacity((width * height) as usize);
+        let width: u32 = t.get("width")?;
+        let height: u32 = t.get("height")?;
 
-        for tile in t
-            .get::<_, LuaTable>("data")?
-            .sequence_values::<LuaInteger>()
-        {
-            tile_data.push(tile_buffer[tile? as usize]);
+        if !t.contains_key("data")? {
+            return Err(anyhow!("Infinite maps not supported yet!"));
+        }
+
+        let data = TileLayer::parse_tile_data(&encoding, t, tile_buffer)?;
+
+        if t.get::<_, LuaString>("name")?.to_str()? == "Sky" {
+            for y in 0..height {
+                for x in 0..width {
+                    print!("{}, ", data[((y * height) + x) as usize].0);
+                }
+                println!();
+            }
         }
 
         Ok(TileLayer {
@@ -301,14 +310,55 @@ impl TileLayer {
             opacity: t.get("opacity")?,
             offset_x: t.get("offsetx")?,
             offset_y: t.get("offsety")?,
-            data: tile_data,
             properties: Properties::from_lua(t)?,
+            data,
             encoding,
             layer_type,
             width,
             height,
         })
     }
+
+    fn parse_tile_data(
+        encoding: &Encoding,
+        t: &LuaTable,
+        tile_buffer: &[TileId],
+    ) -> Result<Vec<TileId>, Error> {
+        // TODO: Vector capacity can be pre-calculated here, optimize this
+        let mut tile_data = Vec::new();
+
+        match encoding {
+            Encoding::Lua => {
+                for tile in t
+                    .get::<_, LuaTable>("data")?
+                    .sequence_values::<LuaInteger>()
+                {
+                    tile_data.push(tile_buffer[tile? as usize]);
+                }
+                Ok(tile_data)
+            }
+            Encoding::Base64 => {
+                let mut tile_data = Vec::new();
+                let decoded_bytes = base64::decode_config(
+                    t.get::<_, LuaString>("data")?.to_str()?,
+                    base64::STANDARD,
+                )?;
+                for i in (0..decoded_bytes.len()).step_by(4) {
+                    let val = decoded_bytes[i] as u32
+                        | (decoded_bytes[i + 1] as u32) << 8
+                        | (decoded_bytes[i + 2] as u32) << 16
+                        | (decoded_bytes[i + 3] as u32) << 24;
+                    tile_data.push(tile_buffer[val as usize]);
+                }
+                Ok(tile_data)
+            }
+        }
+    }
+
+    // TODO: implement infinite maps
+    // fn parse_tile_chunks() {
+
+    // }
 }
 
 type ObjectLayer = ObjectGroup;
@@ -543,6 +593,8 @@ impl Map {
     pub fn get_obj_grp_from_layer_id(&self, obj_layer_id: &ObjectLayerId) -> &ObjectGroup {
         &self.object_layers[obj_layer_id.llid as usize]
     }
+
+    // pub fn set_tile(x: u32, y: u32, tile_id: TileId) -> Option<TileId> { None }
 }
 
 // TODO: implement this struct. How do we want to draw objects?
