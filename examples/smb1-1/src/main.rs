@@ -71,7 +71,7 @@ struct SmbOneOne {
     space: Shared<Space>,
     input_binding: InputBinding<Axis, Button>,
     input_state: Shared<InputState<Axis, Button>>,
-    tile_layer_batches: Vec<hv_tiled::TileLayerBatch>,
+    tile_layer_batches: hv_tiled::TileLayerBatches,
     x_scroll: f32,
     map: hv_tiled::Map,
     timer: TimeContext,
@@ -119,16 +119,7 @@ impl SmbOneOne {
 
         let ts_render_data = hv_tiled::TilesetRenderData::new(&map.tilesets, engine)?;
 
-        let mut tile_layer_batches = Vec::with_capacity(map.tile_layers.len());
-
-        for tile_layer in map.tile_layers.iter() {
-            tile_layer_batches.push(hv_tiled::TileLayerBatch::new(
-                tile_layer,
-                &ts_render_data,
-                engine,
-                &map.meta_data,
-            ));
-        }
+        let tile_layer_batches = hv_tiled::TileLayerBatches::new(&map.tile_layers, &ts_render_data, &map, engine);
 
         let mut simple_handler = SimpleHandler::new("main");
         simple_handler.init(engine)?;
@@ -154,9 +145,7 @@ impl EventHandler for SmbOneOne {
         self.timer.tick();
         let mut counter = 0;
         while self.timer.check_update_time_forced(60, &mut counter) {
-            for tile_layer_batch in self.tile_layer_batches.iter_mut() {
-                tile_layer_batch.update_batches(dt, &self.ts_render_data);
-            }
+            self.tile_layer_batches.update_all_batches(dt, &self.ts_render_data);
 
             for (obj, ()) in self
                 .space
@@ -296,11 +285,7 @@ impl EventHandler for SmbOneOne {
         gfx.modelview_mut().push(None);
         gfx.modelview_mut().scale2(Vector2::new(4.0, 4.0));
 
-        for tile_layer_batch in self.tile_layer_batches.iter_mut() {
-            if tile_layer_batch.visible {
-                tile_layer_batch.draw_mut(&mut gfx, Instance::new());
-            }
-        }
+        self.tile_layer_batches.draw_mut(&mut gfx, Instance::new());
 
         gfx.modelview_mut().pop();
 
