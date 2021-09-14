@@ -4,6 +4,8 @@ local PlayerController = require("smb1_1.player").PlayerController
 local Collider = hf.components.Collider
 local Position = hf.components.Position
 local Velocity = hf.components.Velocity
+local SpriteAnimation = hf.components.SpriteAnimation
+local gfx = hf.graphics
 
 local game_objects = {}
 do
@@ -25,7 +27,11 @@ do
 
         function Goomba:init(space, x, y)
             print("TODO: Goomba components")
-            Goomba.super.init(self, space, x, y)
+            Goomba.super.init(self, space, x, y,
+                Velocity(),
+                SpriteAnimation(gfx.SpriteAnimation.new(rust.sprite_sheets.goomba)),
+                rust.GoombaMarker
+            )
         end
     end
 
@@ -36,13 +42,18 @@ do
 
         function Koopa:init(space, x, y)
             print("TODO: Koopa components")
-            Koopa.super.init(self, space, x, y)
+            Koopa.super.init(self, space, x, y,
+                Velocity(),
+                SpriteAnimation(gfx.SpriteAnimation.new(rust.sprite_sheets.koopa)),
+                rust.KoopaMarker
+            )
         end
     end
 
     local Player = GameObject:extend("smb1_1.game_objects.Player")
         :with(Velocity)
         :with(Collider)
+        :with(SpriteAnimation)
     do
         game_objects.Player = Player
         binser.registerClass(Player)
@@ -51,11 +62,14 @@ do
             Player.super.init(self, space, x, y,
                 Velocity(),
                 Collider(hf.collision.Collider.cuboid(8, 8)),
+                SpriteAnimation(gfx.SpriteAnimation.new(rust.sprite_sheets.mario)),
+                rust.PlayerMarker,
                 rust.RequiresUpdate
             )
             self.run_frames = 0
             self.controller = PlayerController:new()
             self.controller:push("ground")
+            self:sprite_animation_goto_tag_by_str("walk")
         end
 
         function Player:update()

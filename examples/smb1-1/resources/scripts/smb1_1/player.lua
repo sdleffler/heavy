@@ -107,7 +107,8 @@ do
                     vx = move_dir * max_velocity
                 end
             end
-            
+
+            player:sprite_animation_update(abs_vx / 100 / 60)
             player:velocity_set_linear(vx, math.max(vy - normal_gravity, -maximum_falling_velocity))
         end
     end

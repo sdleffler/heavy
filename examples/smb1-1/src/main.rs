@@ -14,7 +14,10 @@ use hv_core::{
 use hv_friends::{
     collision::Collider,
     graphics::{
-        Color, DrawMode, DrawableMut, GraphicsLock, GraphicsLockExt, Instance, MeshBuilder,
+        sprite::{CachedSpriteSheet, SpriteAnimation, SpriteSheetCache},
+        texture::TextureCache,
+        CachedTexture, Color, DrawMode, DrawableMut, GraphicsLock, GraphicsLockExt, Instance,
+        MeshBuilder, SpriteBatch,
     },
     math::*,
     Position, SimpleHandler, Velocity,
@@ -67,6 +70,15 @@ fn default_input_bindings() -> InputBinding<Axis, Button> {
 #[derive(Debug, Clone, Copy)]
 struct RequiresUpdate;
 
+#[derive(Debug, Clone, Copy)]
+struct GoombaMarker;
+
+#[derive(Debug, Clone, Copy)]
+struct KoopaMarker;
+
+#[derive(Debug, Clone, Copy)]
+struct PlayerMarker;
+
 struct SmbOneOne {
     space: Shared<Space>,
     input_binding: InputBinding<Axis, Button>,
@@ -77,6 +89,14 @@ struct SmbOneOne {
     timer: TimeContext,
     ts_render_data: TilesetRenderData,
     to_update: Vec<Object>,
+
+    goomba_batch: SpriteBatch<CachedTexture>,
+    koopa_batch: SpriteBatch<CachedTexture>,
+    mario_batch: SpriteBatch<CachedTexture>,
+
+    goomba_sheet: CachedSpriteSheet,
+    koopa_sheet: CachedSpriteSheet,
+    mario_sheet: CachedSpriteSheet,
 }
 
 impl SmbOneOne {
@@ -84,6 +104,18 @@ impl SmbOneOne {
         let space = engine.get::<Spaces>().borrow_mut().create_space();
         let input_state = Shared::new(InputState::new());
         let lua = engine.lua();
+
+        let mut texture_cache = engine.get::<TextureCache>().owned_borrow_mut();
+        let goomba_texture = texture_cache.get_or_load("/sprite_sheets/goomba-sheet.png")?;
+        let koopa_texture = texture_cache.get_or_load("/sprite_sheets/koopa.png")?;
+        let mario_texture = texture_cache.get_or_load("/sprite_sheets/mario_ss.png")?;
+        drop(texture_cache);
+
+        let mut sprite_sheet_cache = engine.get::<SpriteSheetCache>().owned_borrow_mut();
+        let goomba_sheet = sprite_sheet_cache.get_or_load("/sprite_sheets/goomba.json")?;
+        let koopa_sheet = sprite_sheet_cache.get_or_load("/sprite_sheets/koopa.json")?;
+        let mario_sheet = sprite_sheet_cache.get_or_load("/sprite_sheets/mario_ss.json")?;
+        drop(sprite_sheet_cache);
 
         {
             let button = lua.create_table()?;
@@ -99,6 +131,13 @@ impl SmbOneOne {
             let space = space.clone();
 
             let requires_update = DynamicComponentConstructor::copy(RequiresUpdate);
+            let goomba_marker = DynamicComponentConstructor::copy(GoombaMarker);
+            let koopa_marker = DynamicComponentConstructor::copy(KoopaMarker);
+            let player_marker = DynamicComponentConstructor::copy(PlayerMarker);
+
+            let goomba_sheet = goomba_sheet.clone();
+            let koopa_sheet = koopa_sheet.clone();
+            let mario_sheet = mario_sheet.clone();
 
             let chunk = mlua::chunk! {
                 {
@@ -106,7 +145,16 @@ impl SmbOneOne {
                     button = $button,
                     space = $space,
 
+                    sprite_sheets = {
+                        goomba = $goomba_sheet,
+                        koopa = $koopa_sheet,
+                        mario = $mario_sheet,
+                    },
+
                     RequiresUpdate = $requires_update,
+                    GoombaMarker = $goomba_marker,
+                    KoopaMarker = $koopa_marker,
+                    PlayerMarker = $player_marker,
                 }
             };
 
@@ -125,6 +173,13 @@ impl SmbOneOne {
         let mut simple_handler = SimpleHandler::new("main");
         simple_handler.init(engine)?;
 
+        let gfx_lock = engine.get::<GraphicsLock>();
+        let mut gfx = gfx_lock.lock();
+        let goomba_batch = SpriteBatch::new(&mut gfx, goomba_texture);
+        let koopa_batch = SpriteBatch::new(&mut gfx, koopa_texture);
+        let mario_batch = SpriteBatch::new(&mut gfx, mario_texture);
+        drop(gfx);
+
         Ok(SmbOneOne {
             input_binding: default_input_bindings(),
             input_state,
@@ -135,6 +190,14 @@ impl SmbOneOne {
             timer: TimeContext::new(),
             ts_render_data,
             to_update: Vec::new(),
+
+            goomba_batch,
+            koopa_batch,
+            mario_batch,
+
+            goomba_sheet,
+            koopa_sheet,
+            mario_sheet,
         })
     }
 }
@@ -270,6 +333,44 @@ impl EventHandler for SmbOneOne {
 
                 object.to_table(&lua)?.set("is_grounded", is_grounded)?;
             }
+
+            self.goomba_batch.clear();
+            let goomba_sheet = self.goomba_sheet.get_cached();
+            for (_, (Position(pos), animation)) in self
+                .space
+                .borrow_mut()
+                .query_mut::<(&Position, &mut SpriteAnimation)>()
+                .with::<GoombaMarker>()
+            {
+                let frame = goomba_sheet[animation.animation.frame_id];
+                self.goomba_batch.insert(
+                    Instance::new()
+                        .translate2(pos.center().coords)
+                        .src(frame.uvs)
+                        .translate2(frame.offset),
+                );
+            }
+
+            self.mario_batch.clear();
+            let mario_sheet = self.mario_sheet.get_cached();
+            for (_, (Position(pos), animation)) in self
+                .space
+                .borrow_mut()
+                .query_mut::<(&Position, &mut SpriteAnimation)>()
+                .with::<PlayerMarker>()
+            {
+                let frame = mario_sheet[animation.animation.frame_id];
+                self.mario_batch.insert(
+                    Instance::new()
+                        .translate2(pos.center().coords - Vector2::new(0., 8.))
+                        .src(frame.uvs)
+                        .translate2(frame.offset)
+                        // .translate2(Vector2::new(8., 0.))
+                        // .scale2(Vector2::new(-1., 1.))
+                        // .translate2(Vector2::new(-8., 0.)),
+                );
+            }
+
             self.input_state.borrow_mut().update(TIMESTEP);
         }
 
@@ -288,24 +389,27 @@ impl EventHandler for SmbOneOne {
         gfx.modelview_mut().scale2(Vector2::new(4.0, 4.0));
 
         self.tile_layer_batches.draw_mut(&mut gfx, Instance::new());
+        self.goomba_batch.draw_mut(&mut gfx, Instance::new());
+        self.koopa_batch.draw_mut(&mut gfx, Instance::new());
+        self.mario_batch.draw_mut(&mut gfx, Instance::new());
 
         gfx.modelview_mut().pop();
 
         let mut space = self.space.borrow_mut();
-        let mut mesh = MeshBuilder::new(gfx.state.null_texture.clone())
-            .rectangle(
-                DrawMode::fill(),
-                Box2::from_half_extents(Point2::origin(), Vector2::new(32., 32.)),
-                Color::RED,
-            )
-            .build(&mut gfx);
+        // let mut mesh = MeshBuilder::new(gfx.state.null_texture.clone())
+        //     .rectangle(
+        //         DrawMode::fill(),
+        //         Box2::from_half_extents(Point2::origin(), Vector2::new(32., 32.)),
+        //         Color::RED,
+        //     )
+        //     .build(&mut gfx);
 
-        for (_, Position(pos)) in space.query_mut::<&Position>() {
-            mesh.draw_mut(
-                &mut gfx,
-                Instance::new().translate2((pos.center().coords * scale).map(|t| t.floor())),
-            );
-        }
+        // for (_, Position(pos)) in space.query_mut::<&Position>() {
+        //     mesh.draw_mut(
+        //         &mut gfx,
+        //         Instance::new().translate2((pos.center().coords * scale).map(|t| t.floor())),
+        //     );
+        // }
 
         Ok(())
     }

@@ -343,6 +343,26 @@ impl<N: Numeric + Send> Box2<N> {
         }
     }
 
+    #[inline(always)]
+    pub fn x(self) -> N {
+        self.mins.x
+    }
+
+    #[inline(always)]
+    pub fn y(self) -> N {
+        self.mins.y
+    }
+
+    #[inline(always)]
+    pub fn w(self) -> N {
+        self.extents().x
+    }
+
+    #[inline(always)]
+    pub fn h(self) -> N {
+        self.extents().y
+    }
+
     pub fn invalid() -> Self {
         Self {
             mins: Vector2::repeat(N::max_value()).into(),

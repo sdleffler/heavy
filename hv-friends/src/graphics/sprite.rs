@@ -628,7 +628,7 @@ impl SpriteSheet {
                 - Vector2::new(ss.w, ss.h).cast::<f32>() / 2.;
             let uvs = Box2::new(
                 fr.x as f32 / size.x as f32,
-                fr.y as f32 / size.y as f32,
+                (size.y - fr.y - fr.h) as f32 / size.y as f32,
                 fr.w as f32 / size.x as f32,
                 fr.h as f32 / size.y as f32,
             );

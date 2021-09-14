@@ -190,7 +190,7 @@ do
     local hf_sprite = hv.plugins.friends.graphics.sprite
     local hf_create_sprite_animation_cc =
         hf_sprite.create_sprite_animation_component_constructor
-    local tmp = hf_sprite.dummy_sheet:clone()
+    local tmp = hf_sprite.create_sprite_animation(hf_sprite.dummy_sheet:clone())
 
     setmetatable(SpriteAnimation, {
         __call = function(_, sprite_animation)

@@ -37,6 +37,8 @@ return {
     load_sprite_sheet_from_filesystem = hf_graphics.load_sprite_sheet_from_filesystem,
 
     reload_textures_and_sprite_sheets = function() reload_textures(); reload_sprite_sheets() end,
+    
+    SpriteAnimation = SpriteAnimation,
 
     Drawable = Drawable,
     Instance = hf_graphics.create_instance_object,
