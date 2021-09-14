@@ -341,6 +341,8 @@ impl Map {
         let meta_data = MapMetaData::from_lua(&tiled_lua_table)?;
 
         let mut tilesets = Vec::new();
+        // We initialize the tile_buffer with 1 0'd out TileId to account for the fact
+        // that layer indexing starts at 1 instead of 0
         let mut tile_buffer = vec![TileId(0, 0)];
         let mut obj_slab = slab::Slab::new();
 
@@ -700,8 +702,7 @@ impl TileLayerBatch {
         ts_render_data: &TilesetRenderData,
         map: &mut Map,
     ) -> Option<(SpriteId, TileId)> {
-        let layer = &mut map.tile_layers[self.id.llid as usize];
-        let top = layer.height * map.meta_data.tileheight;
+        let top = map.tile_layers[self.id.llid as usize].height * map.meta_data.tileheight;
 
         // Insert the new tile into the sprite sheet
         let index = tile.to_index().unwrap();
@@ -730,20 +731,40 @@ impl TileLayerBatch {
             );
         }
 
-        let mut ret_val = None;
-        let tile_ref = &mut layer.data[(y * layer.width + x) as usize];
-
-        // Insert the new sprite id, if it already existed in the old sprite id map, we need to check if it was an animated sprite
-        if let Some(old_sprite_id) = self.sprite_id_map.insert((x, y), sprite_id) {
-            // Attempt to remove the sprite sheet info if it exists since we don't want to update animation info for a sprite that doesn't exist
-            self.sprite_sheet_info[tile.1 as usize].remove(&old_sprite_id);
-            ret_val = Some((old_sprite_id, *tile_ref));
-        };
+        // We first remove the tile, as if we insert first, remove will fail due to insert updating
+        // values in place
+        let ret_val = self.remove_tile(x, y, map);
 
         // Update the layer with the new tile id
-        *tile_ref = tile;
+        let layer = &mut map.tile_layers[self.id.llid as usize];
+        layer.data[(y * layer.width + x) as usize] = tile;
+
+        // Insert the new sprite id, we unwrap() here to trigger a panic in the event
+        let res = self.sprite_id_map.insert((x, y), sprite_id);
+        assert!(res.is_none(),
+                "There is a bug in the hv_tiled remove_tile function, remove_tile should've removed the tile, but instead we got {:?}", res.unwrap());
 
         ret_val
+    }
+
+    pub fn remove_tile(
+        &mut self,
+        x: u32,
+        y: u32,
+        map: &mut Map,
+    ) -> Option<(SpriteId, TileId)> {
+        let layer = &mut map.tile_layers[self.id.llid as usize];
+        let tile_ref = &mut layer.data[(y * map.meta_data.height + x) as usize];
+        let old_tile = *tile_ref;
+
+        if let Some(old_sprite_id) = self.sprite_id_map.remove(&(x, y)) {
+            // Attempt to remove the sprite sheet info if it exists since we don't want to update animation info for a sprite that doesn't exist
+            self.sprite_sheet_info[old_tile.1 as usize].remove(&old_sprite_id);
+            *tile_ref = TileId(0, 0);
+            Some((old_sprite_id, old_tile))
+        } else {
+            None
+        }
     }
 }
 
