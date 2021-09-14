@@ -545,8 +545,7 @@ pub struct ObjectLayerBatch;
 pub struct SpriteSheetState {
     frame: SpriteFrame,
     tag: SpriteTag,
-    animated_sprite_index: SpriteId,
-    animated_sprite_tag: TagId,
+    sprite_tag: TagId,
 }
 
 pub struct TileLayerBatches(Vec<TileLayerBatch>);
@@ -586,7 +585,10 @@ impl DrawableMut for TileLayerBatches {
         for tile_layer in self.0.iter_mut() {
             if tile_layer.visible {
                 for batch in tile_layer.sprite_batches.iter_mut() {
-                    batch.draw_mut(ctx, instance.translate2(Vector2::new(tile_layer.offx, tile_layer.offy)));
+                    batch.draw_mut(
+                        ctx,
+                        instance.translate2(Vector2::new(tile_layer.offx, tile_layer.offy)),
+                    );
                 }
             }
         }
@@ -594,7 +596,8 @@ impl DrawableMut for TileLayerBatches {
 }
 
 pub struct TileLayerBatch {
-    sprite_sheet_info: Vec<Vec<SpriteSheetState>>,
+    id: TileLayerId,
+    sprite_sheet_info: Vec<HashMap<SpriteId, SpriteSheetState>>,
     pub sprite_id_map: HashMap<(u32, u32), SpriteId>,
     sprite_batches: Vec<SpriteBatch<CachedTexture>>,
     pub visible: bool,
@@ -620,8 +623,7 @@ impl TileLayerBatch {
     ) -> Self {
         // We need 1 sprite batch per texture
         let mut sprite_batches = Vec::with_capacity(ts_render_data.textures_and_spritesheets.len());
-        let mut ss_state: Vec<Vec<SpriteSheetState>> =
-            vec![Vec::new(); ts_render_data.textures_and_spritesheets.len()];
+        let mut ss_state = vec![HashMap::new(); ts_render_data.textures_and_spritesheets.len()];
         let mut sprite_id_map = HashMap::new();
 
         let graphics_lock = engine.get::<GraphicsLock>();
@@ -658,12 +660,14 @@ impl TileLayerBatch {
                             [tile.1 as usize]
                             .1
                             .at_tag(*t, true);
-                        ss_state[tile.1 as usize].push(SpriteSheetState {
-                            frame,
-                            tag,
-                            animated_sprite_index: sprite_id,
-                            animated_sprite_tag: *t,
-                        });
+                        ss_state[tile.1 as usize].insert(
+                            sprite_id,
+                            SpriteSheetState {
+                                frame,
+                                tag,
+                                sprite_tag: *t,
+                            },
+                        );
                     }
                 }
             }
@@ -675,6 +679,7 @@ impl TileLayerBatch {
             opacity: layer.opacity,
             offx: (layer.x * map_meta_data.tilewidth) as f32,
             offy: (layer.y * map_meta_data.tileheight) as f32,
+            id: layer.id,
             sprite_batches,
             sprite_id_map,
         }
@@ -682,12 +687,67 @@ impl TileLayerBatch {
 
     pub fn update_batches(&mut self, dt: f32, ts_render_data: &TilesetRenderData) {
         for (i, batch) in self.sprite_batches.iter_mut().enumerate() {
-            for ss_state in self.sprite_sheet_info[i].iter_mut() {
+            for (sprite_index, ss_state) in self.sprite_sheet_info[i].iter_mut() {
                 let sprite_sheet = &ts_render_data.textures_and_spritesheets[i].1;
-                batch[ss_state.animated_sprite_index].src = sprite_sheet[ss_state.frame.0].uvs;
+                batch[*sprite_index].src = sprite_sheet[ss_state.frame.0].uvs;
                 sprite_sheet.update_animation(dt, &mut ss_state.tag, &mut ss_state.frame);
             }
         }
+    }
+
+    pub fn set_tile(
+        &mut self,
+        x: u32,
+        y: u32,
+        tile: TileId,
+        ts_render_data: &TilesetRenderData,
+        map: &mut Map,
+    ) -> Option<(SpriteId, TileId)> {
+        let layer = &mut map.tile_layers[self.id.llid as usize];
+        let top = layer.height * map.meta_data.tileheight;
+
+        // Insert the new tile into the sprite sheet
+        let index = tile.to_index().unwrap();
+        let sprite_id = self.sprite_batches[tile.1 as usize].insert(
+            Instance::new()
+                .src(ts_render_data.uvs[index])
+                .color(Color::new(1.0, 1.0, 1.0, self.opacity as f32))
+                .translate2(Vector2::new(
+                    (x * map.meta_data.tilewidth) as f32,
+                    // Need to offset by 1 here since tiled renders maps top right to bottom left, but we do bottom left to top right
+                    (top - ((y + 1) * map.meta_data.tileheight)) as f32,
+                )),
+        );
+
+        // If it's an animated tile, add it to the sprite sheet state hashmap so that it'll get updated correctly
+        if let Some(t) = ts_render_data.tile_to_tag_map.get(&tile) {
+            let (frame, tag) = ts_render_data.textures_and_spritesheets[tile.1 as usize]
+                .1
+                .at_tag(*t, true);
+            self.sprite_sheet_info[tile.1 as usize].insert(
+                sprite_id,
+                SpriteSheetState {
+                    frame,
+                    tag,
+                    sprite_tag: *t,
+                },
+            );
+        }
+
+        let mut ret_val = None;
+        let tile_ref = &mut layer.data[(y * layer.width + x) as usize];
+
+        // Insert the new sprite id, if it already existed in the old sprite id map, we need to check if it was an animated sprite
+        if let Some(old_sprite_id) = self.sprite_id_map.insert((x, y), sprite_id) {
+            // Attempt to remove the sprite sheet info if it exists since we don't want to update animation info for a sprite that doesn't exist
+            self.sprite_sheet_info[tile.1 as usize].remove(&old_sprite_id);
+            ret_val = Some((old_sprite_id, *tile_ref));
+        };
+
+        // Update the layer with the new tile id
+        *tile_ref = tile;
+
+        ret_val
     }
 }
 
