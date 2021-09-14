@@ -25,6 +25,13 @@ end
 local reload_textures = hf_graphics.reload_textures
 local reload_sprite_sheets = hf_graphics.reload_sprite_sheets
 
+local SpriteAnimation = {}
+do
+    local hf_sprite = hf_graphics.sprite
+
+    SpriteAnimation.new = assert(hf_sprite.create_sprite_animation)
+end
+
 return {
     load_texture_from_filesystem = hf_graphics.load_texture_from_filesystem,
     load_sprite_sheet_from_filesystem = hf_graphics.load_sprite_sheet_from_filesystem,
