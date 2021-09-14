@@ -115,11 +115,12 @@ impl SmbOneOne {
         }
         drop(lua);
 
-        let map = hv_tiled::Map::new("/maps/mario_bros_1-1.lua", engine, Some("maps/"))?;
+        let mut map = hv_tiled::Map::new("/maps/mario_bros_1-1.lua", engine, Some("maps/"))?;
 
         let ts_render_data = hv_tiled::TilesetRenderData::new(&map.tilesets, engine)?;
 
-        let tile_layer_batches = hv_tiled::TileLayerBatches::new(&map.tile_layers, &ts_render_data, &map, engine);
+        let mut tile_layer_batches =
+            hv_tiled::TileLayerBatches::new(&map.tile_layers, &ts_render_data, &map, engine);
 
         let mut simple_handler = SimpleHandler::new("main");
         simple_handler.init(engine)?;
@@ -145,7 +146,8 @@ impl EventHandler for SmbOneOne {
         self.timer.tick();
         let mut counter = 0;
         while self.timer.check_update_time_forced(60, &mut counter) {
-            self.tile_layer_batches.update_all_batches(dt, &self.ts_render_data);
+            self.tile_layer_batches
+                .update_all_batches(dt, &self.ts_render_data);
 
             for (obj, ()) in self
                 .space

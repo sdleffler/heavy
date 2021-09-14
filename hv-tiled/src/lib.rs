@@ -169,6 +169,11 @@ impl TileId {
             Some((self.0 - 1) as usize)
         }
     }
+
+    // Input the tile id here as is found in tiled
+    pub fn new(tile_id: u32, tileset_id: u32) -> TileId {
+        TileId(tile_id + 1, tileset_id)
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -576,6 +581,14 @@ impl TileLayerBatches {
         }
     }
 
+    pub fn get_layer(&self, layer_id: TileLayerId) -> &TileLayerBatch {
+        &self.0[layer_id.llid as usize]
+    }
+
+    pub fn get_layer_mut(&mut self, layer_id: TileLayerId) -> &mut TileLayerBatch {
+        &mut self.0[layer_id.llid as usize]
+    }
+
     pub fn get_tile_batch_layers(&mut self) -> impl Iterator<Item = &mut TileLayerBatch> + '_ {
         self.0.iter_mut()
     }
@@ -654,7 +667,7 @@ impl TileLayerBatch {
                             )),
                     );
 
-                    sprite_id_map.insert((x_cord, y_cord), sprite_id);
+                    sprite_id_map.insert((x_cord, (layer.height - y_cord - 1)), sprite_id);
 
                     if let Some(t) = ts_render_data.tile_to_tag_map.get(&tile) {
                         let anim_state = ts_render_data.textures_and_spritesheets[tile.1 as usize]
@@ -705,8 +718,6 @@ impl TileLayerBatch {
         ts_render_data: &TilesetRenderData,
         map: &mut Map,
     ) -> Option<(SpriteId, TileId)> {
-        let top = map.tile_layers[self.id.llid as usize].height * map.meta_data.tileheight;
-
         // Insert the new tile into the sprite sheet
         let index = tile.to_index().unwrap();
         let sprite_id = self.sprite_batches[tile.1 as usize].insert(
@@ -716,7 +727,7 @@ impl TileLayerBatch {
                 .translate2(Vector2::new(
                     (x * map.meta_data.tilewidth) as f32,
                     // Need to offset by 1 here since tiled renders maps top right to bottom left, but we do bottom left to top right
-                    (top - ((y + 1) * map.meta_data.tileheight)) as f32,
+                    (y * map.meta_data.tileheight) as f32,
                 )),
         );
 
@@ -740,7 +751,10 @@ impl TileLayerBatch {
 
         // Update the layer with the new tile id
         let layer = &mut map.tile_layers[self.id.llid as usize];
-        layer.data[(y * layer.width + x) as usize] = tile;
+
+        let top = (layer.height * map.meta_data.width - 1) - map.meta_data.height;
+
+        layer.data[(top - (y * layer.width + x)) as usize] = tile;
 
         // Insert the new sprite id, we unwrap() here to trigger a panic in the event
         let res = self.sprite_id_map.insert((x, y), sprite_id);
@@ -750,19 +764,19 @@ impl TileLayerBatch {
         ret_val
     }
 
-    pub fn remove_tile(
-        &mut self,
-        x: u32,
-        y: u32,
-        map: &mut Map,
-    ) -> Option<(SpriteId, TileId)> {
+    pub fn remove_tile(&mut self, x: u32, y: u32, map: &mut Map) -> Option<(SpriteId, TileId)> {
         let layer = &mut map.tile_layers[self.id.llid as usize];
-        let tile_ref = &mut layer.data[(y * map.meta_data.height + x) as usize];
+
+        let top = (layer.width * layer.height) - layer.width;
+
+        let tile_ref = &mut layer.data[(top - (y * layer.width) + x) as usize];
         let old_tile = *tile_ref;
 
         if let Some(old_sprite_id) = self.sprite_id_map.remove(&(x, y)) {
             // Attempt to remove the sprite sheet info if it exists since we don't want to update animation info for a sprite that doesn't exist
             self.sprite_sheet_info[old_tile.1 as usize].remove(&old_sprite_id);
+            self.sprite_batches[tile_ref.1 as usize].remove(old_sprite_id);
+
             *tile_ref = TileId(0, 0);
             Some((old_sprite_id, old_tile))
         } else {
