@@ -688,8 +688,11 @@ impl TileLayerBatch {
         for (i, batch) in self.sprite_batches.iter_mut().enumerate() {
             for (sprite_index, ss_state) in self.sprite_sheet_info[i].iter_mut() {
                 let sprite_sheet = &ts_render_data.textures_and_spritesheets[i].1;
-                batch[*sprite_index].src = sprite_sheet[ss_state.anim_state.frame_id].uvs;
-                sprite_sheet.update_animation(dt, &mut ss_state.anim_state);
+                if let Some(new_frame_id) =
+                    sprite_sheet.update_animation(dt, &mut ss_state.anim_state)
+                {
+                    batch[*sprite_index].src = sprite_sheet[new_frame_id].uvs;
+                }
             }
         }
     }

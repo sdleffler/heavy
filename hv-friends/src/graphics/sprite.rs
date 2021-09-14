@@ -690,34 +690,39 @@ impl SpriteSheet {
         anim_state: &AnimationState,
     ) -> Option<(AnimationState, Option<FrameId>)> {
         if !anim_state.is_paused {
-            let mut new_tag_state = AnimationState {
+            let mut new_anim_state = AnimationState {
                 remaining: anim_state.remaining - dt * 1_000.,
                 ..*anim_state
             };
 
-            if new_tag_state.remaining < 0. {
-                let tag = &self[new_tag_state.tag_id];
-                match tag.next_frame(anim_state.frame_id, new_tag_state.is_ponged) {
-                    Err(_) if !anim_state.should_loop => Some((
-                        AnimationState {
-                            is_paused: true,
-                            ..new_tag_state
-                        },
-                        Some(self[new_tag_state.tag_id].last_frame()),
-                    )),
+            if new_anim_state.remaining < 0. {
+                let tag = &self[new_anim_state.tag_id];
+                match tag.next_frame(anim_state.frame_id, new_anim_state.is_ponged) {
+                    Err(_) if !anim_state.should_loop => {
+                        let last_frame = self[new_anim_state.tag_id].last_frame();
+                        Some((
+                            AnimationState {
+                                is_paused: true,
+                                frame_id: last_frame,
+                                ..new_anim_state
+                            },
+                            Some(last_frame),
+                        ))
+                    }
                     result @ (Ok(new_frame) | Err(new_frame)) => {
                         if matches!(tag.direction, Direction::Pingpong) && result.is_err() {
                             // If we wrapped and this tag is set to ping-pong, then we need to flip
                             // the direction.
-                            new_tag_state.is_ponged = !new_tag_state.is_ponged;
+                            new_anim_state.is_ponged = !new_anim_state.is_ponged;
                         }
 
-                        new_tag_state.remaining += self[new_frame].duration as f32;
-                        Some((new_tag_state, Some(new_frame)))
+                        new_anim_state.remaining += self[new_frame].duration as f32;
+                        new_anim_state.frame_id = new_frame;
+                        Some((new_anim_state, Some(new_frame)))
                     }
                 }
             } else {
-                Some((new_tag_state, None))
+                Some((new_anim_state, None))
             }
         } else {
             None
@@ -801,13 +806,88 @@ impl Default for AnimationState {
     }
 }
 
+/// Everything you need to update an [`AnimationState`] using the [`SpriteSheet`] it was created
+/// from. If you just need a simple way to update animations from Lua or Rust, this is a good
+/// option, and it comes with a Lua API for changing and setting animations.
 #[derive(Debug, Clone)]
 pub struct SpriteAnimation {
+    /// The spritesheet used with this animation.
     pub sheet: CachedSpriteSheet,
+    /// The state of this animation.
     pub animation: AnimationState,
 }
 
-impl LuaUserData for SpriteAnimation {}
+impl SpriteAnimation {
+    /// Update this animation, moving it forward by `dt`.
+    pub fn update(&mut self, dt: f32) {
+        self.sheet
+            .get_cached()
+            .update_animation(dt, &mut self.animation);
+    }
+
+    /// Set whether this animation is currently paused.
+    pub fn set_paused(&mut self, paused: bool) {
+        self.animation.is_paused = paused;
+    }
+
+    /// Check whether this animation is currently paused.
+    pub fn is_paused(&self) -> bool {
+        self.animation.is_paused
+    }
+
+    /// Set whether or not this animation should loop; if not, then it will automatically become
+    /// paused when it would otherwise loop.
+    pub fn set_loop(&mut self, should_loop: bool) {
+        self.animation.should_loop = should_loop;
+    }
+
+    /// Check whether or not this animation should loop.
+    pub fn should_loop(&self) -> bool {
+        self.animation.should_loop
+    }
+
+    /// Go to a specific animation tag.
+    ///
+    /// This function will currently panic if the tag does not exist, which could happen if the
+    /// spritesheet is dynamically reloaded. This is a TODO, as we would like to be more robust in
+    /// the case of that happening.
+    pub fn goto_tag(&mut self, tag_id: TagId) {
+        self.animation = self
+            .sheet
+            .get_cached()
+            .at_tag(tag_id, self.animation.should_loop);
+    }
+
+    /// Go to a specific animation tag using its string name.
+    pub fn goto_tag_by_str(&mut self, name: &str) {
+        let tag_id = match self.sheet.get_cached().get_tag(name) {
+            Some(tag_id) => tag_id,
+            // TODO: error handling here, no such tag
+            None => return,
+        };
+
+        self.goto_tag(tag_id);
+    }
+}
+
+impl LuaUserData for SpriteAnimation {
+    fn add_methods<'lua, M: LuaUserDataMethods<'lua, Self>>(methods: &mut M) {
+        use crate::lua::*;
+
+        simple_mut(methods, "update", Self::update);
+        simple_mut(methods, "set_paused", Self::set_paused);
+        simple(methods, "is_paused", |s, ()| s.is_paused());
+        simple_mut(methods, "set_loop", Self::set_loop);
+        simple(methods, "should_loop", |s, ()| s.should_loop());
+        simple_mut(methods, "goto_tag", Self::goto_tag);
+
+        methods.add_method_mut("goto_tag_by_str", |_, this, tag_name: LuaString| {
+            let tag_name_str = tag_name.to_str()?;
+            this.goto_tag_by_str(tag_name_str);
+            Ok(())
+        });
+    }
+}
 
 pub struct FilesystemSpriteSheetLoader {
     engine: EngineRef,
