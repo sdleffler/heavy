@@ -146,6 +146,12 @@ pub enum Encoding {
 }
 
 #[derive(Debug, Clone)]
+pub enum Compression {
+    ZLib,
+    GZip,
+}
+
+#[derive(Debug, Clone)]
 pub enum Orientation {
     Orthogonal,
     Isometric,
@@ -263,7 +269,6 @@ pub struct TileLayer {
     offset_x: u32,
     offset_y: u32,
     properties: Properties,
-    encoding: Encoding,
     data: Vec<TileId>,
 }
 
@@ -280,23 +285,21 @@ impl TileLayer {
             e => return Err(anyhow!("Got an unsupported encoding type: {}", e)),
         };
 
-        let width: u32 = t.get("width")?;
-        let height: u32 = t.get("height")?;
+        let compression = match t.get::<_, LuaString>("compression") {
+            Ok(e) => match e.to_str()? {
+                "gzip" => Some(Compression::GZip),
+                "zlib" => Some(Compression::ZLib),
+                "zstd" => return Err(anyhow!("Zstd compression is not supported!")),
+                e => return Err(anyhow!("Got a corrupted compression format: {}", e)),
+            },
+            Err(_) => None,
+        };
 
         if !t.contains_key("data")? {
             return Err(anyhow!("Infinite maps not supported yet!"));
         }
 
-        let data = TileLayer::parse_tile_data(&encoding, t, tile_buffer)?;
-
-        if t.get::<_, LuaString>("name")?.to_str()? == "Sky" {
-            for y in 0..height {
-                for x in 0..width {
-                    print!("{}, ", data[((y * height) + x) as usize].0);
-                }
-                println!();
-            }
-        }
+        let data = TileLayer::parse_tile_data(encoding, compression, t, tile_buffer)?;
 
         Ok(TileLayer {
             id: TileLayerId {
@@ -312,15 +315,15 @@ impl TileLayer {
             offset_y: t.get("offsety")?,
             properties: Properties::from_lua(t)?,
             data,
-            encoding,
             layer_type,
-            width,
-            height,
+            width: t.get("width")?,
+            height: t.get("height")?,
         })
     }
 
     fn parse_tile_data(
-        encoding: &Encoding,
+        encoding: Encoding,
+        compression: Option<Compression>,
         t: &LuaTable,
         tile_buffer: &[TileId],
     ) -> Result<Vec<TileId>, Error> {
@@ -336,18 +339,42 @@ impl TileLayer {
                     tile_data.push(tile_buffer[tile? as usize]);
                 }
                 Ok(tile_data)
-            }
+            },
+
             Encoding::Base64 => {
-                let mut tile_data = Vec::new();
+                let str_data = t.get::<_, LuaString>("data")?.to_str()?.to_owned();
+
                 let decoded_bytes = base64::decode_config(
-                    t.get::<_, LuaString>("data")?.to_str()?,
+                    str_data,
                     base64::STANDARD,
                 )?;
-                for i in (0..decoded_bytes.len()).step_by(4) {
-                    let val = decoded_bytes[i] as u32
-                        | (decoded_bytes[i + 1] as u32) << 8
-                        | (decoded_bytes[i + 2] as u32) << 16
-                        | (decoded_bytes[i + 3] as u32) << 24;
+
+                let level_bytes = match compression {
+                    Some(c) => {
+                        match c {
+                            Compression::GZip => {
+                                let mut d = flate2::read::GzDecoder::new(decoded_bytes.as_slice());
+                                let mut s = Vec::new();
+                                d.read_to_end(&mut s).unwrap();
+                                s
+                            }
+                            Compression::ZLib  => {
+                                let mut d = flate2::read::ZlibDecoder::new(decoded_bytes.as_slice());
+                                let mut s = Vec::new();
+                                d.read_to_end(&mut s).unwrap();
+                                s
+                            }
+                        }
+                    },
+                    None => decoded_bytes,
+                };
+
+                let mut tile_data = Vec::new();
+                for i in (0..level_bytes.len()).step_by(4) {
+                    let val = level_bytes[i] as u32
+                        | (level_bytes[i + 1] as u32) << 8
+                        | (level_bytes[i + 2] as u32) << 16
+                        | (level_bytes[i + 3] as u32) << 24;
                     tile_data.push(tile_buffer[val as usize]);
                 }
                 Ok(tile_data)

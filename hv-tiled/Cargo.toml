@@ -11,6 +11,7 @@ hv-friends = { path = "../hv-friends" }
 log = "0.4.14"
 slab = "0.4.4"
 base64 = "0.13.0"
+flate2 = "1.0.22"
 
 [dev-dependencies]
 simple_logger = "1.13.0"
