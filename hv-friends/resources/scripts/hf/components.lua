@@ -185,20 +185,75 @@ do
     end
 end
 
-local SpriteAnimationState = {}
+local SpriteAnimation = {}
 do
-    local hf_create_sprite_animation_state_constructor =
-        hv.plugins.friends.graphics.hf_create_sprite_animation_state_component_constructor
+    local hf_sprite = hv.plugins.friends.graphics.sprite
+    local hf_create_sprite_animation_cc =
+        hf_sprite.create_sprite_animation_component_constructor
+    local tmp = hf_sprite.dummy_sheet:clone()
 
-    setmetatable(SpriteAnimationState, {
-        __call = function(_, sprite_sheet, tag, should_loop)
-            return hf_create_sprite_animation_state_constructor(sprite_sheet, tag, should_loop)
+    setmetatable(SpriteAnimation, {
+        __call = function(_, sprite_animation)
+            return hf_create_sprite_animation_cc(sprite_animation)
         end,
     })
+
+    local hf_get_sprite_animation = hf_sprite.get_sprite_animation
+    function SpriteAnimation:sprite_animation_get(out)
+        out = out or tmp:clone()
+        hf_get_sprite_animation(self, out)
+        return out
+    end
+    
+    local hf_set_sprite_animation = hf_sprite.set_sprite_animation
+    function SpriteAnimation:sprite_animation_set(animation)
+        hf_set_sprite_animation(self, animation)
+    end
+
+    function SpriteAnimation:sprite_animation_update(dt)
+        hf_get_sprite_animation(self, tmp)
+        tmp:update(dt)
+        hf_set_sprite_animation(self, tmp)
+    end
+
+    function SpriteAnimation:sprite_animation_set_paused(paused)
+        hf_get_sprite_animation(self, tmp)
+        tmp:set_paused(paused)
+        hf_set_sprite_animation(self, tmp)
+    end
+
+    function SpriteAnimation:sprite_animation_is_paused()
+        hf_get_sprite_animation(self, tmp)
+        return tmp:is_paused()
+    end
+
+    function SpriteAnimation:sprite_animation_set_loop(should_loop)
+        hf_get_sprite_animation(self, tmp)
+        tmp:set_loop(should_loop)
+        hf_set_sprite_animation(self, tmp)
+    end
+
+    function SpriteAnimation:sprite_animation_should_loop()
+        hf_get_sprite_animation(self, tmp)
+        return tmp:should_loop()
+    end
+    
+    function SpriteAnimation:sprite_animation_goto_tag(tag)
+        hf_get_sprite_animation(self, tmp)
+        tmp:goto_tag(tag)
+        hf_set_sprite_animation(self, tmp)
+    end
+    
+    function SpriteAnimation:sprite_animation_goto_tag_by_str(tag_name)
+        hf_get_sprite_animation(self, tmp)
+        tmp:goto_tag_by_str(tag_name)
+        hf_set_sprite_animation(self, tmp)
+    end
 end
 
 return {
     Collider = Collider,
     Position = Position,
     Velocity = Velocity,
+    SpriteAnimation = SpriteAnimation,
 }

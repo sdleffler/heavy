@@ -873,6 +873,7 @@ pub(crate) fn open<'lua>(lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lu
     let bindings = crate::graphics::bindings::open(lua, &gfx_lock)?;
     let buffer = crate::graphics::buffer::open(lua, &gfx_lock)?;
     let pipeline = crate::graphics::pipeline::open(lua, &gfx_lock)?;
+    let sprite = crate::graphics::sprite::open(lua, engine, &gfx_lock)?;
 
     let lgs = LuaGraphicsState::new(&mut gfx_lock.lock());
 
@@ -926,6 +927,7 @@ pub(crate) fn open<'lua>(lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lu
                 bindings = $bindings,
                 buffer = $buffer,
                 pipeline = $pipeline,
+                sprite = $sprite,
                 
                 circle = $circle,
                 line = $line,

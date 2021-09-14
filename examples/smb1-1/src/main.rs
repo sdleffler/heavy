@@ -115,11 +115,11 @@ impl SmbOneOne {
         }
         drop(lua);
 
-        let mut map = hv_tiled::Map::new("/maps/mario_bros_1-1.lua", engine, Some("maps/"))?;
+        let map = hv_tiled::Map::new("/maps/mario_bros_1-1.lua", engine, Some("maps/"))?;
 
         let ts_render_data = hv_tiled::TilesetRenderData::new(&map.tilesets, engine)?;
 
-        let mut tile_layer_batches =
+        let tile_layer_batches =
             hv_tiled::TileLayerBatches::new(&map.tile_layers, &ts_render_data, &map, engine);
 
         let mut simple_handler = SimpleHandler::new("main");

@@ -1,8 +1,10 @@
 use aseprite::SpritesheetData;
 use hv_core::{
+    components::DynamicComponentConstructor,
     engine::{Engine, EngineRef, LuaResource},
     mq,
     prelude::*,
+    spaces::{Object, SpaceCache},
     swappable_cache::{AsCached, Guard, Handle, Loader, SwappableCache, UncachedHandle},
 };
 use serde::{Deserialize, Serialize};
@@ -10,7 +12,9 @@ use std::{collections::HashMap, io::Read, mem, ops, path::Path};
 use thunderdome::{Arena, Index};
 
 use crate::{
-    graphics::{Drawable, DrawableMut, Graphics, Instance, InstanceProperties, Texture},
+    graphics::{
+        Drawable, DrawableMut, Graphics, GraphicsLock, Instance, InstanceProperties, Texture,
+    },
     math::*,
 };
 
@@ -768,7 +772,11 @@ impl CachedSpriteSheet {
     }
 }
 
-impl LuaUserData for CachedSpriteSheet {}
+impl LuaUserData for CachedSpriteSheet {
+    fn add_methods<'lua, M: LuaUserDataMethods<'lua, Self>>(methods: &mut M) {
+        crate::lua::add_clone_methods(methods);
+    }
+}
 
 /// Component holding the string name of a spritesheet.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -818,6 +826,14 @@ pub struct SpriteAnimation {
 }
 
 impl SpriteAnimation {
+    /// Create a new sprite animation at no specific animation tag.
+    pub fn new(sheet: CachedSpriteSheet) -> Self {
+        Self {
+            sheet,
+            animation: AnimationState::default(),
+        }
+    }
+
     /// Update this animation, moving it forward by `dt`.
     pub fn update(&mut self, dt: f32) {
         self.sheet
@@ -936,4 +952,64 @@ impl SpriteSheetCache {
     pub fn reload_all(&mut self) -> Result<()> {
         self.inner.reload_all()
     }
+}
+
+pub(super) fn open<'lua>(
+    lua: &'lua Lua,
+    engine: &Engine,
+    _shared_gfx: &Shared<GraphicsLock>,
+) -> Result<LuaTable<'lua>> {
+    let dummy_sheet = CachedSpriteSheet::new_uncached(SpriteSheet::new());
+
+    let create_sprite_animation =
+        lua.create_function(move |_, sheet: CachedSpriteSheet| Ok(SpriteAnimation::new(sheet)))?;
+    let create_sprite_animation_component_constructor =
+        lua.create_function(move |_, animation: SpriteAnimation| {
+            Ok(DynamicComponentConstructor::clone(animation))
+        })?;
+
+    let mut space_cache = SpaceCache::new(engine);
+    let has_sprite_animation = lua.create_function_mut(move |_, object: Object| {
+        Ok(space_cache
+            .get_space(object.space())
+            .borrow()
+            .query_one::<&SpriteAnimation>(object)
+            .to_lua_err()?
+            .get()
+            .is_some())
+    })?;
+
+    let mut space_cache = SpaceCache::new(engine);
+    let get_sprite_animation =
+        lua.create_function_mut(move |_, (obj, out): (Object, LuaAnyUserData)| {
+            let space = space_cache.get_space(obj.space());
+            let sprite_animation =
+                (*space.borrow().get::<SpriteAnimation>(obj).to_lua_err()?).clone();
+            *out.borrow_mut::<SpriteAnimation>()? = sprite_animation;
+            Ok(())
+        })?;
+
+    let mut space_cache = SpaceCache::new(engine);
+    let set_sprite_animation =
+        lua.create_function_mut(move |_, (obj, animation): (Object, SpriteAnimation)| {
+            let space = space_cache.get_space(obj.space());
+            *space
+                .borrow()
+                .get_mut::<SpriteAnimation>(obj)
+                .to_lua_err()? = animation;
+            Ok(())
+        })?;
+
+    let chunk = mlua::chunk! {
+        {
+            dummy_sheet = $dummy_sheet,
+            create_sprite_animation = $create_sprite_animation,
+            create_sprite_animation_component_constructor = $create_sprite_animation_component_constructor,
+            has_sprite_animation = $has_sprite_animation,
+            get_sprite_animation = $get_sprite_animation,
+            set_sprite_animation = $set_sprite_animation,
+        }
+    };
+
+    Ok(lua.load(chunk).eval()?)
 }
