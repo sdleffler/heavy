@@ -182,8 +182,8 @@ impl Danmaku {
                     let sprite = projectile.sprite.as_mut().unwrap();
                     let batch = &mut sprite_registry[sprite.batch_id];
                     let sheet = batch.sheet.get_cached();
-                    sheet.update_animation(dt, &mut sprite.tag, &mut sprite.frame);
-                    let frame = &sheet[sprite.frame];
+                    sheet.update_animation(dt, &mut sprite.animation_state);
+                    let frame = &sheet[sprite.animation_state.frame_id];
 
                     batch.sprites.insert(
                         Instance::new()
@@ -350,12 +350,11 @@ impl Plugin for HvRainPlugin {
                     .get_tag(tag.to_str()?)
                     .ok_or_else(|| anyhow!("no such tag"))
                     .to_lua_err()?;
-                let (frame, tag) = sheet.at_tag(tag_id, should_loop.unwrap_or(true));
+                let animation_state = sheet.at_tag(tag_id, should_loop.unwrap_or(true));
 
                 Ok(ProjectileSprite {
                     batch_id: projectile_sprite,
-                    frame,
-                    tag,
+                    animation_state,
                 })
             },
         )?;

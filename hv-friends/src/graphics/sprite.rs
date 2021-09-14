@@ -519,10 +519,10 @@ impl ops::Index<TagId> for SpriteSheet {
     }
 }
 
-impl ops::Index<SpriteTag> for SpriteSheet {
+impl ops::Index<AnimationState> for SpriteSheet {
     type Output = Tag;
 
-    fn index(&self, sprite_tag: SpriteTag) -> &Self::Output {
+    fn index(&self, sprite_tag: AnimationState) -> &Self::Output {
         &self[sprite_tag.tag_id]
     }
 }
@@ -531,14 +531,6 @@ impl ops::Index<FrameId> for SpriteSheet {
     type Output = Frame;
 
     fn index(&self, FrameId(id): FrameId) -> &Self::Output {
-        &self.frames[id as usize]
-    }
-}
-
-impl ops::Index<SpriteFrame> for SpriteSheet {
-    type Output = Frame;
-
-    fn index(&self, SpriteFrame(FrameId(id)): SpriteFrame) -> &Self::Output {
         &self.frames[id as usize]
     }
 }
@@ -682,37 +674,36 @@ impl SpriteSheet {
         })
     }
 
-    pub fn update_animation(&self, dt: f32, tag: &mut SpriteTag, frame: &mut SpriteFrame) {
-        if let Some((new_tag, maybe_new_frame)) = self.update_animation_inner(dt, tag, frame) {
-            *tag = new_tag;
+    pub fn update_animation(&self, dt: f32, anim: &mut AnimationState) -> Option<FrameId> {
+        if let Some((new_anim, maybe_new_frame)) = self.update_animation_inner(dt, anim) {
+            *anim = new_anim;
 
-            if let Some(new_frame) = maybe_new_frame {
-                *frame = new_frame;
-            }
+            maybe_new_frame
+        } else {
+            None
         }
     }
 
     fn update_animation_inner(
         &self,
         dt: f32,
-        tag_state: &SpriteTag,
-        SpriteFrame(frame): &SpriteFrame,
-    ) -> Option<(SpriteTag, Option<SpriteFrame>)> {
-        if !tag_state.is_paused {
-            let mut new_tag_state = SpriteTag {
-                remaining: tag_state.remaining - dt * 1_000.,
-                ..*tag_state
+        anim_state: &AnimationState,
+    ) -> Option<(AnimationState, Option<FrameId>)> {
+        if !anim_state.is_paused {
+            let mut new_tag_state = AnimationState {
+                remaining: anim_state.remaining - dt * 1_000.,
+                ..*anim_state
             };
 
             if new_tag_state.remaining < 0. {
                 let tag = &self[new_tag_state.tag_id];
-                match tag.next_frame(*frame, new_tag_state.is_ponged) {
-                    Err(_) if !tag_state.should_loop => Some((
-                        SpriteTag {
+                match tag.next_frame(anim_state.frame_id, new_tag_state.is_ponged) {
+                    Err(_) if !anim_state.should_loop => Some((
+                        AnimationState {
                             is_paused: true,
                             ..new_tag_state
                         },
-                        Some(SpriteFrame(self[new_tag_state.tag_id].last_frame())),
+                        Some(self[new_tag_state.tag_id].last_frame()),
                     )),
                     result @ (Ok(new_frame) | Err(new_frame)) => {
                         if matches!(tag.direction, Direction::Pingpong) && result.is_err() {
@@ -722,7 +713,7 @@ impl SpriteSheet {
                         }
 
                         new_tag_state.remaining += self[new_frame].duration as f32;
-                        Some((new_tag_state, Some(SpriteFrame(new_frame))))
+                        Some((new_tag_state, Some(new_frame)))
                     }
                 }
             } else {
@@ -737,19 +728,17 @@ impl SpriteSheet {
         self.tag_ids.get(s.as_ref()).copied()
     }
 
-    pub fn at_tag(&self, tag_id: TagId, should_loop: bool) -> (SpriteFrame, SpriteTag) {
+    pub fn at_tag(&self, tag_id: TagId, should_loop: bool) -> AnimationState {
         let tag = &self[tag_id];
-        let ff = tag.first_frame();
-        (
-            SpriteFrame(ff),
-            SpriteTag {
-                tag_id,
-                remaining: self[ff].duration as f32,
-                is_paused: false,
-                should_loop,
-                is_ponged: false,
-            },
-        )
+        let frame_id = tag.first_frame();
+        AnimationState {
+            frame_id,
+            tag_id,
+            remaining: self[frame_id].duration as f32,
+            is_paused: false,
+            should_loop,
+            is_ponged: false,
+        }
     }
 }
 
@@ -781,13 +770,11 @@ impl LuaUserData for CachedSpriteSheet {}
 #[serde(transparent)]
 pub struct SpriteName(pub String);
 
-/// Component holding the current frame ID of a sprite.
-#[derive(Debug, Copy, Clone, Default)]
-pub struct SpriteFrame(pub FrameId);
-
 /// Component holding the state of a running animation at a given tag.
 #[derive(Debug, Copy, Clone)]
-pub struct SpriteTag {
+pub struct AnimationState {
+    /// The index of the current frame.
+    pub frame_id: FrameId,
     /// The index of the currently running animation/tag.
     pub tag_id: TagId,
     /// Remaining time for this frame, in milliseconds.
@@ -801,9 +788,10 @@ pub struct SpriteTag {
     pub is_ponged: bool,
 }
 
-impl Default for SpriteTag {
+impl Default for AnimationState {
     fn default() -> Self {
         Self {
+            frame_id: FrameId::default(),
             tag_id: TagId::default(),
             remaining: 0.,
             is_paused: false,
@@ -814,13 +802,12 @@ impl Default for SpriteTag {
 }
 
 #[derive(Debug, Clone)]
-pub struct SpriteAnimationState {
+pub struct SpriteAnimation {
     pub sheet: CachedSpriteSheet,
-    pub frame: SpriteFrame,
-    pub tag: SpriteTag,
+    pub animation: AnimationState,
 }
 
-impl LuaUserData for SpriteAnimationState {}
+impl LuaUserData for SpriteAnimation {}
 
 pub struct FilesystemSpriteSheetLoader {
     engine: EngineRef,
