@@ -351,6 +351,18 @@ impl EventHandler for SmbOneOne {
                 );
             }
 
+            self.koopa_batch.clear();
+            let koopa_sheet = self.koopa_sheet.get_cached();
+            for (_, (Position(pos), animation)) in self
+                .space
+                .borrow_mut()
+                .query_mut::<(&Position, &mut SpriteAnimation)>()
+                .with::<KoopaMarker>()
+            {
+                let frame = koopa_sheet[animation.animation.frame_id];
+                self.koopa_batch.insert(Instance::new().translate2(pos.center().coords - Vector2::new(8., 8.)).src(frame.uvs).translate2(frame.offset));
+            }
+
             self.mario_batch.clear();
             let mario_sheet = self.mario_sheet.get_cached();
             for (object, (Position(pos), animation)) in self
