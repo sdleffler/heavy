@@ -76,14 +76,7 @@ do
             local abs_vx = sign_vx * vx
             local move_dir = (left_down and -1 or 0) + (right_down and 1 or 0)
 
-            if move_dir ~= 0 then
-                player.facing_direction = move_dir
-            end
-
-            -- -1 if left, 1 if right
-            local facing_direction = player.facing_direction
-
-            if move_dir == 0 and facing_direction == sign_vx then
+            if move_dir == 0 then
                 -- Case 3. (released)
                 if abs_vx > release_deceleration then
                     vx = vx - sign_vx * release_deceleration
@@ -93,7 +86,7 @@ do
 
                 -- TODO: beegsmol
                 player.animation = tag_idle_smol
-            elseif facing_direction == -sign_vx then
+            elseif move_dir == -sign_vx then
                 -- Case 2 and 4. (skidding)
                 if abs_vx > skid_turnaround_velocity + skidding_deceleration then
                     vx = vx - sign_vx * skidding_deceleration
@@ -132,6 +125,10 @@ do
                 else 
                     player.animation = tag_idle_smol
                 end
+            end
+
+            if sign_vx ~= 0 then
+                player.facing_direction = sign_vx
             end
 
             player:sprite_animation_update(abs_vx / 100 / 60)
