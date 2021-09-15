@@ -10,9 +10,7 @@ local SpriteAnimation = hf.components.SpriteAnimation
 local button = rust.button
 local input = rust.input
 
-function sign(n)
-    return (n > 0 and 1) or (n == 0 and 0) or -1
-end
+function sign(n) return (n > 0 and 1) or (n == 0 and 0) or -1 end
 
 -- Mario-per-frame to pixels-per-frame.
 function mpf_to_pps(pixels, subpixels, subsubpixels, subsubsubpixels)
@@ -65,7 +63,8 @@ do
             -- 4.) Not walking or running but facing in the opposite direction of current velocity
             -- (skidding)
 
-            local left_down, right_down = input:get_button_down(button.Left), input:get_button_down(button.Right)
+            local left_down, right_down = input:get_button_down(button.Left),
+                                          input:get_button_down(button.Right)
 
             if input:get_button_down(button.B) then
                 player.run_frames = 10
@@ -76,7 +75,7 @@ do
             end
 
             local running = player.run_frames > 0
-            
+
             local vx, vy = player:velocity_get_linear()
             local sign_vx = sign(vx)
             local abs_vx = sign_vx * vx
@@ -99,7 +98,7 @@ do
                 else
                     vx = 0
                 end
-                
+
                 -- TODO: beegsmol
                 player.animation = tag_skid_smol
             else
@@ -128,14 +127,12 @@ do
                 -- TODO: beegsmol
                 if move_dir ~= 0 and sign_vx ~= 0 then
                     player.animation = tag_walk_smol
-                else 
+                else
                     player.animation = tag_idle_smol
                 end
             end
 
-            if sign_vx ~= 0 then
-                player.facing_direction = sign_vx
-            end
+            if sign_vx ~= 0 then player.facing_direction = sign_vx end
 
             player:sprite_animation_update(math.max(abs_vx, max_walk_velocity / 1.5) / 100 / 60)
             player:velocity_set_linear(vx, math.max(vy - normal_gravity, -maximum_falling_velocity))
@@ -152,8 +149,9 @@ do
         -- 3.) Not walking or running but facing in the direction of current velocity (released)
         -- 4.) Not walking or running but facing in the opposite direction of current velocity
         -- (skidding)
-        
-        local left_down, right_down = input:get_button_down(button.Left), input:get_button_down(button.Right)
+
+        local left_down, right_down = input:get_button_down(button.Left),
+                                      input:get_button_down(button.Right)
 
         local vx, vy = player:velocity_get_linear()
         local sign_vx = sign(vx)
@@ -190,37 +188,27 @@ do
 
         player:velocity_set_linear(vx, math.max(vy, -maximum_falling_velocity))
 
-        if player.is_grounded then
-            agent:pop()
-        end
+        if player.is_grounded then agent:pop() end
     end
 end
 
 local PlayerController = Agent:extend("PlayerController")
 do
-    PlayerController:add_states {
-        GroundState,
-        AirState,
-    }
+    PlayerController:add_states{ GroundState, AirState }
 
-    PlayerController:bind {
-        "update",
-    }
+    PlayerController:bind{ "update" }
 end
 
-local Player = GameObject:extend("smb1_1.game_objects.Player")
-    :with(Velocity)
-    :with(Collider)
-    :with(SpriteAnimation)
+local Player = GameObject:extend("smb1_1.game_objects.Player"):with(Velocity):with(Collider):with(
+                   SpriteAnimation
+               )
 do
     binser.registerClass(Player)
 
     function Player:init(space, x, y)
-        Player.super.init(self, space, x, y,
-            Velocity(),
-            Collider(hf.collision.Collider.cuboid(8, 8)),
-            SpriteAnimation(gfx.SpriteAnimation.new(rust.sprite_sheets.mario)),
-            rust.PlayerMarker,
+        Player.super.init(
+            self, space, x, y, Velocity(), Collider(hf.collision.Collider.cuboid(8, 8)),
+            SpriteAnimation(gfx.SpriteAnimation.new(rust.sprite_sheets.mario)), rust.PlayerMarker,
             rust.RequiresLuaUpdate
         )
         self.run_frames = 0
@@ -245,7 +233,4 @@ do
     end
 end
 
-return {
-    Player = Player,
-    PlayerController = PlayerController,
-}
+return { Player = Player, PlayerController = PlayerController }

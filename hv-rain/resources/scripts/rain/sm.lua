@@ -4,9 +4,7 @@ local state_registry = assert(hv_rain.get_state_registry())
 
 local bind = function(name)
     local f = assert(state_registry[name])
-    return function(...)
-        return f(state_registry, ...)
-    end
+    return function(...) return f(state_registry, ...) end
 end
 
 return {

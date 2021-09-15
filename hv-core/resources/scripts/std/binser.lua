@@ -1,5 +1,4 @@
 -- binser.lua
-
 --[[
 Copyright (c) 2016-2019 Calvin Rose
 
@@ -17,9 +16,7 @@ FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
 COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-]]
-
-local assert = assert
+]] local assert = assert
 local error = error
 local select = select
 local pairs = pairs
@@ -49,24 +46,21 @@ if not frexp then
     end
 end
 
-local function pack(...)
-    return {...}, select("#", ...)
-end
+local function pack(...) return { ... }, select("#", ...) end
 
 local function not_array_index(x, len)
     return type(x) ~= "number" or x < 1 or x > len or x ~= floor(x)
 end
 
 local function type_check(x, tp, name)
-    assert(type(x) == tp,
-        format("Expected parameter %q to be of type %q.", name, tp))
+    assert(type(x) == tp, format("Expected parameter %q to be of type %q.", name, tp))
 end
 
 local bigIntSupport = false
 local isInteger
 if math.type then -- Detect Lua 5.3
     local mtype = math.type
-    bigIntSupport = loadstring[[
+    bigIntSupport = loadstring [[
     local char = string.char
     return function(n)
         local nn = n < 0 and -(n + 1) or n
@@ -84,13 +78,9 @@ if math.type then -- Detect Lua 5.3
         end
         return char(212, b1, b2, b3, b4, b5, b6, b7, b8)
     end]]()
-    isInteger = function(x)
-        return mtype(x) == 'integer'
-    end
+    isInteger = function(x) return mtype(x) == "integer" end
 else
-    isInteger = function(x)
-        return floor(x) == x
-    end
+    isInteger = function(x) return floor(x) == x end
 end
 
 -- Copyright (C) 2012-2015 Francois Perrad.
@@ -115,7 +105,7 @@ local function number_to_str(n)
     local m, e = frexp(n) -- mantissa, exponent
     if m ~= m then
         return char(203, 0xFF, 0xF8, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00)
-    elseif m == 1/0 then
+    elseif m == 1 / 0 then
         if sign == 0 then
             return char(203, 0x7F, 0xF0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00)
         else
@@ -129,15 +119,12 @@ local function number_to_str(n)
     else
         m = (m * 2 - 1) * 2 ^ 52
     end
-    return char(203,
-                sign + floor(e / 0x10),
-                (e % 0x10) * 0x10 + floor(m / 0x1000000000000),
-                floor(m / 0x10000000000) % 0x100,
-                floor(m / 0x100000000) % 0x100,
-                floor(m / 0x1000000) % 0x100,
-                floor(m / 0x10000) % 0x100,
-                floor(m / 0x100) % 0x100,
-                m % 0x100)
+    return char(
+               203, sign + floor(e / 0x10), (e % 0x10) * 0x10 + floor(m / 0x1000000000000),
+               floor(m / 0x10000000000) % 0x100, floor(m / 0x100000000) % 0x100,
+               floor(m / 0x1000000) % 0x100, floor(m / 0x10000) % 0x100, floor(m / 0x100) % 0x100,
+               m % 0x100
+           )
 end
 
 -- Copyright (C) 2012-2015 Francois Perrad.
@@ -153,8 +140,7 @@ local function number_from_str(str, index)
         return b2 + 0x100 * (b - 128) - 8192, index + 2
     end
     local b1, b2, b3, b4, b5, b6, b7, b8 = byte(str, index + 1, index + 8)
-    if (not b1) or (not b2) or (not b3) or (not b4) or
-        (not b5) or (not b6) or (not b7) or (not b8) then
+    if (not b1) or (not b2) or (not b3) or (not b4) or (not b5) or (not b6) or (not b7) or (not b8) then
         error("Expected more bytes of input.")
     end
     if b == 212 then
@@ -163,20 +149,20 @@ local function number_from_str(str, index)
             b1, b2, b3, b4 = 0xFF - b1, 0xFF - b2, 0xFF - b3, 0xFF - b4
             b5, b6, b7, b8 = 0xFF - b5, 0xFF - b6, 0xFF - b7, 0xFF - b8
         end
-        local n = ((((((b1 * 0x100 + b2) * 0x100 + b3) * 0x100 + b4) *
-            0x100 + b5) * 0x100 + b6) * 0x100 + b7) * 0x100 + b8
+        local n = ((((((b1 * 0x100 + b2) * 0x100 + b3) * 0x100 + b4) * 0x100 + b5) * 0x100 + b6) *
+                      0x100 + b7) * 0x100 + b8
         if flip then
             return (-n) - 1, index + 9
         else
             return n, index + 9
         end
     end
-    if b ~= 203 then
-        error("Expected number")
-    end
+    if b ~= 203 then error("Expected number") end
     local sign = b1 > 0x7F and -1 or 1
     local e = (b1 % 0x80) * 0x10 + floor(b2 / 0x10)
-    local m = ((((((b2 % 0x10) * 0x100 + b3) * 0x100 + b4) * 0x100 + b5) * 0x100 + b6) * 0x100 + b7) * 0x100 + b8
+    local m =
+        ((((((b2 % 0x10) * 0x100 + b3) * 0x100 + b4) * 0x100 + b5) * 0x100 + b6) * 0x100 + b7) *
+            0x100 + b8
     local n
     if e == 0 then
         if m == 0 then
@@ -186,16 +172,15 @@ local function number_from_str(str, index)
         end
     elseif e == 0x7FF then
         if m == 0 then
-            n = sign * (1/0)
+            n = sign * (1 / 0)
         else
-            n = 0.0/0.0
+            n = 0.0 / 0.0
         end
     else
         n = sign * (1.0 + m / 2 ^ 52) * 2 ^ (e - 0x3FF)
     end
     return n, index + 9
 end
-
 
 local function newbinser()
 
@@ -224,17 +209,11 @@ local function newbinser()
     local resources_by_name = {}
     local types = {}
 
-    types["nil"] = function(x, visited, accum)
-        accum[#accum + 1] = "\202"
-    end
+    types["nil"] = function(x, visited, accum) accum[#accum + 1] = "\202" end
 
-    function types.number(x, visited, accum)
-        accum[#accum + 1] = number_to_str(x)
-    end
+    function types.number(x, visited, accum) accum[#accum + 1] = number_to_str(x) end
 
-    function types.boolean(x, visited, accum)
-        accum[#accum + 1] = x and "\204" or "\205"
-    end
+    function types.boolean(x, visited, accum) accum[#accum + 1] = x and "\204" or "\205" end
 
     function types.string(x, visited, accum)
         local alen = #accum
@@ -243,7 +222,7 @@ local function newbinser()
             accum[alen + 2] = number_to_str(visited[x])
         else
             visited[x] = visited[NEXT]
-            visited[NEXT] =  visited[NEXT] + 1
+            visited[NEXT] = visited[NEXT] + 1
             accum[alen + 1] = "\206"
             accum[alen + 2] = number_to_str(#x)
             accum[alen + 3] = x
@@ -261,9 +240,7 @@ local function newbinser()
         local id = mt and ids[mt]
         if id then
             local constructing = visited[CTORSTACK]
-            if constructing[x] then
-                error("Infinite loop in constructor.")
-            end
+            if constructing[x] then error("Infinite loop in constructor.") end
             constructing[x] = true
             accum[#accum + 1] = "\209"
             types[type(id)](id, visited, accum)
@@ -298,7 +275,7 @@ local function newbinser()
         else
             if check_custom_type(x, visited, accum) then return end
             visited[x] = visited[NEXT]
-            visited[NEXT] =  visited[NEXT] + 1
+            visited[NEXT] = visited[NEXT] + 1
             local xlen = #x
             local mt = getmetatable(x)
             if mt then
@@ -314,9 +291,7 @@ local function newbinser()
             end
             local key_count = 0
             for k in pairs(x) do
-                if not_array_index(k, xlen) then
-                    key_count = key_count + 1
-                end
+                if not_array_index(k, xlen) then key_count = key_count + 1 end
             end
             accum[#accum + 1] = number_to_str(key_count)
             for k, v in pairs(x) do
@@ -335,7 +310,7 @@ local function newbinser()
         else
             if check_custom_type(x, visited, accum) then return end
             visited[x] = visited[NEXT]
-            visited[NEXT] =  visited[NEXT] + 1
+            visited[NEXT] = visited[NEXT] + 1
             local str = dump(x)
             accum[#accum + 1] = "\210"
             accum[#accum + 1] = number_to_str(#str)
@@ -450,7 +425,7 @@ local function newbinser()
     end
 
     local function serialize(...)
-        local visited = {[NEXT] = 1, [CTORSTACK] = {}}
+        local visited = { [NEXT] = 1, [CTORSTACK] = {} }
         local accum = {}
         for i = 1, select("#", ...) do
             local x = select(i, ...)
@@ -460,17 +435,13 @@ local function newbinser()
     end
 
     local function make_file_writer(file)
-        return setmetatable({}, {
-            __newindex = function(_, _, v)
-                file:write(v)
-            end
-        })
+        return setmetatable({}, { __newindex = function(_, _, v) file:write(v) end })
     end
 
     local function serialize_to_file(path, mode, ...)
         local file, err = io.open(path, mode)
         assert(file, err)
-        local visited = {[NEXT] = 1, [CTORSTACK] = {}}
+        local visited = { [NEXT] = 1, [CTORSTACK] = {} }
         local accum = make_file_writer(file)
         for i = 1, select("#", ...) do
             local x = select(i, ...)
@@ -481,13 +452,9 @@ local function newbinser()
         file:close()
     end
 
-    local function writeFile(path, ...)
-        return serialize_to_file(path, "wb", ...)
-    end
+    local function writeFile(path, ...) return serialize_to_file(path, "wb", ...) end
 
-    local function appendFile(path, ...)
-        return serialize_to_file(path, "ab", ...)
-    end
+    local function appendFile(path, ...) return serialize_to_file(path, "ab", ...) end
 
     local function deserialize(str, index)
         assert(type(str) == "string", "Expected string to deserialize.")
@@ -547,10 +514,8 @@ local function newbinser()
 
     local function registerResource(resource, name)
         type_check(name, "string", "name")
-        assert(not resources[resource],
-            "Resource already registered.")
-        assert(not resources_by_name[name],
-            format("Resource %q already exists.", name))
+        assert(not resources[resource], "Resource already registered.")
+        assert(not resources_by_name[name], format("Resource %q already exists.", name))
         resources_by_name[name] = resource
         resources[resource] = name
         return resource
@@ -569,22 +534,18 @@ local function newbinser()
 
     local function normalize_template(template)
         local ret = {}
-        for i = 1, #template do
-            ret[i] = template[i]
-        end
+        for i = 1, #template do ret[i] = template[i] end
         local non_array_part = {}
         -- The non-array part of the template (nested templates) have to be deterministic, so they are sorted.
         -- This means that inherently non deterministicly sortable keys (tables, functions) should NOT be used
         -- in templates. Looking for way around this.
         for k in pairs(template) do
-            if not_array_index(k, #template) then
-                non_array_part[#non_array_part + 1] = k
-            end
+            if not_array_index(k, #template) then non_array_part[#non_array_part + 1] = k end
         end
         table.sort(non_array_part)
         for i = 1, #non_array_part do
             local name = non_array_part[i]
-            ret[#ret + 1] = {name, normalize_template(template[name])}
+            ret[#ret + 1] = { name, normalize_template(template[name]) }
         end
         return ret
     end
@@ -632,11 +593,7 @@ local function newbinser()
             end
         end
         local extras = values[vindex]
-        if extras then
-            for k, v in pairs(extras) do
-                ret[k] = v
-            end
-        end
+        if extras then for k, v in pairs(extras) do ret[k] = v end end
         return vindex + 1
     end
 
@@ -647,7 +604,7 @@ local function newbinser()
             return unpack(argaccum, 1, len)
         end, function(...)
             local ret = {}
-            local args = {...}
+            local args = { ... }
             templatepart_deserialize(ret, template, args, 1)
             return setmetatable(ret, metatable)
         end
@@ -679,10 +636,11 @@ local function newbinser()
         type_check(name, "string", "name")
         type_check(serialize, "function", "serialize")
         type_check(deserialize, "function", "deserialize")
-        assert((not ids[metatable]) and (not resources[metatable]),
-            "Metatable already registered.")
-        assert((not mts[name]) and (not resources_by_name[name]),
-            ("Name %q already registered."):format(name))
+        assert((not ids[metatable]) and (not resources[metatable]), "Metatable already registered.")
+        assert(
+            (not mts[name]) and (not resources_by_name[name]),
+            ("Name %q already registered."):format(name)
+        )
         mts[name] = metatable
         ids[metatable] = name
         serializers[name] = serialize
@@ -741,7 +699,7 @@ local function newbinser()
         unregisterResource = unregisterResource,
         registerClass = registerClass,
 
-        newbinser = newbinser
+        newbinser = newbinser,
     }
 end
 

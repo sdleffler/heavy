@@ -8,24 +8,19 @@ local game_objects = {
 local ObjectTable = hv.components.ObjectTable
 local Position = hf.components.Position
 
-local LevelObject = class("smb1_1.level_encoding.LevelObject")
-    :with(Position)
+local LevelObject = class("smb1_1.level_encoding.LevelObject"):with(Position)
 do
     binser.registerClass(LevelObject)
-    
+
     function LevelObject:init(space, x, y, ...)
-        space:spawn(
-            ObjectTable(self),
-            Position(x, y),
-            ...
-        )
+        space:spawn(ObjectTable(self), Position(x, y), ...)
     end
 end
 
 local Goomba = LevelObject:extend("smb1_1.level_encoding.Goomba")
 do
     binser.registerClass(Goomba)
-    
+
     function Goomba:spawn(space)
         return game_objects.Goomba:new(space, self:position_get_coords())
     end
@@ -34,10 +29,8 @@ end
 local Koopa = LevelObject:extend("smb1_1.level_encoding.Koopa")
 do
     binser.registerClass(Koopa)
-    
-    function Koopa:spawn(space)
-        return game_objects.Koopa:new(space, self:position_get_coords())
-    end
+
+    function Koopa:spawn(space) return game_objects.Koopa:new(space, self:position_get_coords()) end
 end
 
 local Player = LevelObject:extend("smb1_1.level_encoding.Player")
@@ -49,9 +42,4 @@ do
     end
 end
 
-return {
-    LevelObject = LevelObject,
-    Goomba = Goomba,
-    Koopa = Koopa,
-    Player = Player,
-}
+return { LevelObject = LevelObject, Goomba = Goomba, Koopa = Koopa, Player = Player }

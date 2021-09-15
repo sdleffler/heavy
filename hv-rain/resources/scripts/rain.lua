@@ -3,9 +3,7 @@ local Transform = hf.math.Transform
 local Velocity2 = hf.math.Velocity2
 local hv_rain = assert(hv.plugins.rain)
 
-local shot_type = {
-    from_component_fn = assert(hv_rain.create_shot_type_from_component_fn)
-}
+local shot_type = { from_component_fn = assert(hv_rain.create_shot_type_from_component_fn) }
 
 local function load_sprite(img_path, sheet_path, pipeline)
     local texture = hf.graphics.load_texture_from_filesystem(img_path)
@@ -15,23 +13,19 @@ end
 
 local Danmaku = class("Danmaku")
 
-function Danmaku:init(space)
-    self._danmaku = hv_rain.create_danmaku_object(space)
-end
+function Danmaku:init(space) self._danmaku = hv_rain.create_danmaku_object(space) end
 
-function Danmaku:update(dt)
-    self._danmaku:update(dt)
-end
+function Danmaku:update(dt) self._danmaku:update(dt) end
 
-function Danmaku:draw()
-    self._danmaku:draw()
-end
+function Danmaku:draw() self._danmaku:draw() end
 
 local Barrage = class("Barrage")
 
 function Barrage:new(danmaku)
-    assert(class.isInstance(danmaku) and danmaku:instanceOf(Danmaku),
-        "Barrage must be instantiated with respect to a Danmaku object")
+    assert(
+        class.isInstance(danmaku) and danmaku:instanceOf(Danmaku),
+        "Barrage must be instantiated with respect to a Danmaku object"
+    )
     local raw_danmaku_object = danmaku._danmaku:create_barrage_object()
     local self = Barrage:create()
     self:init(raw_danmaku_object)
@@ -43,58 +37,34 @@ function Barrage:init(inner)
     self._inner = inner
 end
 
-local barrage_0arg_keys = {
-    "push",
-    "pop",
-    "fire",
-    "flush"
-}
+local barrage_0arg_keys = { "push", "pop", "fire", "flush" }
 
 local barrage_1arg_keys = {
-    "set_lua_value",
-    "prepend_origin",
-    "append_origin",
-    "prepend_linear_tx",
-    "append_linear_tx",
-    "set_linear_tx",
-    "add_polar_tx",
-    "set_polar_tx",
-    "add_linear_velocity",
-    "set_linear_velocity",
-    "add_linear_velocity_wrt_world",
-    "set_linear_velocity_wrt_world",
-    "add_polar_velocity",
-    "set_polar_velocity",
-    "add_linear_acceleration",
-    "set_linear_acceleration",
-    "add_linear_acceleration_wrt_world",
-    "set_linear_acceleration_wrt_world",
-    "add_polar_acceleration",
-    "set_polar_acceleration",
-    "set_shot_type",
-    "set_sprite",
-    nil
+    "set_lua_value", "prepend_origin", "append_origin", "prepend_linear_tx", "append_linear_tx",
+    "set_linear_tx", "add_polar_tx", "set_polar_tx", "add_linear_velocity", "set_linear_velocity",
+    "add_linear_velocity_wrt_world", "set_linear_velocity_wrt_world", "add_polar_velocity",
+    "set_polar_velocity", "add_linear_acceleration", "set_linear_acceleration",
+    "add_linear_acceleration_wrt_world", "set_linear_acceleration_wrt_world",
+    "add_polar_acceleration", "set_polar_acceleration", "set_shot_type", "set_sprite", nil,
 }
 
-local barrage_4arg_keys = {
-    "set_color"
-}
+local barrage_4arg_keys = { "set_color" }
 
-for _,key in ipairs(barrage_0arg_keys) do
+for _, key in ipairs(barrage_0arg_keys) do
     Barrage[key] = function(self)
         local _inner = self._inner
         _inner[key](_inner)
     end
 end
 
-for _,key in ipairs(barrage_1arg_keys) do
+for _, key in ipairs(barrage_1arg_keys) do
     Barrage[key] = function(self, a)
         local _inner = self._inner
         _inner[key](_inner, a)
     end
 end
 
-for _,key in ipairs(barrage_4arg_keys) do
+for _, key in ipairs(barrage_4arg_keys) do
     Barrage[key] = function(self, a, b, c, d)
         local _inner = self._inner
         _inner[key](_inner, a, b, c, d)
@@ -110,9 +80,7 @@ do
         self._pattern = pattern
     end
 
-    function Compose:fire()
-        self._pattern:build(self._inner)
-    end
+    function Compose:fire() self._pattern:build(self._inner) end
 end
 
 local Pattern, Of
@@ -121,22 +89,14 @@ do
     Pattern = class("Pattern")
 
     function Pattern:init(closure)
-        if closure then
-            self.build = function(_, barrage)
-                closure(barrage)
-            end
-        end
+        if closure then self.build = function(_, barrage) closure(barrage) end end
     end
 
     function Pattern:build(barrage) end
 
-    function Pattern:of(subpattern)
-        return Of:new(self, subpattern)
-    end
+    function Pattern:of(subpattern) return Of:new(self, subpattern) end
 
-    function Pattern:indexed(f)
-        return Indexed:new(self, f)
-    end
+    function Pattern:indexed(f) return Indexed:new(self, f) end
 
     Of = Pattern:extend("Of")
 
@@ -189,7 +149,7 @@ do
         else
             self._initial = Transform.translation2(0, radius)
         end
-        
+
         self._count = count
         self._iso = Transform.rotation2(0)
     end
@@ -198,7 +158,7 @@ do
         barrage:push()
         barrage:append_origin(self._initial)
         local iso, angle, count = self._iso, self._angle, self._count
-        for i=1,self._count do
+        for i = 1, self._count do
             iso.angle = ((i - 1) / count) * angle
             barrage:push()
             barrage:append_origin(iso)
@@ -225,7 +185,7 @@ do
         barrage:push()
         barrage:append_origin(self._initial)
         local iso, count = self._iso, self._count
-        for i=1,self._count do
+        for i = 1, self._count do
             iso:reset()
             iso:rotate2(((i - 1) / count) * 2 * math.pi)
             barrage:push()

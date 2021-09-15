@@ -7,15 +7,13 @@ function load_level()
     local level = load("smb1_1.level")()
     local all_objects = level:objects()
 
-    for _,object in ipairs(all_objects) do
+    for _, object in ipairs(all_objects) do
         print("object: " .. tostring(object))
         object:spawn(space)
     end
 end
 
-function hv.load()
-    load_level()
-end
+function hv.load() load_level() end
 
 function hv.update()
     -- TODO

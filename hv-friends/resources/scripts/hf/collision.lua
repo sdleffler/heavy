@@ -5,7 +5,7 @@ do
     collision.intersection_test = hf_collision.intersection_test
 
     local Collider = {}
-    do  
+    do
         collision.Collider = Collider
 
         Collider.ball = hf_collision.create_ball

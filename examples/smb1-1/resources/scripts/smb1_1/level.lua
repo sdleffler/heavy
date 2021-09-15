@@ -9,13 +9,8 @@ local tile_px = 16
 
 -- Load map?
 
-function goomba(x, y)
-    return Goomba:new(level, (x + 0.5) * tile_px, (y + 0.5) * tile_px)
-end
-
-function koopa(x, y)
-    return Koopa:new(level, (x + 0.5) * tile_px, (y + 0.5) * tile_px)
-end
+function goomba(x, y) return Goomba:new(level, (x + 0.5) * tile_px, (y + 0.5) * tile_px) end
+function koopa(x, y) return Koopa:new(level, (x + 0.5) * tile_px, (y + 0.5) * tile_px) end
 
 Player:new(level, 2.5 * tile_px, 2.5 * tile_px)
 

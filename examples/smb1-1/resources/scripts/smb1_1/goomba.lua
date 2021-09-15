@@ -8,7 +8,7 @@ local Collider = hf.components.Collider
 local SpriteAnimation = hf.components.SpriteAnimation
 
 local dying_counter = 0
-local dt = 1.0/60.0
+local dt = 1.0 / 60.0
 local dying_time = 2
 
 local AliveState = State:extend("smb1_1.goomba.AliveState", { name = "alive" })
@@ -32,30 +32,22 @@ end
 
 local GoombaController = Agent:extend("GoombaController")
 do
-    GoombaController:add_states {
-        AliveState,
-        DyingState,
-    }
+    GoombaController:add_states{ AliveState, DyingState }
 
-    GoombaController:bind {
-        "update",
-    }
+    GoombaController:bind{ "update" }
 end
 
-local Goomba = GameObject:extend("smb1_1.game_objects.Goomba")
-    :with(Velocity)
-    :with(Collider)
-    :with(SpriteAnimation)
+local Goomba = GameObject:extend("smb1_1.game_objects.Goomba"):with(Velocity):with(Collider):with(
+                   SpriteAnimation
+               )
 do
     binser.registerClass(Goomba)
 
     function Goomba:init(space, x, y)
-        Goomba.super.init(self, space, x, y,
-            Velocity(),
+        Goomba.super.init(
+            self, space, x, y, Velocity(),
             SpriteAnimation(gfx.SpriteAnimation.new(rust.sprite_sheets.goomba)),
-            Collider(hf.collision.Collider.cuboid(8, 8)),
-            rust.GoombaMarker,
-            rust.RequiresLuaUpdate
+            Collider(hf.collision.Collider.cuboid(8, 8)), rust.GoombaMarker, rust.RequiresLuaUpdate
         )
         self.tag = rust.sprite_sheets.goomba:get_tag("walk")
         self.last_tag = self.tag
@@ -77,7 +69,4 @@ do
     end
 end
 
-return {
-    Goomba = Goomba,
-    GoombaController = GoombaController,
-}
+return { Goomba = Goomba, GoombaController = GoombaController }

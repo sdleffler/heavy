@@ -13,13 +13,9 @@ do
     Texture = Drawable:extend("Texture")
 
     local load_texture_from_filesystem = hf_graphics.load_texture_from_filesystem
-    function Texture:init(path)
-        self._texture = load_texture_from_filesystem(path)
-    end
 
-    function Texture:draw(instance)
-        self._texture:draw(instance)
-    end
+    function Texture:init(path) self._texture = load_texture_from_filesystem(path) end
+    function Texture:draw(instance) self._texture:draw(instance) end
 end
 
 local reload_textures = hf_graphics.reload_textures
@@ -36,8 +32,11 @@ return {
     load_texture_from_filesystem = hf_graphics.load_texture_from_filesystem,
     load_sprite_sheet_from_filesystem = hf_graphics.load_sprite_sheet_from_filesystem,
 
-    reload_textures_and_sprite_sheets = function() reload_textures(); reload_sprite_sheets() end,
-    
+    reload_textures_and_sprite_sheets = function()
+        reload_textures();
+        reload_sprite_sheets()
+    end,
+
     SpriteAnimation = SpriteAnimation,
 
     Drawable = Drawable,
@@ -49,7 +48,7 @@ return {
     points = hf_graphics.points,
     polygon = hf_graphics.polygon,
     print = hf_graphics.print,
-    
+
     clear = hf_graphics.clear,
     present = hf_graphics.present,
 

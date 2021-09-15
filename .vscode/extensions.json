@@ -1,5 +1,6 @@
 {
     "recommendations": [
-        "koihik.vscode-lua-format"
+        "koihik.vscode-lua-format",
+        "matklad.rust-analyzer"
     ]
 }
