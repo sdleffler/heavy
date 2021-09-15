@@ -30,11 +30,24 @@ local midair_low_deceleration = mpf_to_pps(0, 0, 14, 4)
 local midair_high_acceleration = mpf_to_pps(0, 0, 14, 4)
 local midair_high_deceleration = mpf_to_pps(0, 0, 13, 0)
 
+local tag_idle_smol = assert(rust.sprite_sheets.mario:get_tag("idle"))
+local tag_walk_smol = assert(rust.sprite_sheets.mario:get_tag("walk"))
+local tag_skid_smol = assert(rust.sprite_sheets.mario:get_tag("skid"))
+local tag_jump_smol = assert(rust.sprite_sheets.mario:get_tag("jump"))
+local tag_idle_beeg = assert(rust.sprite_sheets.mario:get_tag("tall_idle"))
+local tag_walk_beeg = assert(rust.sprite_sheets.mario:get_tag("tall_walk"))
+local tag_skid_beeg = assert(rust.sprite_sheets.mario:get_tag("tall_skid"))
+local tag_jump_beeg = assert(rust.sprite_sheets.mario:get_tag("tall_jump"))
+local tag_HENSHIN = assert(rust.sprite_sheets.mario:get_tag("transform"))
+
 local GroundState = State:extend("smb1_1.player.GroundState", { name = "ground" })
 do
     function GroundState:update(agent, player)
         if input:get_button_pressed(button.A) then
             player:velocity_add_linear(0, jump_impulse)
+            
+            -- TODO: beegsmol
+            player.animation = tag_jump_smol
             agent:push("air")
         elseif not player.is_grounded then
             agent:push("air")
@@ -77,6 +90,9 @@ do
                 else
                     vx = 0
                 end
+
+                -- TODO: beegsmol
+                player.animation = tag_idle_smol
             elseif facing_direction == -sign_vx then
                 -- Case 2 and 4. (skidding)
                 if abs_vx > skid_turnaround_velocity + skidding_deceleration then
@@ -84,6 +100,9 @@ do
                 else
                     vx = 0
                 end
+                
+                -- TODO: beegsmol
+                player.animation = tag_skid_smol
             else
                 assert(move_dir == sign_vx or sign_vx == 0)
                 -- Case 1. (accelerating)
@@ -105,6 +124,13 @@ do
                     -- If either accelerating or decelerating would put us at the max velocity, just
                     -- set it and forget it.
                     vx = move_dir * max_velocity
+                end
+
+                -- TODO: beegsmol
+                if move_dir ~= 0 then
+                    player.animation = tag_walk_smol
+                else 
+                    player.animation = tag_idle_smol
                 end
             end
 

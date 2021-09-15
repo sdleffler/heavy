@@ -345,7 +345,7 @@ impl EventHandler for SmbOneOne {
                 let frame = goomba_sheet[animation.animation.frame_id];
                 self.goomba_batch.insert(
                     Instance::new()
-                        .translate2(pos.center().coords)
+                        .translate2(pos.center().coords - Vector2::new(8., 8.))
                         .src(frame.uvs)
                         .translate2(frame.offset),
                 );
@@ -353,22 +353,27 @@ impl EventHandler for SmbOneOne {
 
             self.mario_batch.clear();
             let mario_sheet = self.mario_sheet.get_cached();
-            for (_, (Position(pos), animation)) in self
+            for (object, (Position(pos), animation)) in self
                 .space
                 .borrow_mut()
                 .query_mut::<(&Position, &mut SpriteAnimation)>()
                 .with::<PlayerMarker>()
             {
                 let frame = mario_sheet[animation.animation.frame_id];
-                self.mario_batch.insert(
-                    Instance::new()
-                        .translate2(pos.center().coords - Vector2::new(0., 8.))
-                        .src(frame.uvs)
-                        .translate2(frame.offset)
-                        // .translate2(Vector2::new(8., 0.))
-                        // .scale2(Vector2::new(-1., 1.))
-                        // .translate2(Vector2::new(-8., 0.)),
-                );
+                let facing_dir: i32 = object.to_table(&lua)?.get("facing_direction")?;
+
+                let mut instance = Instance::new()
+                    .translate2(pos.center().coords - Vector2::new(8., 8.))
+                    .src(frame.uvs);
+
+                // If facing left, flip.
+                if facing_dir == -1 {
+                    instance = instance
+                        .translate2(Vector2::new(16., 0.))
+                        .scale2(Vector2::new(-1., 1.));
+                }
+
+                self.mario_batch.insert(instance.translate2(frame.offset));
             }
 
             self.input_state.borrow_mut().update(TIMESTEP);

@@ -614,9 +614,16 @@ impl SpriteSheet {
 
         let mut frames = Vec::new();
         for ase_frame in spritesheet_data.frames.into_iter() {
-            let fr = ase_frame.frame;
-            let sb = ase_frame.sprite_source_size;
+            let mut fr = ase_frame.frame;
+            let mut sb = ase_frame.sprite_source_size;
             let ss = ase_frame.source_size;
+
+            // Aseprite uses a top-left origin; our coordinate system is bottom-left origin. So we
+            // need to correct the y coordinates. To do so we "flip" them by subtracting them from
+            // their maximum bound and then move them down by the height of the rectangle they come
+            // from (thus converting top-left corner in bottom-left origin to bottom-left corner).
+            fr.y = size.y - fr.y - fr.h;
+            sb.y = ss.h - sb.y - sb.h;
 
             let duration = ase_frame.duration;
             let frame = Box2::new(fr.x, fr.y, fr.w, fr.h);
@@ -624,11 +631,10 @@ impl SpriteSheet {
             let source_size = Vector2::new(ss.w, ss.h);
             // `bw` is border width. only nonzero if there's padding added to the spritesheet.
             let bw = Vector2::new(fr.w - sb.w, fr.h - sb.h).cast::<i32>() / 2;
-            let offset = Vector2::new(sb.x as i32 - bw.x, sb.y as i32 - bw.y).cast::<f32>()
-                - Vector2::new(ss.w, ss.h).cast::<f32>() / 2.;
+            let offset = Vector2::new(sb.x as i32 - bw.x, sb.y as i32 - bw.y).cast::<f32>();
             let uvs = Box2::new(
                 fr.x as f32 / size.x as f32,
-                (size.y - fr.y - fr.h) as f32 / size.y as f32,
+                fr.y as f32 / size.y as f32,
                 fr.w as f32 / size.x as f32,
                 fr.h as f32 / size.y as f32,
             );
@@ -775,6 +781,10 @@ impl CachedSpriteSheet {
 impl LuaUserData for CachedSpriteSheet {
     fn add_methods<'lua, M: LuaUserDataMethods<'lua, Self>>(methods: &mut M) {
         crate::lua::add_clone_methods(methods);
+
+        methods.add_method_mut("get_tag", |_, this, name: LuaString| {
+            Ok(this.get_cached().get_tag(name.to_str()?))
+        });
     }
 }
 
@@ -862,6 +872,11 @@ impl SpriteAnimation {
         self.animation.should_loop
     }
 
+    /// Get the current animation tagi.
+    pub fn current_tag(&self) -> TagId {
+        self.animation.tag_id
+    }
+
     /// Go to a specific animation tag.
     ///
     /// This function will currently panic if the tag does not exist, which could happen if the
@@ -896,6 +911,7 @@ impl LuaUserData for SpriteAnimation {
         simple_mut(methods, "set_loop", Self::set_loop);
         simple(methods, "should_loop", |s, ()| s.should_loop());
         simple_mut(methods, "goto_tag", Self::goto_tag);
+        simple(methods, "current_tag", |s, ()| s.current_tag());
 
         methods.add_method_mut("goto_tag_by_str", |_, this, tag_name: LuaString| {
             let tag_name_str = tag_name.to_str()?;

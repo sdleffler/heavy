@@ -249,6 +249,11 @@ do
         tmp:goto_tag_by_str(tag_name)
         hf_set_sprite_animation(self, tmp)
     end
+
+    function SpriteAnimation:sprite_animation_current_tag()
+        hf_get_sprite_animation(self, tmp)
+        return tmp:current_tag()
+    end
 end
 
 return {

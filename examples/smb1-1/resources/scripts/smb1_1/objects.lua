@@ -67,13 +67,24 @@ do
                 rust.RequiresUpdate
             )
             self.run_frames = 0
+            self.facing_direction = 1
+            self.animation = rust.sprite_sheets.mario:get_tag("idle")
+            self.prev_animation = self.animation
             self.controller = PlayerController:new()
             self.controller:push("ground")
-            self:sprite_animation_goto_tag_by_str("walk")
+            self:sprite_animation_goto_tag(self.animation)
         end
 
         function Player:update()
             self.controller:update(self, input)
+
+            -- We only want to switch animations if the tag has changed; otherwise, we'll keep
+            -- resetting the same animation over and over and it won't move, stuck at the starting
+            -- frame.
+            if self.animation ~= self.prev_animation then
+                self.prev_animation = self.animation
+                self:sprite_animation_goto_tag(self.animation)
+            end
         end
     end
 end
