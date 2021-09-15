@@ -1,8 +1,9 @@
-local std_space = require("std.space")
 local binser = require("std.binser")
+local class = require("std.class")
 local PlayerController = require("smb1_1.player").PlayerController
 local GoombaController = require("smb1_1.goomba").GoombaController
 local KoopaController = require("smb1_1.koopa").KoopaController
+local ObjectTable = hv.components.ObjectTable
 local Collider = hf.components.Collider
 local Position = hf.components.Position
 local Velocity = hf.components.Velocity
@@ -11,14 +12,18 @@ local gfx = hf.graphics
 
 local game_objects = {}
 do
-    local GameObject = std_space.Object:extend("smb1_1.game_objects.GameObject")
+    local GameObject = class("smb1_1.game_objects.GameObject")
         :with(Position)
     do
         game_objects.GameObject = GameObject
         binser.registerClass(GameObject)
 
         function GameObject:init(space, x, y, ...)
-            GameObject.super.init(self, space, Position(x, y), ...)
+            space:spawn(
+                ObjectTable(self),
+                Position(x, y),
+                ...
+            )
         end
     end
 
@@ -135,14 +140,18 @@ end
 
 local level_objects = {}
 do
-    local LevelObject = std_space.Object:extend("smb1_1.level_objects.LevelObject")
+    local LevelObject = class("smb1_1.level_objects.LevelObject")
         :with(Position)
     do
         level_objects.LevelObject = LevelObject
         binser.registerClass(LevelObject)
         
         function LevelObject:init(space, x, y, ...)
-            LevelObject.super.init(self, space, Position(x, y), ...)
+            space:spawn(
+                ObjectTable(self),
+                Position(x, y),
+                ...
+            )
         end
     end
 

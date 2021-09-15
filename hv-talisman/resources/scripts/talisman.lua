@@ -1,6 +1,4 @@
-local space = require("std.space")
 local binser = require("std.binser")
-local Space = space.Space
 
 local talisman = {}
 
