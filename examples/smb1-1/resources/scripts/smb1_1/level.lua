@@ -1,4 +1,7 @@
-local smb_objects = require("smb1_1.objects").level_objects
+local Goomba = require("smb1_1.level_encoding").Goomba
+local Koopa = require("smb1_1.level_encoding").Koopa
+local Player = require("smb1_1.level_encoding").Player
+
 local level = hv.spaces.create_space()
 
 -- Width of a single tile in pixels.
@@ -7,14 +10,14 @@ local tile_px = 16
 -- Load map?
 
 function goomba(x, y)
-    return smb_objects.Goomba:new(level, (x + 0.5) * tile_px, (y + 0.5) * tile_px)
+    return Goomba:new(level, (x + 0.5) * tile_px, (y + 0.5) * tile_px)
 end
 
 function koopa(x, y)
-    return smb_objects.Koopa:new(level, (x + 0.5) * tile_px, (y + 0.5) * tile_px)
+    return Koopa:new(level, (x + 0.5) * tile_px, (y + 0.5) * tile_px)
 end
 
-smb_objects.Player:new(level, 2.5 * tile_px, 2.5 * tile_px)
+Player:new(level, 2.5 * tile_px, 2.5 * tile_px)
 
 -- First goomba, in between the two ? blocks near the start.
 goomba(22, 2)

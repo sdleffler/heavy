@@ -1,5 +1,11 @@
+local binser = require("std.binser")
 local std_agent = require("std.agent")
 local Agent, State = std_agent.Agent, std_agent.State
+local gfx = hf.graphics
+local GameObject = require("smb1_1.game_object").GameObject
+local Velocity = hf.components.Velocity
+local Collider = hf.components.Collider
+local SpriteAnimation = hf.components.SpriteAnimation
 
 local button = rust.button
 local input = rust.input
@@ -202,6 +208,44 @@ do
     }
 end
 
+local Player = GameObject:extend("smb1_1.game_objects.Player")
+    :with(Velocity)
+    :with(Collider)
+    :with(SpriteAnimation)
+do
+    binser.registerClass(Player)
+
+    function Player:init(space, x, y)
+        Player.super.init(self, space, x, y,
+            Velocity(),
+            Collider(hf.collision.Collider.cuboid(8, 8)),
+            SpriteAnimation(gfx.SpriteAnimation.new(rust.sprite_sheets.mario)),
+            rust.PlayerMarker,
+            rust.RequiresLuaUpdate
+        )
+        self.run_frames = 0
+        self.facing_direction = 1
+        self.animation = rust.sprite_sheets.mario:get_tag("idle")
+        self.prev_animation = self.animation
+        self.controller = PlayerController:new()
+        self.controller:push("ground")
+        self:sprite_animation_goto_tag(self.animation)
+    end
+
+    function Player:update()
+        self.controller:update(self, input)
+
+        -- We only want to switch animations if the tag has changed; otherwise, we'll keep
+        -- resetting the same animation over and over and it won't move, stuck at the starting
+        -- frame.
+        if self.animation ~= self.prev_animation then
+            self.prev_animation = self.animation
+            self:sprite_animation_goto_tag(self.animation)
+        end
+    end
+end
+
 return {
+    Player = Player,
     PlayerController = PlayerController,
 }
