@@ -16,8 +16,7 @@ use hv_friends::{
     graphics::{
         sprite::{CachedSpriteSheet, SpriteAnimation, SpriteSheetCache},
         texture::TextureCache,
-        CachedTexture, Color, DrawMode, DrawableMut, GraphicsLock, GraphicsLockExt, Instance,
-        MeshBuilder, SpriteBatch,
+        CachedTexture, DrawableMut, GraphicsLock, GraphicsLockExt, Instance, SpriteBatch,
     },
     math::*,
     Position, SimpleHandler, Velocity,
@@ -416,22 +415,6 @@ impl EventHandler for SmbOneOne {
         self.mario_batch.draw_mut(&mut gfx, Instance::new());
 
         gfx.modelview_mut().pop();
-
-        let mut space = self.space.borrow_mut();
-        // let mut mesh = MeshBuilder::new(gfx.state.null_texture.clone())
-        //     .rectangle(
-        //         DrawMode::fill(),
-        //         Box2::from_half_extents(Point2::origin(), Vector2::new(32., 32.)),
-        //         Color::RED,
-        //     )
-        //     .build(&mut gfx);
-
-        // for (_, Position(pos)) in space.query_mut::<&Position>() {
-        //     mesh.draw_mut(
-        //         &mut gfx,
-        //         Instance::new().translate2((pos.center().coords * scale).map(|t| t.floor())),
-        //     );
-        // }
 
         Ok(())
     }
