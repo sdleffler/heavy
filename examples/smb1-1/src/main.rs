@@ -19,9 +19,9 @@ use hv_friends::{
         CachedTexture, DrawableMut, GraphicsLock, GraphicsLockExt, Instance, SpriteBatch,
     },
     math::*,
-    Position, SimpleHandler, Velocity,
+    parry2d, Position, SimpleHandler, Velocity,
 };
-use hv_tiled::{BoxExt, CoordSpace, TilesetRenderData};
+use hv_tiled::{BoxExt, CoordSpace, TileId, TilesetRenderData};
 
 const TIMESTEP: f32 = 1. / 60.;
 
@@ -88,6 +88,8 @@ struct SmbOneOne {
     timer: TimeContext,
     ts_render_data: TilesetRenderData,
     to_update: Vec<Object>,
+    to_collide: Vec<(Object, Object)>,
+    to_headbutt: Vec<(Object, (u32, u32, TileId))>,
 
     goomba_batch: SpriteBatch<CachedTexture>,
     koopa_batch: SpriteBatch<CachedTexture>,
@@ -189,6 +191,8 @@ impl SmbOneOne {
             timer: TimeContext::new(),
             ts_render_data,
             to_update: Vec::new(),
+            to_collide: Vec::new(),
+            to_headbutt: Vec::new(),
 
             goomba_batch,
             koopa_batch,
@@ -225,10 +229,17 @@ impl EventHandler for SmbOneOne {
                 table.call_method("update", ())?;
             }
 
-            for (object, (Position(pos), Velocity(vel), collider)) in self
-                .space
-                .borrow_mut()
-                .query_mut::<(&mut Position, &mut Velocity, &Collider)>()
+            // Query: handle collisions between blocks and objects with positions, velocities, and
+            // colliders. In addition, collect "headbutt" events to be dispatched to Lua once the
+            // query is finished and the borrows are released.
+            self.to_headbutt.clear();
+            for (player_object, (Position(pos), Velocity(vel), collider, maybe_player)) in
+                self.space.borrow_mut().query_mut::<(
+                    &mut Position,
+                    &mut Velocity,
+                    &Collider,
+                    Option<&PlayerMarker>,
+                )>()
             {
                 let mut is_grounded = false;
 
@@ -311,13 +322,77 @@ impl EventHandler for SmbOneOne {
                                 // TODO: Collision state (touching up/down)
                                 if overlap.y.signum() < 0. {
                                     is_grounded = true;
+                                } else if overlap.y.signum() > 0. && maybe_player.is_some() {
+                                    self.to_headbutt.push((player_object, (x, y, tile)));
                                 }
                             }
                         }
                     }
                 }
 
-                object.to_table(&lua)?.set("is_grounded", is_grounded)?;
+                player_object
+                    .to_table(&lua)?
+                    .set("is_grounded", is_grounded)?;
+            }
+
+            // Dispatch any headbutt events gathered from the previous query.
+            for (player_object, (x, y, _tile)) in self.to_headbutt.drain(..) {
+                LuaTable::from_lua(player_object.to_lua(&lua)?, &lua)?
+                    .call_method("on_headbutt_block", (x, y))?;
+            }
+
+            // Collect any player-on-enemy collisions events, for later dispatch to Lua.
+            //
+            // TODO: we may want to modify this query loop to also collect enemy-on-enemy collision
+            // events (so goombas and koopas and so on can change direction when they hit each other
+            // and spinning koopa shells can kill other enemies, etc.)
+            self.to_collide.clear();
+            for (player_object, (Position(player_pos), player_collider)) in self
+                .space
+                .borrow()
+                .query::<(&Position, &Collider)>()
+                .with::<PlayerMarker>()
+                .iter()
+            {
+                for (goomba_object, (Position(goomba_pos), goomba_collider)) in self
+                    .space
+                    .borrow()
+                    .query::<(&Position, &Collider)>()
+                    .with::<GoombaMarker>()
+                    .iter()
+                {
+                    if parry2d::query::intersection_test(
+                        &(player_pos.to_isometry() * player_collider.local_tx),
+                        player_collider.shape.as_ref(),
+                        &(goomba_pos.to_isometry() * goomba_collider.local_tx),
+                        goomba_collider.shape.as_ref(),
+                    )? {
+                        self.to_collide.push((player_object, goomba_object));
+                    }
+                }
+
+                for (koopa_object, (Position(koopa_pos), koopa_collider)) in self
+                    .space
+                    .borrow()
+                    .query::<(&Position, &Collider)>()
+                    .with::<KoopaMarker>()
+                    .iter()
+                {
+                    if parry2d::query::intersection_test(
+                        &(player_pos.to_isometry() * player_collider.local_tx),
+                        player_collider.shape.as_ref(),
+                        &(koopa_pos.to_isometry() * koopa_collider.local_tx),
+                        koopa_collider.shape.as_ref(),
+                    )? {
+                        self.to_collide.push((player_object, koopa_object));
+                    }
+                }
+            }
+
+            // Dispatch collected player-on-enemy collision events.
+            for (player_object, enemy_object) in self.to_collide.drain(..) {
+                LuaTable::from_lua(player_object.to_lua(&lua)?, &lua)?
+                    .call_method("on_collide_with_enemy", enemy_object)?;
             }
 
             self.goomba_batch.clear();

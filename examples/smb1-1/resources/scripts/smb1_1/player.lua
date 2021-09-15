@@ -220,6 +220,24 @@ do
         self:sprite_animation_goto_tag(self.animation)
     end
 
+    function Player:on_headbutt_block(...)
+        -- Big ol' TODO.
+        print("BLOCK HEADBUTT!", ...)
+    end
+
+    function Player:on_collide_with_enemy(enemy)
+        local _, y = self:velocity_get_linear()
+
+        -- If we are moving downwards (yes, this is how the OG SMB1 did it too) then count as
+        -- SQUEESH
+        if y < 0 then
+            print("SQUEESH! " .. tostring(enemy))
+            if enemy.on_squish then enemy:on_squish(self) end
+        else
+            -- TODO: handle player damaged case
+        end
+    end
+
     function Player:update()
         self.controller:update(self, input)
 

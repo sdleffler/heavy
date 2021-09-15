@@ -374,9 +374,9 @@ pub(crate) fn open<'lua>(lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lu
             Collider,
         )| {
             parry2d::query::intersection_test(
-                &pos1,
+                &(*pos1 * collider1.local_tx),
                 collider1.shape.as_ref(),
-                &pos2,
+                &(*pos2 * collider2.local_tx),
                 collider2.shape.as_ref(),
             )
             .to_lua_err()
