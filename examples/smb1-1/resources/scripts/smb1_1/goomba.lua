@@ -11,6 +11,8 @@ local dying_counter = 0
 local dt = 1.0 / 60.0
 local dying_time = 1
 
+local is_dead = false
+
 local AliveState = State:extend("smb1_1.goomba.AliveState", { name = "alive" })
 do function AliveState:update(agent, goomba) goomba:sprite_animation_update(dt) end end
 
@@ -64,6 +66,11 @@ do
     function Goomba:on_squish(player)
         self.controller:push("dying")
         self.tag = rust.sprite_sheets.goomba:get_tag("dead")
+        is_dead = true
+    end
+
+    function Goomba:is_dead()
+        return is_dead
     end
 end
 

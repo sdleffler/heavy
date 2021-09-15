@@ -35,14 +35,16 @@ function ShellStop:update(agent, koopa)
     -- if the koopa is about to revive, swap the reviving animation with the regular one
     -- every other frame
     if (revive_timer / 60) >= almost_reviving_length then
-        if revive_timer % 2 then
-            koopa.tag = tag_reviving
-        else
-            koopa.tag = tag_in_shell
+        if (revive_timer % 3) == 0 then
+            if koopa.tag == tag_reviving then
+                koopa.tag = tag_in_shell
+            else
+                koopa.tag = tag_reviving
+            end
         end
     end
 
-    if (revive_timer / 60) >= revive_speed then
+    if (revive_timer / 60) >= revival_length then
         agent:push("walk")
         koopa.tag = tag_walk
         revive_timer = 0.0
@@ -99,6 +101,10 @@ do
     function Koopa:on_squish(player)
         self.controller:push("shell_stop")
         self.tag = tag_in_shell
+    end
+
+    function Koopa:is_dead()
+        return false
     end
 end
 
