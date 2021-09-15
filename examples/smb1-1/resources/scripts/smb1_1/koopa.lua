@@ -95,6 +95,11 @@ do
             self:sprite_animation_goto_tag(self.tag)
         end
     end
+
+    function Koopa:on_squish(player)
+        self.controller:push("shell_stop")
+        self.tag = tag_in_shell
+    end
 end
 
 return { Koopa = Koopa, KoopaController = KoopaController }

@@ -231,7 +231,10 @@ do
         -- If we are moving downwards (yes, this is how the OG SMB1 did it too) then count as
         -- SQUEESH
         if y < 0 then
-            print("SQUEESH! " .. tostring(enemy))
+            -- print("SQUEESH! " .. tostring(enemy))
+            -- Bounce!
+            self:velocity_add_linear(0, jump_impulse)
+
             if enemy.on_squish then enemy:on_squish(self) end
         else
             -- TODO: handle player damaged case
