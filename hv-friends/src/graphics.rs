@@ -185,6 +185,15 @@ impl Instance {
         }
     }
 
+    /// Helper function for when you want to scale, rotate, etc. with respect to an origin that is
+    /// not `(0, 0)`. Internally, this will translate the given point such that it is at the new
+    /// origin, run your closure, and then translate back such that the new origin is the same as
+    /// the old.
+    #[inline]
+    pub fn with_origin2(self, pt: Point2<f32>, f: impl FnOnce(Self) -> Self) -> Self {
+        f(self.translate2(pt.coords)).translate2(-pt.coords)
+    }
+
     /// Calculate the AABB resulting from transforming the given AABB by the internal transform of
     /// this `Instance`. The result is a conservative approximation which would contain any shape
     /// the original AABB was calculated from if that shape were to be transformed by this
