@@ -12,6 +12,11 @@ use hv_friends::{
 
 use std::{collections::HashMap, io::Read, path::Path};
 
+const FLIPPED_HORIZONTALLY_FLAG: u32 = 0x80000000;
+const FLIPPED_VERTICALLY_FLAG: u32 = 0x40000000;
+const FLIPPED_DIAGONALLY_FLAG: u32 = 0x20000000;
+const UNSET_FLAGS: u32 = 0x1FFFFFFF;
+
 #[derive(Debug, Clone)]
 pub enum LayerType {
     Tile,
@@ -165,8 +170,26 @@ pub enum RenderOrder {
     LeftUp,
 }
 
+bitfield::bitfield! {
+    #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+    pub struct TileMetaData(u32);
+    pub flipx,                   _ : 31;
+    pub flipy,                   _ : 30;
+    pub diag_flip,               _ : 29;
+    pub tileset_id, set_tileset_id : 28, 0;
+}
+
+impl TileMetaData {
+    fn new(tileset_id: u32, flipx: bool, flipy: bool, diagonal_flip: bool) -> TileMetaData {
+        assert_eq!(tileset_id >> 29, 0);
+        TileMetaData(
+            (flipx as u32) << 31 | (flipy as u32) << 30 | (diagonal_flip as u32) << 29 | tileset_id,
+        )
+    }
+}
+
 #[derive(Debug, Clone, Eq, PartialEq, Copy, Hash)]
-pub struct TileId(u32, u32);
+pub struct TileId(u32, TileMetaData);
 
 impl TileId {
     pub fn to_index(&self) -> Option<usize> {
@@ -178,8 +201,20 @@ impl TileId {
     }
 
     // Input the tile id here as is found in tiled
-    pub fn new(tile_id: u32, tileset_id: u32) -> TileId {
-        TileId(tile_id + 1, tileset_id)
+    pub fn new(
+        tile_id: u32,
+        tileset_id: u32,
+        flipx: bool,
+        flipy: bool,
+        diagonal_flip: bool,
+    ) -> TileId {
+        // If any of the top 3 bits of the tileset_id are stored, panic. We can't have
+        // tileset ids that are larger than 29 bits due to the top 3 bits being reserved for
+        // flip data
+        TileId(
+            tile_id + 1,
+            TileMetaData::new(tileset_id, flipx, flipy, diagonal_flip),
+        )
     }
 }
 
@@ -336,50 +371,61 @@ impl TileLayer {
                     .get::<_, LuaTable>("data")?
                     .sequence_values::<LuaInteger>()
                 {
-                    tile_data.push(tile_buffer[tile? as usize]);
+                    tile_data.push(tile? as u32);
                 }
-                Ok(tile_data)
-            },
+            }
 
             Encoding::Base64 => {
                 let str_data = t.get::<_, LuaString>("data")?.to_str()?.to_owned();
 
-                let decoded_bytes = base64::decode_config(
-                    str_data,
-                    base64::STANDARD,
-                )?;
+                let decoded_bytes = base64::decode_config(str_data, base64::STANDARD)?;
 
                 let level_bytes = match compression {
-                    Some(c) => {
-                        match c {
-                            Compression::GZip => {
-                                let mut d = flate2::read::GzDecoder::new(decoded_bytes.as_slice());
-                                let mut s = Vec::new();
-                                d.read_to_end(&mut s).unwrap();
-                                s
-                            }
-                            Compression::ZLib  => {
-                                let mut d = flate2::read::ZlibDecoder::new(decoded_bytes.as_slice());
-                                let mut s = Vec::new();
-                                d.read_to_end(&mut s).unwrap();
-                                s
-                            }
+                    Some(c) => match c {
+                        Compression::GZip => {
+                            let mut d = flate2::read::GzDecoder::new(decoded_bytes.as_slice());
+                            let mut s = Vec::new();
+                            d.read_to_end(&mut s).unwrap();
+                            s
+                        }
+                        Compression::ZLib => {
+                            let mut d = flate2::read::ZlibDecoder::new(decoded_bytes.as_slice());
+                            let mut s = Vec::new();
+                            d.read_to_end(&mut s).unwrap();
+                            s
                         }
                     },
                     None => decoded_bytes,
                 };
 
-                let mut tile_data = Vec::new();
                 for i in (0..level_bytes.len()).step_by(4) {
                     let val = level_bytes[i] as u32
                         | (level_bytes[i + 1] as u32) << 8
                         | (level_bytes[i + 2] as u32) << 16
                         | (level_bytes[i + 3] as u32) << 24;
-                    tile_data.push(tile_buffer[val as usize]);
+                    tile_data.push(val);
                 }
-                Ok(tile_data)
             }
         }
+
+        let mut tile_ids = Vec::with_capacity(tile_data.len());
+
+        for mut tile in tile_data.into_iter() {
+            // For each tile, we check the flip flags and set the metadata with them.
+            // We then unset the flip flags in the tile ID
+            let flipx = (tile & FLIPPED_HORIZONTALLY_FLAG) != 0;
+            let flipy = (tile & FLIPPED_VERTICALLY_FLAG) != 0;
+            let diag_flip = (tile & FLIPPED_DIAGONALLY_FLAG) != 0;
+
+            tile &= UNSET_FLAGS;
+
+            let mut tile_id = tile_buffer[tile as usize];
+
+            tile_id.1 = TileMetaData::new(tile_id.1.tileset_id(), flipx, flipy, diag_flip);
+            tile_ids.push(tile_id);
+        }
+
+        Ok(tile_ids)
     }
 
     // TODO: implement infinite maps
@@ -425,7 +471,7 @@ impl Map {
         let mut tilesets = Vec::new();
         // We initialize the tile_buffer with 1 0'd out TileId to account for the fact
         // that layer indexing starts at 1 instead of 0
-        let mut tile_buffer = vec![TileId(0, 0)];
+        let mut tile_buffer = vec![TileId(0, TileMetaData(0))];
         let mut obj_slab = slab::Slab::new();
 
         for (tileset, i) in tiled_lua_table
@@ -436,7 +482,10 @@ impl Map {
             let tileset = Tileset::from_lua(&tileset?, path_prefix, i, &mut obj_slab)?;
             tile_buffer.reserve(tileset.tilecount as usize);
             for tile_id_num in tileset.first_gid..tileset.tilecount {
-                tile_buffer.push(TileId(tile_id_num, i));
+                tile_buffer.push(TileId(
+                    tile_id_num,
+                    TileMetaData::new(i, false, false, false),
+                ));
             }
             tilesets.push(tileset);
         }
@@ -735,7 +784,30 @@ impl TileLayerBatch {
                 // Tile indices start at 1, 0 represents no tile, so we offset the tile by 1
                 // first, and skip making the instance param if the tile is 0
                 if let Some(index) = tile.to_index() {
-                    let sprite_id = sprite_batches[tile.1 as usize].insert(
+                    let (scale_x, trans_fix_x) = if tile.1.flipx() {
+                        (-1.0, -1.0 * map_meta_data.tilewidth as f32)
+                    } else {
+                        (1.0, 0.0)
+                    };
+
+                    let (scale_y, trans_fix_y) = if tile.1.flipy() {
+                        (-1.0, -1.0 * map_meta_data.tileheight as f32)
+                    } else {
+                        (1.0, 0.0)
+                    };
+
+                    let (rotation, y_scale, x_trans, y_trans) = if tile.1.diag_flip() {
+                        (
+                            std::f32::consts::FRAC_PI_2,
+                            -1.0,
+                            map_meta_data.tilewidth as f32,
+                            map_meta_data.tileheight as f32 * -1.0,
+                        )
+                    } else {
+                        (0.0, 1.0, 0.0, 0.0)
+                    };
+
+                    let sprite_id = sprite_batches[tile.1.tileset_id() as usize].insert(
                         Instance::new()
                             .src(ts_render_data.uvs[index])
                             .color(Color::new(1.0, 1.0, 1.0, layer.opacity as f32))
@@ -743,16 +815,22 @@ impl TileLayerBatch {
                                 (x_cord * map_meta_data.tilewidth) as f32,
                                 // Need to offset by 1 here since tiled renders maps top right to bottom left, but we do bottom left to top right
                                 (top - ((y_cord + 1) * map_meta_data.tileheight)) as f32,
-                            )),
+                            ))
+                            .scale2(Vector2::new(scale_x, scale_y))
+                            .translate2(Vector2::new(trans_fix_x, trans_fix_y))
+                            .scale2(Vector2::new(1.0, y_scale))
+                            .translate2(Vector2::new(x_trans, y_trans))
+                            .rotate2(rotation),
                     );
 
                     sprite_id_map.insert((x_cord, (layer.height - y_cord - 1)), sprite_id);
 
                     if let Some(t) = ts_render_data.tile_to_tag_map.get(&tile) {
-                        let anim_state = ts_render_data.textures_and_spritesheets[tile.1 as usize]
+                        let anim_state = ts_render_data.textures_and_spritesheets
+                            [tile.1.tileset_id() as usize]
                             .1
                             .at_tag(*t, true);
-                        ss_state[tile.1 as usize].insert(
+                        ss_state[tile.1.tileset_id() as usize].insert(
                             sprite_id,
                             SpriteSheetState {
                                 anim_state,
@@ -799,7 +877,7 @@ impl TileLayerBatch {
     ) -> Option<(SpriteId, TileId)> {
         // Insert the new tile into the sprite sheet
         let index = tile.to_index().unwrap();
-        let sprite_id = self.sprite_batches[tile.1 as usize].insert(
+        let sprite_id = self.sprite_batches[tile.1.tileset_id() as usize].insert(
             Instance::new()
                 .src(ts_render_data.uvs[index])
                 .color(Color::new(1.0, 1.0, 1.0, self.opacity as f32))
@@ -812,10 +890,10 @@ impl TileLayerBatch {
 
         // If it's an animated tile, add it to the sprite sheet state hashmap so that it'll get updated correctly
         if let Some(t) = ts_render_data.tile_to_tag_map.get(&tile) {
-            let anim_state = ts_render_data.textures_and_spritesheets[tile.1 as usize]
+            let anim_state = ts_render_data.textures_and_spritesheets[tile.1.tileset_id() as usize]
                 .1
                 .at_tag(*t, true);
-            self.sprite_sheet_info[tile.1 as usize].insert(
+            self.sprite_sheet_info[tile.1.tileset_id() as usize].insert(
                 sprite_id,
                 SpriteSheetState {
                     anim_state,
@@ -853,10 +931,10 @@ impl TileLayerBatch {
 
         if let Some(old_sprite_id) = self.sprite_id_map.remove(&(x, y)) {
             // Attempt to remove the sprite sheet info if it exists since we don't want to update animation info for a sprite that doesn't exist
-            self.sprite_sheet_info[old_tile.1 as usize].remove(&old_sprite_id);
-            self.sprite_batches[tile_ref.1 as usize].remove(old_sprite_id);
+            self.sprite_sheet_info[old_tile.1.tileset_id() as usize].remove(&old_sprite_id);
+            self.sprite_batches[tile_ref.1.tileset_id() as usize].remove(old_sprite_id);
 
-            *tile_ref = TileId(0, 0);
+            *tile_ref = TileId(0, TileMetaData::new(0, false, false, false));
             Some((old_sprite_id, old_tile))
         } else {
             None
@@ -1155,7 +1233,10 @@ impl Animation {
         for animation in t.sequence_values() {
             let animation: LuaTable = animation?;
             animation_buffer.push((
-                TileId(animation.get("tileid")?, tileset),
+                TileId(
+                    animation.get("tileid")?,
+                    TileMetaData::new(tileset, false, false, false),
+                ),
                 animation.get("duration")?,
             ));
         }
@@ -1189,7 +1270,7 @@ impl Tile {
             // we add 1 here
             id: TileId(
                 tile_table.get::<_, LuaInteger>("id")? as u32 + 1,
-                tileset_num,
+                TileMetaData::new(tileset_num, false, false, false),
             ),
             tile_type: tile_table.get("type").ok(),
             probability: tile_table.get("probability").unwrap_or(0.0),
@@ -1282,7 +1363,7 @@ pub struct Tilesets(Vec<Tileset>);
 
 impl Tilesets {
     pub fn get_tile(&self, tile_id: &TileId) -> Option<&Tile> {
-        self.0[tile_id.1 as usize].get_tile(tile_id)
+        self.0[tile_id.1.tileset_id() as usize].get_tile(tile_id)
     }
 }
 

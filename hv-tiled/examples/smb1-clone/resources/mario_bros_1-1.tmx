@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.5" tiledversion="1.7.2" orientation="orthogonal" renderorder="right-down" width="227" height="34" tilewidth="16" tileheight="16" infinite="0" nextlayerid="22" nextobjectid="78">
+<map version="1.5" tiledversion="1.7.2" orientation="orthogonal" renderorder="right-down" width="228" height="34" tilewidth="16" tileheight="16" infinite="0" nextlayerid="22" nextobjectid="78">
  <editorsettings>
   <export target="mario_bros_1-1.lua" format="lua"/>
  </editorsettings>
@@ -108,6 +108,16 @@
     <object id="1" x="7" y="0" width="2" height="16"/>
    </objectgroup>
   </tile>
+  <tile id="118">
+   <objectgroup draworder="index" id="2">
+    <object id="1" x="0" y="0" width="16" height="16"/>
+   </objectgroup>
+  </tile>
+  <tile id="119">
+   <objectgroup draworder="index" id="2">
+    <object id="1" x="0" y="0" width="16" height="16"/>
+   </objectgroup>
+  </tile>
   <tile id="144">
    <properties>
     <property name="hittable" type="int" value="148"/>
@@ -165,6 +175,11 @@
   <tile id="166">
    <objectgroup draworder="index" id="2">
     <object id="1" x="2" y="0" width="14" height="16"/>
+   </objectgroup>
+  </tile>
+  <tile id="167">
+   <objectgroup draworder="index" id="2">
+    <object id="1" x="0" y="0" width="14" height="16"/>
    </objectgroup>
   </tile>
   <tile id="192">
@@ -279,33 +294,33 @@
    </objectgroup>
   </tile>
  </tileset>
- <layer id="9" name="Sky" width="227" height="34">
+ <layer id="9" name="Sky" width="228" height="34">
   <data encoding="base64" compression="gzip">
-   H4sIAAAAAAAACu3TsQkCABRDQV3SJdy/t3KCCPnEO3h9mjweAMDXW9JPSrX3Syul2vullVLt/dJKqfZ+aaVUe7+0Uqq9X1op1d4vrZRq75dWSrX3Syul2vullVLt/dJKqfZ+aaVUe7+0Uqq9X1op1d4vrcSe1zML+A1fhBt8EW7wRbjBF+EGX4QbfBFu8EW4wRfhBl+EG3wRbvBFuMEX4QZfhBt8EW7wxf/0AYmHvIyYeAAA
+   H4sIAAAAAAAACu3TsY0DAQwDQbtJN/H955871QEk6Blgcyng6wUAfPuT9FhX6fulpa7S90tLXaXvl5a6St8vLXWVvl9a6ip9v7TUVfp+aamr9P3SUlfp+6WlrtL3S0tdpe+XlrpK3y8tdZW+X1rqCekfpJWekP5BWolNn/ct4Dn2CD3sEXrYI/SwR+hhj9DDHqGHPUIPe4Qe9gg97BF62CP0sEfoYY/Qwx6hhz3+pn9M+bxEIHkAAA==
   </data>
  </layer>
- <layer id="12" name="Background" width="227" height="34">
+ <layer id="12" name="Background" width="228" height="34">
   <data encoding="base64" compression="gzip">
-   H4sIAAAAAAAACu3bW07CQBQG4LIYdUXq3tSo6zFE3QtPeEGHWMLYNO20DL3l+5ITICkz5+90UvpAUQAAAE0eQz2V9TzS3LnmHTNLTnPOMefe+2q7juNz0nTca6i3st4H6Ktu7pR5U/LkztJVava2LHPJUWfs3sfQdh3H52TI89Jlf/UZd8rrnJp96lnOtYYALEfuZ9sx5MyQ+gwEuS3hd1vODFP/nQ0AAOd2sToWMJ7rsAc34fX2DHvxPv+Qo1hKjr2lZJlbjrZ+9/fCq6hy3htfQn2EWvf8/lTO9Sk5ppLh4NQ1uSv+Mj1k66ifuV1bKf1uyrpcHd/nsC3n/gz1Feq74dhdqJ+oilVz77vouFPFc9eNl5qja4bq93JkqeslHrfLmlTHGXpdinjeiq45/hk4w15qv4f9dxPvRc+NAAAAAAAAAAAAAAAAAEzctvI55X9/Tf/tBACYm1+uMFbRmHgAAA==
+   H4sIAAAAAAAACu3XW06DQBQGYLoYdUXq3tSo6zGNupc+eatOI01HQspQhqvfl5y0DzBzfoYJUBQAAEAb96Eeynocae5c846ZJac555hz71003cvxdTl23HOol7JeB+irbu6UeVPy5M7SVmr2pixzyVFn7N7H0nQvx9dlyGvTZo+dMu6U1zo1+9Sz9LWGACxP7m/dMeTMkPo9BH1YwjtczgxTf+cGAIAhna0OBYzrMuzDTfi97mk/3vYz7OCWkmNnKVnmlqOp390z8SKq3M/Ip1DvodYnnj+V690lx1Qy7HVdk5viN9Ndto5OM7d7K6XfTVnnq8P/XN7K+T9CfYb6OnLsNtR3VMXqeP/b6Liu4rnrxkvN0TZD9bwcWep6icdtsybVcYZelyKet6Jtjj8GzrCT2u9+D17F+9F3JAAAAAAAAAAAAAAAAAAAAPwLP7U7ywcgeQAA
   </data>
  </layer>
- <layer id="11" name="Foreground" width="227" height="34">
+ <layer id="11" name="Foreground" width="228" height="34">
   <data encoding="base64" compression="gzip">
-   H4sIAAAAAAAACu3b3W2DMBSGYVDVdqPukRF603Qdbmg2yERt98gEsaogIeqfY7DxwX4f6ShEsZE58ImgKF0HAAAAAAAAAMf0VnoBAP58lF4AmnCble2z4VG2z1tx9CwOpRdQwC2iXPO29K3Fnm8xPirk6FkENBs7sgiUNnZkEShtmcOasrh8RpmeeeavOZ1NfSYcF2uv43TtfxBsS/flGusbPzq2Q5Y5iJk7mT9jS47JlsOaspiTJD9fpi6CfUnHQc6WJ8m1bcuBdO5arhy2nMWY+5MkP2SxDF+efNe3KwehubHfa+bjfTlsOYsxmSCLOknyZLvGfTkIzY09f9P4UA6l9/E9nHrKVjl6RO/dPSm9jhznlyym72uuc1X6GDVUTb0AAACo2VP//72rlq77LBFogi1jUmQRSIcsAjqQRUAHsgjoQBYBHcgioANZBHQgi4AO/NYP6LAmi9+mfkz97rlQoHJrsvhstl9MvfJ/ASCZ935bAUiDLLbpDiSy7fKYeAAA
+   H4sIAAAAAAAACu3b3U3DMBRAYVcI2IhnVmAEXoANYI28BDYoCwF7dAKM1NDI8s91EsdX9vmkK4qaRKmTI4gExgAAAAAAAABAW+5qnwCAf0+1TwDdOM3G995wHt/7vWihx6H2CVRwypjQfmvWrcc1X2M8T0oLPQKajYYeAQ1GQ4+ABm6LrfXoPrNMz0DzryU923nZcLtce33O0PEHwWvpsULbxrYfA69T3BZy9p3Mn7kln8nXYms9liRp6N3Oh+BY0u0g52tKcn/7WpDuu1SoRXq8SPUmaYge64g1FbvHQy2k9s39/Wa+faxFerxINUKPOkma8t3nsRZS++Zev2n7VIvSn+d7eDgwoSmxTqx/eE1qn0eJ60uPZda21PWq/Rk1TEtrgTZd2Wt7NOb+0870fWhcx53PFWjdX2evtsU3egSqczujR6AeX2dS9Ahsix4BPegR0IMeAT3oEdCDHgE96BHQgx4BPfh7AECPJT1+2fm287PniQIdWNLjtX19Y+eW/zMANvV4WDcAtkOPffoFS4koZyB5AAA=
   </data>
  </layer>
- <layer id="14" name="ItemsInBlocks" width="227" height="34">
+ <layer id="14" name="ItemsInBlocks" width="228" height="34">
   <data encoding="base64" compression="gzip">
-   H4sIAAAAAAAACu3XMQpAIQgA0Dqq979ES2N8gobS/x4IgouKi60BAAAAAABAbjGDvPrtBpI6uXs7BwAAXrL6b+KjVtHNPy028ur+NCsAAAAAAAAAAAAAAAAAAAAAAAA1DASBRc2YeAAA
+   H4sIAAAAAAAACu3XMQrAMAgAwPSp/v8TWTqmIZDBxN6BILiouNgaAAAAAAAA1BZvcLcnu4FL7dy+nQMAACcb/TsxqVWU+bfFQl7dn2YFAAAAAAAAAAAAAAAAAAAAAACALx1vEMXoIHkAAA==
   </data>
  </layer>
- <layer id="19" name="Items" width="227" height="34">
+ <layer id="19" name="Items" width="228" height="34">
   <data encoding="base64" compression="gzip">
-   H4sIAAAAAAAACu3VMQ0AAAgEMSzjf8HAMzPQJqfhqgAAAAAAAAAAAAAAAAAAAAAAAAAAAGDXIQD4KD3RGwH4yhcBAAAA4NYArJeBFJh4AAA=
+   H4sIAAAAAAAACu3VsQkAAAgEMVd2/8YFvlcwgZvhqgAAAAAAAAAAAAAAAAAAAAAAAAAAAGBXhwDgs/RGjwTgO38EAAAAgHsGkjiw+yB5AAA=
   </data>
  </layer>
  <objectgroup id="18" name="Unique Tiles">
-  <object id="28" name="Timer Coin Block" gid="242" x="1600" y="208" width="16" height="16">
+  <object id="28" name="Timer Coin Block" gid="242" x="1616" y="208" width="16" height="16">
    <properties>
     <property name="amount" type="int" value="10"/>
     <property name="breakable" type="bool" value="false"/>
@@ -314,12 +329,12 @@
     <property name="turns_into" type="int" value="148"/>
    </properties>
   </object>
-  <object id="29" name="1 up hidden block" gid="145" x="1056" y="192" width="16" height="16">
+  <object id="29" name="1 up hidden block" gid="145" x="1072" y="192" width="16" height="16">
    <properties>
     <property name="spawns" value="1-up"/>
    </properties>
   </object>
-  <object id="64" name="Star Block" gid="242" x="1712" y="208" width="16" height="16">
+  <object id="64" name="Star Block" gid="242" x="1728" y="208" width="16" height="16">
    <properties>
     <property name="breakable" type="bool" value="false"/>
     <property name="spawns" value="star"/>
@@ -328,27 +343,27 @@
   </object>
  </objectgroup>
  <objectgroup id="17" name="Warp Zones">
-  <object id="47" name="In 1" x="944" y="192">
+  <object id="47" name="In 1" x="960" y="192">
    <properties>
     <property name="direction" value="down"/>
     <property name="output" type="object" value="48"/>
    </properties>
    <point/>
   </object>
-  <object id="48" name="Out 1" x="1648" y="320">
+  <object id="48" name="Out 1" x="1664" y="320">
    <properties>
     <property name="direction" value="down"/>
    </properties>
    <point/>
   </object>
-  <object id="49" name="In 2" x="1824" y="496">
+  <object id="49" name="In 2" x="1840" y="496">
    <properties>
     <property name="direction" value="right"/>
     <property name="output" type="object" value="50"/>
    </properties>
    <point/>
   </object>
-  <object id="50" name="Out 2" x="2736" y="224">
+  <object id="50" name="Out 2" x="2752" y="224">
    <properties>
     <property name="direction" value="up"/>
    </properties>
@@ -356,95 +371,95 @@
   </object>
  </objectgroup>
  <objectgroup id="20" name="Flag">
-  <object id="46" name="Flag Pole" gid="105" x="3207" y="112" width="16" height="16"/>
+  <object id="46" name="Flag Pole" gid="105" x="3223" y="112" width="16" height="16"/>
  </objectgroup>
  <objectgroup id="21" name="Characters">
-  <object id="55" name="Mario" x="48" y="240" width="16" height="16">
+  <object id="55" name="Mario" x="64" y="240" width="16" height="16">
    <properties>
     <property name="player" type="int" value="1"/>
    </properties>
   </object>
-  <object id="56" name="Goomba" x="352" y="240" width="16" height="16">
+  <object id="56" name="Goomba" x="368" y="240" width="16" height="16">
    <properties>
     <property name="enemy" value="goomba"/>
    </properties>
   </object>
-  <object id="57" name="Goomba" x="656" y="240" width="16" height="16">
+  <object id="57" name="Goomba" x="672" y="240" width="16" height="16">
    <properties>
     <property name="enemy" value="goomba"/>
    </properties>
   </object>
-  <object id="58" name="Goomba" x="848" y="240" width="16" height="16">
+  <object id="58" name="Goomba" x="864" y="240" width="16" height="16">
    <properties>
     <property name="enemy" value="goomba"/>
    </properties>
   </object>
-  <object id="59" name="Goomba" x="874" y="240" width="16" height="16">
+  <object id="59" name="Goomba" x="890" y="240" width="16" height="16">
    <properties>
     <property name="enemy" value="goomba"/>
    </properties>
   </object>
-  <object id="60" name="Goomba" x="1328" y="112" width="16" height="16">
+  <object id="60" name="Goomba" x="1344" y="112" width="16" height="16">
    <properties>
     <property name="enemy" value="goomba"/>
    </properties>
   </object>
-  <object id="61" name="Goomba" x="1360" y="112" width="16" height="16">
+  <object id="61" name="Goomba" x="1376" y="112" width="16" height="16">
    <properties>
     <property name="enemy" value="goomba"/>
    </properties>
   </object>
-  <object id="62" name="Goomba" x="1632" y="240" width="16" height="16">
+  <object id="62" name="Goomba" x="1648" y="240" width="16" height="16">
    <properties>
     <property name="enemy" value="goomba"/>
    </properties>
   </object>
-  <object id="63" name="Goomba" x="1648" y="240" width="16" height="16">
+  <object id="63" name="Goomba" x="1664" y="240" width="16" height="16">
    <properties>
     <property name="enemy" value="goomba"/>
    </properties>
   </object>
-  <object id="65" name="Koopa" x="1808" y="240" width="16" height="16">
+  <object id="65" name="Koopa" x="1824" y="240" width="16" height="16">
    <properties>
     <property name="enemy" value="g_koopa"/>
    </properties>
   </object>
-  <object id="66" name="Goomba" x="1936" y="240" width="16" height="16">
+  <object id="66" name="Goomba" x="1952" y="240" width="16" height="16">
    <properties>
     <property name="enemy" value="goomba"/>
    </properties>
   </object>
-  <object id="67" name="Goomba" x="1968" y="240" width="16" height="16">
+  <object id="67" name="Goomba" x="1984" y="240" width="16" height="16">
    <properties>
     <property name="enemy" value="goomba"/>
    </properties>
   </object>
-  <object id="68" name="Goomba" x="2080" y="240" width="16" height="16">
+  <object id="68" name="Goomba" x="2096" y="240" width="16" height="16">
    <properties>
     <property name="enemy" value="goomba"/>
    </properties>
   </object>
-  <object id="69" name="Goomba" x="2096" y="240" width="16" height="16">
+  <object id="69" name="Goomba" x="2112" y="240" width="16" height="16">
    <properties>
     <property name="enemy" value="goomba"/>
    </properties>
   </object>
-  <object id="70" name="Goomba" x="2176" y="240" width="16" height="16">
+  <object id="70" name="Goomba" x="2192" y="240" width="16" height="16">
    <properties>
     <property name="enemy" value="goomba"/>
    </properties>
   </object>
-  <object id="71" name="Goomba" x="2160" y="240" width="16" height="16">
+  <object id="71" name="Goomba" x="2176" y="240" width="16" height="16">
    <properties>
     <property name="enemy" value="goomba"/>
    </properties>
   </object>
-  <object id="72" name="Goomba" x="2848" y="240" width="16" height="16">
+  <object id="72" name="Goomba" x="2864" y="240" width="16" height="16">
    <properties>
     <property name="enemy" value="goomba"/>
    </properties>
   </object>
-  <object id="73" name="Goomba" x="2880" y="240" width="16" height="16">
+  <object id="73" name="Goomba" x="2896" y="240" width="16" height="16">
    <properties>
     <property name="enemy" value="goomba"/>
    </properties>
