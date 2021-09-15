@@ -120,7 +120,7 @@ do
                 end
 
                 -- TODO: beegsmol
-                if move_dir ~= 0 then
+                if move_dir ~= 0 and sign_vx ~= 0 then
                     player.animation = tag_walk_smol
                 else 
                     player.animation = tag_idle_smol
@@ -131,7 +131,7 @@ do
                 player.facing_direction = sign_vx
             end
 
-            player:sprite_animation_update(math.max(abs_vx, max_walk_velocity) / 100 / 60)
+            player:sprite_animation_update(math.max(abs_vx, max_walk_velocity / 1.5) / 100 / 60)
             player:velocity_set_linear(vx, math.max(vy - normal_gravity, -maximum_falling_velocity))
         end
     end
