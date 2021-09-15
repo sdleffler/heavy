@@ -157,10 +157,6 @@ do
         local abs_vx = sign_vx * vx
         local move_dir = (left_down and -1 or 0) + (right_down and 1 or 0)
 
-        if move_dir ~= 0 then
-            player.facing_direction = move_dir
-        end
-
         if move_dir == sign_vx or sign_vx == 0 then
             if abs_vx < max_walk_velocity then
                 vx = vx + move_dir * midair_low_acceleration
