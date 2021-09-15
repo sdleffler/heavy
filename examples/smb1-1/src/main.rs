@@ -68,7 +68,7 @@ fn default_input_bindings() -> InputBinding<Axis, Button> {
 }
 
 #[derive(Debug, Clone, Copy)]
-struct RequiresUpdate;
+struct RequiresLuaUpdate;
 
 #[derive(Debug, Clone, Copy)]
 struct GoombaMarker;
@@ -130,7 +130,7 @@ impl SmbOneOne {
             let input_state = input_state.clone();
             let space = space.clone();
 
-            let requires_update = DynamicComponentConstructor::copy(RequiresUpdate);
+            let requires_update = DynamicComponentConstructor::copy(RequiresLuaUpdate);
             let goomba_marker = DynamicComponentConstructor::copy(GoombaMarker);
             let koopa_marker = DynamicComponentConstructor::copy(KoopaMarker);
             let player_marker = DynamicComponentConstructor::copy(PlayerMarker);
@@ -151,7 +151,7 @@ impl SmbOneOne {
                         mario = $mario_sheet,
                     },
 
-                    RequiresUpdate = $requires_update,
+                    RequiresLuaUpdate = $requires_update,
                     GoombaMarker = $goomba_marker,
                     KoopaMarker = $koopa_marker,
                     PlayerMarker = $player_marker,
@@ -216,7 +216,7 @@ impl EventHandler for SmbOneOne {
                 .space
                 .borrow_mut()
                 .query_mut::<()>()
-                .with::<RequiresUpdate>()
+                .with::<RequiresLuaUpdate>()
             {
                 self.to_update.push(obj);
             }
@@ -318,19 +318,6 @@ impl EventHandler for SmbOneOne {
                     }
                 }
 
-                // 8 is just faster than doing self.map.meta_data.tilewidth as f32 / 2.0
-                if pos.translation.vector.x - 8.0 <= 0.0 {
-                    pos.translation.vector.x = 8.0;
-                }
-
-                let scroll = pos.translation.vector.x - (engine.mq().screen_size().0 / 8.0)
-                    + (self.map.meta_data.tilewidth as f32 / 2.0);
-                if scroll < 0.0 {
-                    self.x_scroll = 0.0;
-                } else {
-                    self.x_scroll = scroll;
-                }
-
                 object.to_table(&lua)?.set("is_grounded", is_grounded)?;
             }
 
@@ -360,7 +347,12 @@ impl EventHandler for SmbOneOne {
                 .with::<KoopaMarker>()
             {
                 let frame = koopa_sheet[animation.animation.frame_id];
-                self.koopa_batch.insert(Instance::new().translate2(pos.center().coords - Vector2::new(8., 8.)).src(frame.uvs).translate2(frame.offset));
+                self.koopa_batch.insert(
+                    Instance::new()
+                        .translate2(pos.center().coords - Vector2::new(8., 8.))
+                        .src(frame.uvs)
+                        .translate2(frame.offset),
+                );
             }
 
             self.mario_batch.clear();
@@ -368,9 +360,22 @@ impl EventHandler for SmbOneOne {
             for (object, (Position(pos), animation)) in self
                 .space
                 .borrow_mut()
-                .query_mut::<(&Position, &mut SpriteAnimation)>()
+                .query_mut::<(&mut Position, &mut SpriteAnimation)>()
                 .with::<PlayerMarker>()
             {
+                // 8 is just faster than doing self.map.meta_data.tilewidth as f32 / 2.0
+                if pos.translation.vector.x - 8.0 <= 0.0 {
+                    pos.translation.vector.x = 8.0;
+                }
+
+                let scroll = pos.translation.vector.x - (engine.mq().screen_size().0 / 8.0)
+                    + (self.map.meta_data.tilewidth as f32 / 2.0);
+                if scroll < 0.0 {
+                    self.x_scroll = 0.0;
+                } else {
+                    self.x_scroll = scroll;
+                }
+
                 let frame = mario_sheet[animation.animation.frame_id];
                 let facing_dir: i32 = object.to_table(&lua)?.get("facing_direction")?;
 

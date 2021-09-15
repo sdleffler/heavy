@@ -1,6 +1,8 @@
 local std_space = require("std.space")
 local binser = require("std.binser")
 local PlayerController = require("smb1_1.player").PlayerController
+local GoombaController = require("smb1_1.goomba").GoombaController
+local KoopaController = require("smb1_1.koopa").KoopaController
 local Collider = hf.components.Collider
 local Position = hf.components.Position
 local Velocity = hf.components.Velocity
@@ -21,32 +23,74 @@ do
     end
 
     local Goomba = GameObject:extend("smb1_1.game_objects.Goomba")
+        :with(Velocity)
+        :with(Collider)
+        :with(SpriteAnimation)
     do
         game_objects.Goomba = Goomba
         binser.registerClass(Goomba)
 
         function Goomba:init(space, x, y)
-            print("TODO: Goomba components")
             Goomba.super.init(self, space, x, y,
                 Velocity(),
                 SpriteAnimation(gfx.SpriteAnimation.new(rust.sprite_sheets.goomba)),
-                rust.GoombaMarker
+                Collider(hf.collision.Collider.cuboid(8, 8)),
+                rust.GoombaMarker,
+                rust.RequiresLuaUpdate
             )
+            self.tag = rust.sprite_sheets.goomba:get_tag("walk")
+            self.last_tag = self.tag
+            self.controller = GoombaController:new()
+            self.controller:push("alive")
+            self:sprite_animation_goto_tag(self.tag)
+        end
+
+        function Goomba:update()
+            self.controller:update(self, input)
+
+            -- We only want to switch animations if the tag has changed; otherwise, we'll keep
+            -- resetting the same animation over and over and it won't move, stuck at the starting
+            -- frame.
+            if self.tag ~= self.last_tag then
+                self.last_tag = self.tag
+                self:sprite_animation_goto_tag(self.tag)
+            end
         end
     end
 
     local Koopa = GameObject:extend("smb1_1.game_objects.Koopa")
+        :with(Velocity)
+        :with(Collider)
+        :with(SpriteAnimation)
     do
         game_objects.Koopa = Koopa
         binser.registerClass(Koopa)
 
         function Koopa:init(space, x, y)
-            print("TODO: Koopa components")
             Koopa.super.init(self, space, x, y,
                 Velocity(),
+                Collider(hf.collision.Collider.cuboid(8, 8)),
                 SpriteAnimation(gfx.SpriteAnimation.new(rust.sprite_sheets.koopa)),
-                rust.KoopaMarker
+                rust.KoopaMarker,
+                rust.RequiresLuaUpdate
             )
+            self.tag = rust.sprite_sheets.koopa:get_tag("walk")
+            self.last_tag = self.tag
+            self.controller = KoopaController:new()
+            self.controller:push("walk")
+            self:sprite_animation_goto_tag(self.tag)
+        end
+
+        function Koopa:update()
+            self.controller:update(self, input)
+
+            -- We only want to switch animations if the tag has changed; otherwise, we'll keep
+            -- resetting the same animation over and over and it won't move, stuck at the starting
+            -- frame.
+            if self.tag ~= self.last_tag then
+                self.last_tag = self.tag
+                self:sprite_animation_goto_tag(self.tag)
+            end
         end
     end
 
@@ -64,7 +108,7 @@ do
                 Collider(hf.collision.Collider.cuboid(8, 8)),
                 SpriteAnimation(gfx.SpriteAnimation.new(rust.sprite_sheets.mario)),
                 rust.PlayerMarker,
-                rust.RequiresUpdate
+                rust.RequiresLuaUpdate
             )
             self.run_frames = 0
             self.facing_direction = 1

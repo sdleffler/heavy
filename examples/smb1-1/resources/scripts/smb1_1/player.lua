@@ -45,7 +45,7 @@ do
     function GroundState:update(agent, player)
         if input:get_button_pressed(button.A) then
             player:velocity_add_linear(0, jump_impulse)
-            
+
             -- TODO: beegsmol
             player.animation = tag_jump_smol
             agent:push("air")
@@ -58,7 +58,7 @@ do
             -- 3.) Not walking or running but facing in the direction of current velocity (released)
             -- 4.) Not walking or running but facing in the opposite direction of current velocity
             -- (skidding)
-            
+
             local left_down, right_down = input:get_button_down(button.Left), input:get_button_down(button.Right)
 
             if input:get_button_down(button.B) then
