@@ -234,18 +234,18 @@ do
         self:velocity_set_linear(x, jump_impulse)
     end
 
-    function Player:on_collide_with_enemy(enemy)
+    function Player:on_collide_with_object(object)
         local _, y = self:velocity_get_linear()
 
         -- If we are moving downwards (yes, this is how the OG SMB1 did it too) then count as
         -- SQUEESH
         if y < 0 then
-            if enemy.on_squish then enemy:on_squish(self) end
+            if object.on_squish then object:on_squish(self) end
         else
-            if enemy.on_mario_collide then
-                enemy:on_mario_collide(self)
+            if object.on_mario_collide then
+                object:on_mario_collide(self)
             else
-                self:hurt(enemy)
+                self:hurt(object)
             end
         end
     end

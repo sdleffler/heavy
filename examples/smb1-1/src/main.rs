@@ -383,54 +383,36 @@ impl EventHandler for SmbOneOne {
             // events (so goombas and koopas and so on can change direction when they hit each other
             // and spinning koopa shells can kill other enemies, etc.)
             self.to_collide.clear();
-            for (player_object, (Position(player_pos), player_collider)) in self
+            for (object1, (Position(pos1), collider1)) in self
                 .space
                 .borrow()
                 .query::<(&Position, &Collider)>()
-                .with::<PlayerMarker>()
+                .without::<Unloaded>()
                 .iter()
             {
-                for (goomba_object, (Position(goomba_pos), goomba_collider)) in self
+                for (object2, (Position(pos2), collider2)) in self
                     .space
                     .borrow()
                     .query::<(&Position, &Collider)>()
-                    .with::<GoombaMarker>()
                     .without::<Unloaded>()
                     .iter()
+                    .filter(|&(object2, _)| object1 != object2)
                 {
                     if parry2d::query::intersection_test(
-                        &(player_pos.to_isometry() * player_collider.local_tx),
-                        player_collider.shape.as_ref(),
-                        &(goomba_pos.to_isometry() * goomba_collider.local_tx),
-                        goomba_collider.shape.as_ref(),
+                        &(pos1.to_isometry() * collider1.local_tx),
+                        collider1.shape.as_ref(),
+                        &(pos2.to_isometry() * collider2.local_tx),
+                        collider2.shape.as_ref(),
                     )? {
-                        self.to_collide.push((player_object, goomba_object));
-                    }
-                }
-
-                for (koopa_object, (Position(koopa_pos), koopa_collider)) in self
-                    .space
-                    .borrow()
-                    .query::<(&Position, &Collider)>()
-                    .with::<KoopaMarker>()
-                    .without::<Unloaded>()
-                    .iter()
-                {
-                    if parry2d::query::intersection_test(
-                        &(player_pos.to_isometry() * player_collider.local_tx),
-                        player_collider.shape.as_ref(),
-                        &(koopa_pos.to_isometry() * koopa_collider.local_tx),
-                        koopa_collider.shape.as_ref(),
-                    )? {
-                        self.to_collide.push((player_object, koopa_object));
+                        self.to_collide.push((object1, object2));
                     }
                 }
             }
 
             // Dispatch collected player-on-enemy collision events.
-            for (player_object, enemy_object) in self.to_collide.drain(..) {
-                LuaTable::from_lua(player_object.to_lua(&lua)?, &lua)?
-                    .call_method("on_collide_with_enemy", enemy_object)?;
+            for (object1, object2) in self.to_collide.drain(..) {
+                LuaTable::from_lua(object1.to_lua(&lua)?, &lua)?
+                    .call_method("on_collide_with_object", object2)?;
             }
 
             self.goomba_batch.clear();

@@ -10,6 +10,8 @@ do
     function GameObject:init(space, x, y, ...)
         space:spawn(ObjectTable(self), Position(x, y), ...)
     end
+
+    function GameObject:on_collide_with_object(other) end
 end
 
 return { GameObject = GameObject }
