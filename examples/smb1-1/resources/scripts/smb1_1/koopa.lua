@@ -21,24 +21,29 @@ local tag_reviving = assert(rust.sprite_sheets.koopa:get_tag("reviving"))
 
 local Walking = State:extend("smb1_1.koop.walking", { name = "walk" })
 do
+    function Walking:init(agent, koopa) koopa.tag = tag_walk end
+
     function Walking:update(agent, koopa)
         koopa:sprite_animation_update(1.0 / 60.0)
         -- TODO: implement walking
     end
-    function Walking:on_squish(agent, koopa)
-        koopa.tag = tag_in_shell
-        agent:push("shell_stop")
-    end
+
+    function Walking:on_squish(agent, koopa) agent:switch("shell_stop", koopa) end
 end
 
 local ShellStop = State:extend("smb1_1.koopa.ShellStop", { name = "shell_stop" })
 do
+    function ShellStop:init(agent, koopa)
+        koopa.tag = tag_in_shell
+        self.revive_timer = 0
+    end
+
     function ShellStop:update(agent, koopa)
-        koopa.revive_timer = koopa.revive_timer + 1
+        self.revive_timer = self.revive_timer + 1
 
         -- if the koopa is about to revive, start swaping the animations
-        if (koopa.revive_timer / 60) >= almost_reviving_length then
-            if (koopa.revive_timer % 3) == 0 then
+        if (self.revive_timer / 60) >= almost_reviving_length then
+            if (self.revive_timer % 3) == 0 then
                 if koopa.tag == tag_reviving then
                     koopa.tag = tag_in_shell
                 else
@@ -47,15 +52,12 @@ do
             end
         end
 
-        if (koopa.revive_timer / 60) >= revival_length then
-            agent:pop()
-            koopa.tag = tag_walk
-            koopa.revive_timer = 0.0
-        end
+        if (self.revive_timer / 60) >= revival_length then agent:switch("walk", koopa) end
 
         -- TODO: need to check for collision and enter shell drift state
     end
-    function ShellStop:on_squish(agent, koopa) agent:push("shell_drift") end
+
+    function ShellStop:on_squish(agent, koopa) agent:switch("shell_drift", koopa) end
 end
 
 local ShellDrift = State:extend("smb1_1.koopa.ShellDrift", { name = "shell_drift" })
@@ -64,7 +66,8 @@ do
         -- Implement the shell sliding
         -- Implement going back to shell stop after being bounced on
     end
-    function ShellDrift:on_squish(agent, koopa) agent:pop() end
+
+    function ShellDrift:on_squish(agent, koopa) agent:switch("shell_stop", koopa) end
 end
 
 local KoopaController = Agent:extend("KoopaController")
@@ -88,7 +91,7 @@ do
         self.tag = rust.sprite_sheets.koopa:get_tag("walk")
         self.last_tag = self.tag
         self.controller = KoopaController:new()
-        self.controller:push("walk")
+        self.controller:push("walk", self)
         self.dead = false
         self.revive_timer = 0.0
         self:sprite_animation_goto_tag(self.tag)
