@@ -22,7 +22,6 @@ local DyingState = State:extend("smb1_1.goomba.DyingState", { name = "dying" })
 do
     function DyingState:init(agent, goomba)
         goomba.tag = rust.sprite_sheets.goomba:get_tag("dead")
-        goomba.dead = true
         self.dying_counter = 0
     end
 
@@ -56,7 +55,6 @@ do
         self.last_tag = self.tag
         self.controller = GoombaController:new()
         self.controller:push("alive")
-        self.dead = false
         self:sprite_animation_goto_tag(self.tag)
     end
 

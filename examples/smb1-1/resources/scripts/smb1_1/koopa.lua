@@ -101,7 +101,6 @@ do
         self.last_tag = self.tag
         self.controller = KoopaController:new()
         self.controller:push("walk", self)
-        self.dead = false
         self.revive_timer = 0.0
         self:sprite_animation_goto_tag(self.tag)
     end
