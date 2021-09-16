@@ -49,7 +49,8 @@ do
         Goomba.super.init(
             self, space, x, y, Velocity(),
             SpriteAnimation(gfx.SpriteAnimation.new(rust.sprite_sheets.goomba)),
-            Collider(hf.collision.Collider.cuboid(8, 8)), rust.GoombaMarker, rust.RequiresLuaUpdate
+            Collider(hf.collision.Collider.cuboid(8, 8)), rust.GoombaMarker, rust.RequiresLuaUpdate,
+            rust.Unloaded
         )
         self.tag = rust.sprite_sheets.goomba:get_tag("walk")
         self.last_tag = self.tag

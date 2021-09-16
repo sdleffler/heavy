@@ -78,6 +78,9 @@ struct KoopaMarker;
 #[derive(Debug, Clone, Copy)]
 struct PlayerMarker;
 
+#[derive(Debug, Clone, Copy)]
+struct Unloaded;
+
 struct SmbOneOne {
     space: Shared<Space>,
     input_binding: InputBinding<Axis, Button>,
@@ -90,6 +93,7 @@ struct SmbOneOne {
     to_update: Vec<Object>,
     to_collide: Vec<(Object, Object)>,
     to_headbutt: Vec<(Object, (u32, u32, TileId))>,
+    to_load: Vec<Object>,
 
     goomba_batch: SpriteBatch<CachedTexture>,
     koopa_batch: SpriteBatch<CachedTexture>,
@@ -105,7 +109,6 @@ impl SmbOneOne {
         let space = engine.get::<Spaces>().borrow_mut().create_space();
         let input_state = Shared::new(InputState::new());
         let lua = engine.lua();
-
         let mut texture_cache = engine.get::<TextureCache>().owned_borrow_mut();
         let goomba_texture = texture_cache.get_or_load("/sprite_sheets/goomba-sheet.png")?;
         let koopa_texture = texture_cache.get_or_load("/sprite_sheets/koopa.png")?;
@@ -135,6 +138,7 @@ impl SmbOneOne {
             let goomba_marker = DynamicComponentConstructor::copy(GoombaMarker);
             let koopa_marker = DynamicComponentConstructor::copy(KoopaMarker);
             let player_marker = DynamicComponentConstructor::copy(PlayerMarker);
+            let unloaded = DynamicComponentConstructor::copy(Unloaded);
 
             let goomba_sheet = goomba_sheet.clone();
             let koopa_sheet = koopa_sheet.clone();
@@ -156,6 +160,7 @@ impl SmbOneOne {
                     GoombaMarker = $goomba_marker,
                     KoopaMarker = $koopa_marker,
                     PlayerMarker = $player_marker,
+                    Unloaded = $unloaded,
                 }
             };
 
@@ -193,6 +198,7 @@ impl SmbOneOne {
             to_update: Vec::new(),
             to_collide: Vec::new(),
             to_headbutt: Vec::new(),
+            to_load: Vec::new(),
 
             goomba_batch,
             koopa_batch,
@@ -215,11 +221,31 @@ impl EventHandler for SmbOneOne {
             self.tile_layer_batches
                 .update_all_batches(dt, &self.ts_render_data);
 
+            for (obj, (Position(pos), _)) in self
+                .space
+                .borrow_mut()
+                .query_mut::<(&Position, &Unloaded)>()
+            {
+                // Load the enemies in right before they come on screen
+                if (pos.translation.vector.x)
+                    <= ((self.x_scroll + engine.mq().screen_size().0 / 4.0) + 8.0)
+                {
+                    self.to_load.push(obj);
+                }
+            }
+
+            for obj_to_load in self.to_load.drain(..) {
+                self.space
+                    .borrow_mut()
+                    .remove_one::<Unloaded>(obj_to_load)?;
+            }
+
             for (obj, ()) in self
                 .space
                 .borrow_mut()
                 .query_mut::<()>()
                 .with::<RequiresLuaUpdate>()
+                .without::<Unloaded>()
             {
                 self.to_update.push(obj);
             }
@@ -359,6 +385,7 @@ impl EventHandler for SmbOneOne {
                     .borrow()
                     .query::<(&Position, &Collider)>()
                     .with::<GoombaMarker>()
+                    .without::<Unloaded>()
                     .iter()
                 {
                     if parry2d::query::intersection_test(
@@ -376,6 +403,7 @@ impl EventHandler for SmbOneOne {
                     .borrow()
                     .query::<(&Position, &Collider)>()
                     .with::<KoopaMarker>()
+                    .without::<Unloaded>()
                     .iter()
                 {
                     if parry2d::query::intersection_test(

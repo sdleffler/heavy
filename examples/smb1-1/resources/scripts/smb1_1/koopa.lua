@@ -95,7 +95,7 @@ do
         Koopa.super.init(
             self, space, x, y, Velocity(), Collider(hf.collision.Collider.cuboid(8, 8)),
             SpriteAnimation(gfx.SpriteAnimation.new(rust.sprite_sheets.koopa)), rust.KoopaMarker,
-            rust.RequiresLuaUpdate
+            rust.RequiresLuaUpdate, rust.Unloaded
         )
         self.tag = rust.sprite_sheets.koopa:get_tag("walk")
         self.last_tag = self.tag
