@@ -226,14 +226,14 @@ do
     end
 
     function Player:on_collide_with_enemy(enemy)
-        local _, y = self:velocity_get_linear()
+        local x, y = self:velocity_get_linear()
 
         -- If we are moving downwards (yes, this is how the OG SMB1 did it too) then count as
         -- SQUEESH
         if y < 0 then
             if enemy.on_squish then
                 if not enemy.dead then
-                    self:velocity_add_linear(0, jump_impulse)
+                    self:velocity_set_linear(x, jump_impulse)
                     enemy:on_squish(self)
                 end
             end

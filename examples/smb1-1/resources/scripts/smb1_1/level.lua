@@ -33,7 +33,8 @@ goomba(102, 2)
 goomba(103.5, 2)
 
 -- First koopa, one tile to the right of the first ? block in the triangle.
-koopa(113, 2)
+-- koopa(113, 2)
+koopa(20, 2)
 
 -- Ninth+tenth goombi, first of three pairs before the staircases
 goomba(120, 2)

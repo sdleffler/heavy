@@ -23,47 +23,54 @@ local Walking = State:extend("smb1_1.koop.walking", { name = "walk" })
 do
     function Walking:update(agent, koopa)
         koopa:sprite_animation_update(1.0 / 60.0)
-        -- TODO: if stomp, then move to shell stop
+        -- TODO: implement walking
+    end
+    function Walking:on_squish(agent, koopa)
+        koopa.tag = tag_in_shell
+        agent:push("shell_stop")
     end
 end
 
 local ShellStop = State:extend("smb1_1.koopa.ShellStop", { name = "shell_stop" })
-function ShellStop:update(agent, koopa)
-    koopa.revive_timer = koopa.revive_timer + 1
+do
+    function ShellStop:update(agent, koopa)
+        koopa.revive_timer = koopa.revive_timer + 1
 
-    -- if the koopa is about to revive, swap the reviving animation with the regular one
-    -- every other frame
-    if (koopa.revive_timer / 60) >= almost_reviving_length then
-        if (koopa.revive_timer % 3) == 0 then
-            if koopa.tag == tag_reviving then
-                koopa.tag = tag_in_shell
-            else
-                koopa.tag = tag_reviving
+        -- if the koopa is about to revive, start swaping the animations
+        if (koopa.revive_timer / 60) >= almost_reviving_length then
+            if (koopa.revive_timer % 3) == 0 then
+                if koopa.tag == tag_reviving then
+                    koopa.tag = tag_in_shell
+                else
+                    koopa.tag = tag_reviving
+                end
             end
         end
-    end
 
-    if (koopa.revive_timer / 60) >= revival_length then
-        agent:push("walk")
-        koopa.tag = tag_walk
-        koopa.revive_timer = 0.0
-    end
+        if (koopa.revive_timer / 60) >= revival_length then
+            agent:pop()
+            koopa.tag = tag_walk
+            koopa.revive_timer = 0.0
+        end
 
-    -- TODO: need to check for collision and enter shell drift state
+        -- TODO: need to check for collision and enter shell drift state
+    end
+    function ShellStop:on_squish(agent, koopa) agent:push("shell_drift") end
 end
-do end
 
 local ShellDrift = State:extend("smb1_1.koopa.ShellDrift", { name = "shell_drift" })
-function ShellDrift:update(agent, koopa)
-    -- Implement the shell sliding
-    -- Implement going back to shell stop after being bounced on
+do
+    function ShellDrift:update(agent, koopa)
+        -- Implement the shell sliding
+        -- Implement going back to shell stop after being bounced on
+    end
+    function ShellDrift:on_squish(agent, koopa) agent:pop() end
 end
-do end
 
 local KoopaController = Agent:extend("KoopaController")
 do
     KoopaController:add_states{ Walking, ShellStop, ShellDrift }
-    KoopaController:bind{ "update" }
+    KoopaController:bind{ "update", "on_squish" }
 end
 
 local Koopa = GameObject:extend("smb1_1.game_objects.Koopa"):with(Velocity):with(Collider):with(
@@ -99,10 +106,7 @@ do
         end
     end
 
-    function Koopa:on_squish(player)
-        self.controller:push("shell_stop")
-        self.tag = tag_in_shell
-    end
+    function Koopa:on_squish(player) self.controller:on_squish(self, input) end
 end
 
 return { Koopa = Koopa, KoopaController = KoopaController }

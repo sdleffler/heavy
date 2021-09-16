@@ -64,7 +64,7 @@ do
 
     function Goomba:on_squish(player)
         self.tag = rust.sprite_sheets.goomba:get_tag("dead")
-        self.controller:push("dying")
+        self.controller:switch("dying")
         self.dead = true
     end
 end
