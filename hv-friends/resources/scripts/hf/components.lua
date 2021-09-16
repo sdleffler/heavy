@@ -141,9 +141,9 @@ end
 
 local Collider = {}
 do
-    local hf_collision = hv.plugins.friends.collision
+    local hf_collision = assert(hv.plugins.friends.collision)
 
-    local hf_create_collider_constructor = hf_collision.create_collider_component
+    local hf_create_collider_constructor = assert(hf_collision.create_collider_component)
     setmetatable(
         Collider,
         { __call = function(_, collider) return hf_create_collider_constructor(collider) end }
@@ -152,14 +152,17 @@ do
     -- Temporary collider userdata to be overwritten by fetch/set functions.
     local tmp = hf_collision.create_ball(0.)
 
-    local hf_get_collider = hf_collision.get_collider
+    local hf_get_collider = assert(hf_collision.get_collider)
     function Collider:collider(out)
         local out = out or tmp:clone()
         hf_get_collider(self, out)
         return out
     end
 
-    Collider.collider_set = hf_collision.set_collider
+    Collider.collider_set = assert(hf_collision.set_collider)
+
+    local hf_remove_collider = assert(hf_collision.remove_collider_component)
+    function Collider:collider_remove() hf_remove_collider(self) end
 
     local tmp_aabb = hf_math.Box2.invalid()
     function Collider:collider_compute_local_aabb(out)

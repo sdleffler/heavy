@@ -365,6 +365,16 @@ pub(crate) fn open<'lua>(lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lu
         Ok(())
     })?;
 
+    let mut space_cache = SpaceCache::new(engine);
+    let remove_collider_component = lua.create_function_mut(move |_, obj: Object| {
+        space_cache
+            .get_space(obj.space())
+            .borrow_mut()
+            .remove_one::<Collider>(obj)
+            .to_lua_err()?;
+        Ok(())
+    })?;
+
     let intersection_test = lua.create_function(
         |_,
          (pos1, collider1, pos2, collider2): (
@@ -396,6 +406,7 @@ pub(crate) fn open<'lua>(lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lu
         create_collider_component = $create_collider_component,
         get_collider = $get_collider,
         set_collider = $set_collider,
+        remove_collider_component = $remove_collider_component,
 
         intersection_test = $intersection_test,
     }};
