@@ -1,4 +1,5 @@
 -- Grab the global `space` and shove it into a local variable.
+is_player_dead = false
 local space = rust.space
 
 function load_level()

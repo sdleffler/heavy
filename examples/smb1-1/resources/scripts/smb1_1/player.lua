@@ -34,6 +34,7 @@ local midair_low_deceleration = mpf_to_pps(0, 0, 14, 4)
 local midair_high_acceleration = mpf_to_pps(0, 0, 14, 4)
 local midair_high_deceleration = mpf_to_pps(0, 0, 13, 0)
 
+local tag_dead = assert(rust.sprite_sheets.mario:get_tag("dead"))
 local tag_idle_smol = assert(rust.sprite_sheets.mario:get_tag("idle"))
 local tag_walk_smol = assert(rust.sprite_sheets.mario:get_tag("walk"))
 local tag_skid_smol = assert(rust.sprite_sheets.mario:get_tag("skid"))
@@ -194,9 +195,28 @@ do
     end
 end
 
+local Dead = State:extend("smb1_1.player.Dead", { name = "dead" })
+do
+    function Dead:init(agent, player)
+        player.animation = tag_dead
+        player:collider_remove()
+        is_player_dead = true
+    end
+
+    function Dead:update(agent, player)
+        if player.death_wait > 0 then
+            player.death_wait = player.death_wait - 1
+        else
+            player.death_wait = player.death_wait + 1
+            xp, yp = player:position_get_coords()
+            player:position_set_coords(xp, yp + player.death_wait)
+        end
+    end
+end
+
 local PlayerController = Agent:extend("PlayerController")
 do
-    PlayerController:add_states{ GroundState, AirState }
+    PlayerController:add_states{ GroundState, AirState, Dead }
 
     PlayerController:bind{ "update" }
 end
@@ -209,10 +229,12 @@ do
 
     function Player:init(space, x, y)
         Player.super.init(
-            self, space, x, y, Velocity(), Collider(hf.collision.Collider.cuboid(8, 8)),
+            self, space, x, y, Velocity(), Collider(hf.collision.Collider.cuboid(7.9, 8)),
             SpriteAnimation(gfx.SpriteAnimation.new(rust.sprite_sheets.mario)), rust.PlayerMarker,
             rust.RequiresLuaUpdate
         )
+        self.is_big = false
+        self.death_wait = 1 * 60 -- how long to wait until the dying animation plays
         self.run_frames = 0
         self.invincible_timer = 0
         self.facing_direction = 1
@@ -251,7 +273,7 @@ do
 
     function Player:hurt(enemy)
         if self.invincible_timer == 0 then
-            print("hurt mario!")
+            if not self.is_big then self.controller:switch("dead", self) end
             self.invincible_timer = hurt_invincibility_len
         end
     end

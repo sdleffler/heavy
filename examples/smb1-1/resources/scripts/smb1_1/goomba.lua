@@ -42,6 +42,7 @@ do
     function DyingState:init(agent, goomba)
         goomba.tag = rust.sprite_sheets.goomba:get_tag("dead")
         self.dying_counter = 0
+        goomba:collider_remove()
     end
 
     function DyingState:update(agent, goomba)

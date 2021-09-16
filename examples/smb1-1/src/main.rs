@@ -222,231 +222,248 @@ impl EventHandler for SmbOneOne {
             self.tile_layer_batches
                 .update_all_batches(dt, &self.ts_render_data);
 
-            for (obj, (Position(pos), _)) in self
-                .space
-                .borrow_mut()
-                .query_mut::<(&Position, &Unloaded)>()
-            {
-                // Load the enemies in right before they come on screen
-                if (pos.translation.vector.x)
-                    <= ((self.x_scroll + engine.mq().screen_size().0 / 4.0)
-                        + 8.0
-                        + LOAD_DISTANCE_IN_PIXELS)
+            if lua.globals().get("is_player_dead")? {
+                for (obj, ()) in self
+                    .space
+                    .borrow()
+                    .query::<()>()
+                    .with::<PlayerMarker>()
+                    .iter()
                 {
-                    self.to_load.push(obj);
+                    self.to_update.push(obj);
                 }
-            }
 
-            for obj_to_load in self.to_load.drain(..) {
-                self.space
+                for obj in self.to_update.iter() {
+                    let table = LuaTable::from_lua(obj.to_lua(&lua)?, &lua)?;
+                    table.call_method("update", ())?;
+                }
+            } else {
+                for (obj, (Position(pos), _)) in self
+                    .space
                     .borrow_mut()
-                    .remove_one::<Unloaded>(obj_to_load)?;
-                let table = LuaTable::from_lua(obj_to_load.to_lua(&lua)?, &lua)?;
-                table.call_method("on_load", ())?;
-            }
-
-            for (obj, ()) in self
-                .space
-                .borrow_mut()
-                .query_mut::<()>()
-                .with::<RequiresLuaUpdate>()
-                .without::<Unloaded>()
-            {
-                self.to_update.push(obj);
-            }
-
-            for obj_to_update in self.to_update.drain(..) {
-                let table = LuaTable::from_lua(obj_to_update.to_lua(&lua)?, &lua)?;
-                table.call_method("update", ())?;
-            }
-
-            // Query: handle collisions between blocks and objects with positions, velocities, and
-            // colliders. In addition, collect "headbutt" events to be dispatched to Lua once the
-            // query is finished and the borrows are released.
-            self.to_headbutt.clear();
-            for (player_object, (Position(pos), Velocity(vel), collider, maybe_player)) in
-                self.space.borrow_mut().query_mut::<(
-                    &mut Position,
-                    &mut Velocity,
-                    &Collider,
-                    Option<&PlayerMarker>,
-                )>()
-            {
-                let mut is_grounded = false;
-
-                // First, resolve X-axis collisions and movement.
-                pos.translation.vector.x += vel.linear.x * TIMESTEP;
-
-                let mut aabb = collider.compute_aabb(pos);
-                let pixel_aabb = aabb.floor_to_u32();
-
-                for (tile, x, y) in self.map.get_tiles_in_bb_in_layer(
-                    pixel_aabb,
-                    *self.map.tile_layer_map.get("Foreground").unwrap(),
-                    CoordSpace::Pixel,
-                ) {
-                    let mut tile_bb = Box2::<f32>::invalid();
-                    if let Some(object_group) = self.map.get_obj_grp_from_tile_id(&tile) {
-                        for object in self.map.get_objs_from_obj_group(object_group) {
-                            tile_bb.merge(&Box2::new(
-                                object.x + (x * self.map.meta_data.tilewidth) as f32,
-                                object.y + (y * self.map.meta_data.tileheight) as f32,
-                                object.width,
-                                object.height,
-                            ));
-                        }
-                    }
-
-                    if aabb.intersects(&tile_bb) {
-                        let overlap = aabb.overlap(&tile_bb);
-                        let intersection = aabb.intersection(&tile_bb);
-
-                        // Only process this collision if we are more than "touching".
-                        if intersection.extents().x > 0. && intersection.extents().y > 0. {
-                            pos.translation.vector.x -= overlap.x;
-                            aabb = collider.compute_aabb(pos);
-
-                            if vel.linear.x.signum() == overlap.x.signum() {
-                                if maybe_player.is_none() {
-                                    // If we're not a player, swap the direction
-                                    vel.linear.x *= -1.;
-                                } else {
-                                    // If the collision is in the direction we're moving, stop.
-                                    vel.linear.x = 0.;
-                                }
-
-                                // TODO: Collision state (touching left/right)
-                            }
-                        }
+                    .query_mut::<(&Position, &Unloaded)>()
+                {
+                    // Load the enemies in right before they come on screen
+                    if (pos.translation.vector.x)
+                        <= ((self.x_scroll + engine.mq().screen_size().0 / 4.0)
+                            + 8.0
+                            + LOAD_DISTANCE_IN_PIXELS)
+                    {
+                        self.to_load.push(obj);
                     }
                 }
 
-                // Second, resolve Y-axis collisions and movement.
-                pos.translation.vector.y += vel.linear.y * TIMESTEP;
+                for obj_to_load in self.to_load.drain(..) {
+                    self.space
+                        .borrow_mut()
+                        .remove_one::<Unloaded>(obj_to_load)?;
+                    let table = LuaTable::from_lua(obj_to_load.to_lua(&lua)?, &lua)?;
+                    table.call_method("on_load", ())?;
+                }
 
-                let mut aabb = collider.compute_aabb(pos);
-                let pixel_aabb = aabb.floor_to_u32();
+                for (obj, ()) in self
+                    .space
+                    .borrow_mut()
+                    .query_mut::<()>()
+                    .with::<RequiresLuaUpdate>()
+                    .without::<Unloaded>()
+                {
+                    self.to_update.push(obj);
+                }
 
-                for (tile, x, y) in self.map.get_tiles_in_bb_in_layer(
-                    pixel_aabb,
-                    *self.map.tile_layer_map.get("Foreground").unwrap(),
-                    CoordSpace::Pixel,
-                ) {
-                    let mut tile_bb = Box2::<f32>::invalid();
-                    if let Some(object_group) = self.map.get_obj_grp_from_tile_id(&tile) {
-                        for object in self.map.get_objs_from_obj_group(object_group) {
-                            tile_bb.merge(&Box2::new(
-                                object.x + (x * self.map.meta_data.tilewidth) as f32,
-                                object.y + (y * self.map.meta_data.tileheight) as f32,
-                                object.width,
-                                object.height,
-                            ));
+                for obj_to_update in self.to_update.drain(..) {
+                    let table = LuaTable::from_lua(obj_to_update.to_lua(&lua)?, &lua)?;
+                    table.call_method("update", ())?;
+                }
+
+                // Query: handle collisions between blocks and objects with positions, velocities, and
+                // colliders. In addition, collect "headbutt" events to be dispatched to Lua once the
+                // query is finished and the borrows are released.
+                self.to_headbutt.clear();
+                for (player_object, (Position(pos), Velocity(vel), collider, maybe_player)) in
+                    self.space.borrow_mut().query_mut::<(
+                        &mut Position,
+                        &mut Velocity,
+                        &Collider,
+                        Option<&PlayerMarker>,
+                    )>()
+                {
+                    let mut is_grounded = false;
+
+                    // First, resolve X-axis collisions and movement.
+                    pos.translation.vector.x += vel.linear.x * TIMESTEP;
+
+                    let mut aabb = collider.compute_aabb(pos);
+                    let pixel_aabb = aabb.floor_to_u32();
+
+                    for (tile, x, y) in self.map.get_tiles_in_bb_in_layer(
+                        pixel_aabb,
+                        *self.map.tile_layer_map.get("Foreground").unwrap(),
+                        CoordSpace::Pixel,
+                    ) {
+                        let mut tile_bb = Box2::<f32>::invalid();
+                        if let Some(object_group) = self.map.get_obj_grp_from_tile_id(&tile) {
+                            for object in self.map.get_objs_from_obj_group(object_group) {
+                                tile_bb.merge(&Box2::new(
+                                    object.x + (x * self.map.meta_data.tilewidth) as f32,
+                                    object.y + (y * self.map.meta_data.tileheight) as f32,
+                                    object.width,
+                                    object.height,
+                                ));
+                            }
                         }
-                    }
 
-                    if aabb.intersects(&tile_bb) {
-                        let overlap = aabb.overlap(&tile_bb);
-                        let intersection = aabb.intersection(&tile_bb);
+                        if aabb.intersects(&tile_bb) {
+                            let overlap = aabb.overlap(&tile_bb);
+                            let intersection = aabb.intersection(&tile_bb);
 
-                        if intersection.extents().x > 0. && intersection.extents().y > 0. {
-                            pos.translation.vector.y -= overlap.y;
-                            aabb = collider.compute_aabb(pos);
+                            // Only process this collision if we are more than "touching".
+                            if intersection.extents().x > 0. && intersection.extents().y > 0. {
+                                pos.translation.vector.x -= overlap.x;
+                                aabb = collider.compute_aabb(pos);
 
-                            if vel.linear.y.signum() == overlap.y.signum() {
-                                vel.linear.y = 0.;
+                                if vel.linear.x.signum() == overlap.x.signum() {
+                                    if maybe_player.is_none() {
+                                        // If we're not a player, swap the direction
+                                        vel.linear.x *= -1.;
+                                    } else {
+                                        // If the collision is in the direction we're moving, stop.
+                                        vel.linear.x = 0.;
+                                    }
 
-                                // TODO: Collision state (touching up/down)
-                                if overlap.y.signum() < 0. {
-                                    is_grounded = true;
-                                } else if overlap.y.signum() > 0. && maybe_player.is_some() {
-                                    self.to_headbutt.push((player_object, (x, y, tile)));
+                                    // TODO: Collision state (touching left/right)
                                 }
                             }
                         }
                     }
+
+                    // Second, resolve Y-axis collisions and movement.
+                    pos.translation.vector.y += vel.linear.y * TIMESTEP;
+
+                    let mut aabb = collider.compute_aabb(pos);
+                    let pixel_aabb = aabb.floor_to_u32();
+
+                    for (tile, x, y) in self.map.get_tiles_in_bb_in_layer(
+                        pixel_aabb,
+                        *self.map.tile_layer_map.get("Foreground").unwrap(),
+                        CoordSpace::Pixel,
+                    ) {
+                        let mut tile_bb = Box2::<f32>::invalid();
+                        if let Some(object_group) = self.map.get_obj_grp_from_tile_id(&tile) {
+                            for object in self.map.get_objs_from_obj_group(object_group) {
+                                tile_bb.merge(&Box2::new(
+                                    object.x + (x * self.map.meta_data.tilewidth) as f32,
+                                    object.y + (y * self.map.meta_data.tileheight) as f32,
+                                    object.width,
+                                    object.height,
+                                ));
+                            }
+                        }
+
+                        if aabb.intersects(&tile_bb) {
+                            let overlap = aabb.overlap(&tile_bb);
+                            let intersection = aabb.intersection(&tile_bb);
+
+                            if intersection.extents().x > 0. && intersection.extents().y > 0. {
+                                pos.translation.vector.y -= overlap.y;
+                                aabb = collider.compute_aabb(pos);
+
+                                if vel.linear.y.signum() == overlap.y.signum() {
+                                    vel.linear.y = 0.;
+
+                                    // TODO: Collision state (touching up/down)
+                                    if overlap.y.signum() < 0. {
+                                        is_grounded = true;
+                                    } else if overlap.y.signum() > 0. && maybe_player.is_some() {
+                                        self.to_headbutt.push((player_object, (x, y, tile)));
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    player_object
+                        .to_table(&lua)?
+                        .set("is_grounded", is_grounded)?;
                 }
 
-                player_object
-                    .to_table(&lua)?
-                    .set("is_grounded", is_grounded)?;
-            }
+                // Dispatch any headbutt events gathered from the previous query.
+                for (player_object, (x, y, _tile)) in self.to_headbutt.drain(..) {
+                    LuaTable::from_lua(player_object.to_lua(&lua)?, &lua)?
+                        .call_method("on_headbutt_block", (x, y))?;
+                }
 
-            // Dispatch any headbutt events gathered from the previous query.
-            for (player_object, (x, y, _tile)) in self.to_headbutt.drain(..) {
-                LuaTable::from_lua(player_object.to_lua(&lua)?, &lua)?
-                    .call_method("on_headbutt_block", (x, y))?;
-            }
-
-            // Collect any player-on-enemy collisions events, for later dispatch to Lua.
-            //
-            // TODO: we may want to modify this query loop to also collect enemy-on-enemy collision
-            // events (so goombas and koopas and so on can change direction when they hit each other
-            // and spinning koopa shells can kill other enemies, etc.)
-            self.to_collide.clear();
-            for (object1, (Position(pos1), collider1)) in self
-                .space
-                .borrow()
-                .query::<(&Position, &Collider)>()
-                .without::<Unloaded>()
-                .iter()
-            {
-                for (object2, (Position(pos2), collider2)) in self
+                // Collect any player-on-enemy collisions events, for later dispatch to Lua.
+                //
+                // TODO: we may want to modify this query loop to also collect enemy-on-enemy collision
+                // events (so goombas and koopas and so on can change direction when they hit each other
+                // and spinning koopa shells can kill other enemies, etc.)
+                self.to_collide.clear();
+                for (object1, (Position(pos1), collider1)) in self
                     .space
                     .borrow()
                     .query::<(&Position, &Collider)>()
                     .without::<Unloaded>()
                     .iter()
-                    .filter(|&(object2, _)| object1 != object2)
                 {
-                    if parry2d::query::intersection_test(
-                        &(pos1.to_isometry() * collider1.local_tx),
-                        collider1.shape.as_ref(),
-                        &(pos2.to_isometry() * collider2.local_tx),
-                        collider2.shape.as_ref(),
-                    )? {
-                        self.to_collide.push((object1, object2));
+                    for (object2, (Position(pos2), collider2)) in self
+                        .space
+                        .borrow()
+                        .query::<(&Position, &Collider)>()
+                        .without::<Unloaded>()
+                        .iter()
+                        .filter(|&(object2, _)| object1 != object2)
+                    {
+                        if parry2d::query::intersection_test(
+                            &(pos1.to_isometry() * collider1.local_tx),
+                            collider1.shape.as_ref(),
+                            &(pos2.to_isometry() * collider2.local_tx),
+                            collider2.shape.as_ref(),
+                        )? {
+                            self.to_collide.push((object1, object2));
+                        }
                     }
                 }
-            }
 
-            // Dispatch collected player-on-enemy collision events.
-            for (object1, object2) in self.to_collide.drain(..) {
-                LuaTable::from_lua(object1.to_lua(&lua)?, &lua)?
-                    .call_method("on_collide_with_object", object2)?;
-            }
+                // Dispatch collected player-on-enemy collision events.
+                for (object1, object2) in self.to_collide.drain(..) {
+                    LuaTable::from_lua(object1.to_lua(&lua)?, &lua)?
+                        .call_method("on_collide_with_object", object2)?;
+                }
 
-            self.goomba_batch.clear();
-            let goomba_sheet = self.goomba_sheet.get_cached();
-            for (_, (Position(pos), animation)) in self
-                .space
-                .borrow_mut()
-                .query_mut::<(&Position, &mut SpriteAnimation)>()
-                .with::<GoombaMarker>()
-            {
-                let frame = goomba_sheet[animation.animation.frame_id];
-                self.goomba_batch.insert(
-                    Instance::new()
-                        .translate2(pos.center().coords - Vector2::new(8., 8.))
-                        .src(frame.uvs)
-                        .translate2(frame.offset),
-                );
-            }
+                self.goomba_batch.clear();
+                let goomba_sheet = self.goomba_sheet.get_cached();
+                for (_, (Position(pos), animation)) in self
+                    .space
+                    .borrow_mut()
+                    .query_mut::<(&Position, &mut SpriteAnimation)>()
+                    .with::<GoombaMarker>()
+                {
+                    let frame = goomba_sheet[animation.animation.frame_id];
+                    self.goomba_batch.insert(
+                        Instance::new()
+                            .translate2(pos.center().coords - Vector2::new(8., 8.))
+                            .src(frame.uvs)
+                            .translate2(frame.offset),
+                    );
+                }
 
-            self.koopa_batch.clear();
-            let koopa_sheet = self.koopa_sheet.get_cached();
-            for (_, (Position(pos), animation)) in self
-                .space
-                .borrow_mut()
-                .query_mut::<(&Position, &mut SpriteAnimation)>()
-                .with::<KoopaMarker>()
-            {
-                let frame = koopa_sheet[animation.animation.frame_id];
-                self.koopa_batch.insert(
-                    Instance::new()
-                        .translate2(pos.center().coords - Vector2::new(8., 8.))
-                        .src(frame.uvs)
-                        .translate2(frame.offset),
-                );
+                self.koopa_batch.clear();
+                let koopa_sheet = self.koopa_sheet.get_cached();
+                for (_, (Position(pos), animation)) in self
+                    .space
+                    .borrow_mut()
+                    .query_mut::<(&Position, &mut SpriteAnimation)>()
+                    .with::<KoopaMarker>()
+                {
+                    let frame = koopa_sheet[animation.animation.frame_id];
+                    self.koopa_batch.insert(
+                        Instance::new()
+                            .translate2(pos.center().coords - Vector2::new(8., 8.))
+                            .src(frame.uvs)
+                            .translate2(frame.offset),
+                    );
+                }
             }
 
             self.mario_batch.clear();
