@@ -225,18 +225,19 @@ do
         print("BLOCK HEADBUTT!", ...)
     end
 
+    -- Called when we successfully bounce on an enemy (squish a goomba or such.)
+    function Player:bounce(enemy)
+        local x, _ = self:velocity_get_linear()
+        self:velocity_set_linear(x, jump_impulse)
+    end
+
     function Player:on_collide_with_enemy(enemy)
-        local x, y = self:velocity_get_linear()
+        local _, y = self:velocity_get_linear()
 
         -- If we are moving downwards (yes, this is how the OG SMB1 did it too) then count as
         -- SQUEESH
         if y < 0 then
-            if enemy.on_squish then
-                if not enemy.dead then
-                    self:velocity_set_linear(x, jump_impulse)
-                    enemy:on_squish(self)
-                end
-            end
+            if enemy.on_squish then enemy:on_squish(self) end
         else
             -- TODO: handle player damaged case
         end

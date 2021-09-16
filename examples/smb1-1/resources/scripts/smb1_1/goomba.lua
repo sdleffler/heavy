@@ -11,7 +11,12 @@ local dt = 1.0 / 60.0
 local dying_time = 1
 
 local AliveState = State:extend("smb1_1.goomba.AliveState", { name = "alive" })
-do function AliveState:on_squish(agent, goomba) agent:switch("dying", goomba) end end
+do
+    function AliveState:on_squish(agent, goomba, player)
+        player:bounce(goomba)
+        agent:switch("dying", goomba)
+    end
+end
 
 local DyingState = State:extend("smb1_1.goomba.DyingState", { name = "dying" })
 do
@@ -68,7 +73,7 @@ do
         end
     end
 
-    function Goomba:on_squish(player) self.controller:on_squish(self) end
+    function Goomba:on_squish(player) self.controller:on_squish(self, player) end
 end
 
 return { Goomba = Goomba, GoombaController = GoombaController }

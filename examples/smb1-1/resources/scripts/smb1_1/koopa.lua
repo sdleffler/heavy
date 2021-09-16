@@ -28,7 +28,10 @@ do
         -- TODO: implement walking
     end
 
-    function Walking:on_squish(agent, koopa) agent:switch("shell_stop", koopa) end
+    function Walking:on_squish(agent, koopa, player)
+        player:bounce(koopa)
+        agent:switch("shell_stop", koopa)
+    end
 end
 
 local ShellStop = State:extend("smb1_1.koopa.ShellStop", { name = "shell_stop" })
@@ -57,7 +60,10 @@ do
         -- TODO: need to check for collision and enter shell drift state
     end
 
-    function ShellStop:on_squish(agent, koopa) agent:switch("shell_drift", koopa) end
+    function ShellStop:on_squish(agent, koopa, player)
+        player:bounce(koopa)
+        agent:switch("shell_drift", koopa)
+    end
 end
 
 local ShellDrift = State:extend("smb1_1.koopa.ShellDrift", { name = "shell_drift" })
@@ -67,7 +73,10 @@ do
         -- Implement going back to shell stop after being bounced on
     end
 
-    function ShellDrift:on_squish(agent, koopa) agent:switch("shell_stop", koopa) end
+    function ShellDrift:on_squish(agent, koopa, player)
+        player:bounce(koopa)
+        agent:switch("shell_stop", koopa)
+    end
 end
 
 local KoopaController = Agent:extend("KoopaController")
@@ -109,7 +118,7 @@ do
         end
     end
 
-    function Koopa:on_squish(player) self.controller:on_squish(self, input) end
+    function Koopa:on_squish(player) self.controller:on_squish(self, player) end
 end
 
 return { Koopa = Koopa, KoopaController = KoopaController }
