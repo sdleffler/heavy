@@ -6,6 +6,7 @@ local GameObject = require("smb1_1.game_object").GameObject
 local Velocity = hf.components.Velocity
 local Collider = hf.components.Collider
 local SpriteAnimation = hf.components.SpriteAnimation
+local Player = require("smb1_1.player").Player
 
 local revival_length = 10.0
 local almost_reviving_length = 8.0
@@ -51,6 +52,12 @@ do
     end
 
     function Walking:on_mario_collide(agent, koopa, player) player:hurt(koopa) end
+
+    function Walking:on_enemy_collide(agent, koopa, enemy)
+        vx, vy = goomba:velocity_get_linear()
+        vx = -vx
+        koopa:velocity_set_linear(vx, vy)
+    end
 end
 
 local ShellStop = State:extend("smb1_1.koopa.ShellStop", { name = "shell_stop" })
@@ -89,6 +96,12 @@ do
     function ShellStop:on_mario_collide(agent, koopa, player)
         agent:switch("shell_drift", koopa, player)
     end
+
+    function ShellStop:on_enemy_collide(agent, koopa, enemy)
+        vx, vy = koopa:velocity_get_linear()
+        vx = -vx
+        koopa:velocity_set_linear(vx, vy)
+    end
 end
 
 local ShellDrift = State:extend("smb1_1.koopa.ShellDrift", { name = "shell_drift" })
@@ -106,12 +119,17 @@ do
     end
 
     function ShellDrift:on_mario_collide(agent, koopa, player) player:hurt(koopa) end
+
+    function ShellDrift:on_enemy_collide(agent, koopa, enemy) enemy:on_squish() end
 end
 
 local KoopaController = Agent:extend("KoopaController")
 do
     KoopaController:add_states{ Walking, ShellStop, ShellDrift }
-    KoopaController:bind{ "update", "on_squish", "on_mario_collide" }
+    KoopaController:bind{
+        "update", "on_squish", "on_mario_collide", "on_collide_with_object", "on_mario_collide",
+        "on_enemy_collide",
+    }
 end
 
 local Koopa = GameObject:extend("smb1_1.game_objects.Koopa"):with(Velocity):with(Collider):with(
@@ -153,7 +171,16 @@ do
 
     function Koopa:on_squish(player) self.controller:on_squish(self, player) end
 
-    function Koopa:on_mario_collide(player) self.controller:on_mario_collide(self, player) end
+    function Koopa:on_collide_with_object(object)
+        if not object:instanceOf(Player) then
+            -- TODO: collisions with breakable blocks/blocks with items in them?
+            self.controller:on_enemy_collide(self, object)
+        end
+    end
+
+    function Koopa:on_mario_collide(player)
+        self.controller:on_mario_collide(self, player)
+    end
 
     function Koopa:on_load() self.controller:push("walk", self) end
 end

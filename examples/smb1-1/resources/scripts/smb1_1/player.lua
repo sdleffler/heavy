@@ -241,13 +241,12 @@ do
         -- SQUEESH
         if y < 0 then
             if object.on_squish then object:on_squish(self) end
+        elseif object.on_mario_collide then
+            object:on_mario_collide(self)
         else
-            if object.on_mario_collide then
-                object:on_mario_collide(self)
-            else
-                self:hurt(object)
-            end
+            self:hurt(object)
         end
+        -- TODO: add case for coins?
     end
 
     function Player:hurt(enemy)

@@ -6,6 +6,7 @@ local GameObject = require("smb1_1.game_object").GameObject
 local Velocity = hf.components.Velocity
 local Collider = hf.components.Collider
 local SpriteAnimation = hf.components.SpriteAnimation
+local Player = require("smb1_1.player").Player
 
 local dt = 1.0 / 60.0
 local dying_time = 1
@@ -22,9 +23,17 @@ do
     end
 
     function AliveState:on_squish(agent, goomba, player)
-        player:bounce(goomba)
+        if player then
+            player:bounce(goomba)
+        end
         agent:switch("dying", goomba)
         goomba:velocity_set_linear(0, 0)
+    end
+
+    function AliveState:on_collide_with_object(agent, goomba, object)
+        vx, vy = goomba:velocity_get_linear()
+        vx = -vx
+        goomba:velocity_set_linear(vx, vy)
     end
 end
 
@@ -46,7 +55,7 @@ local GoombaController = Agent:extend("GoombaController")
 do
     GoombaController:add_states{ AliveState, DyingState }
 
-    GoombaController:bind{ "update", "on_squish" }
+    GoombaController:bind{ "update", "on_squish", "on_collide_with_object" }
 end
 
 local Goomba = GameObject:extend("smb1_1.game_objects.Goomba"):with(Velocity):with(Collider):with(
@@ -92,6 +101,12 @@ do
     function Goomba:on_squish(player) self.controller:on_squish(self, player) end
 
     function Goomba:on_load() self.controller:push("alive", self) end
+
+    function Goomba:on_collide_with_object(object)
+        if not object:instanceOf(Player) then
+            self.controller:on_collide_with_object(self, object)
+        end
+    end
 end
 
 return { Goomba = Goomba, GoombaController = GoombaController }
