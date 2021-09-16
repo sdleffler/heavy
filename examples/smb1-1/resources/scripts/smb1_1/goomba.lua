@@ -9,12 +9,22 @@ local SpriteAnimation = hf.components.SpriteAnimation
 
 local dt = 1.0 / 60.0
 local dying_time = 1
+local walk_velocity = 2 * 16
+local gravity_velocity = 8 * 16
 
 local AliveState = State:extend("smb1_1.goomba.AliveState", { name = "alive" })
 do
+    function AliveState:init(agent, goomba) goomba:velocity_set_linear(-walk_velocity, 0) end
+
+    function AliveState:update(agent, goomba)
+        vx, _ = goomba:velocity_get_linear()
+        goomba:velocity_set_linear(vx, -gravity_velocity)
+    end
+
     function AliveState:on_squish(agent, goomba, player)
         player:bounce(goomba)
         agent:switch("dying", goomba)
+        goomba:velocity_set_linear(0, 0)
     end
 end
 
@@ -55,7 +65,6 @@ do
         self.tag = rust.sprite_sheets.goomba:get_tag("walk")
         self.last_tag = self.tag
         self.controller = GoombaController:new()
-        self.controller:push("alive")
         self:sprite_animation_goto_tag(self.tag)
     end
 
@@ -73,6 +82,8 @@ do
     end
 
     function Goomba:on_squish(player) self.controller:on_squish(self, player) end
+
+    function Goomba:on_load() self.controller:push("alive", self) end
 end
 
 return { Goomba = Goomba, GoombaController = GoombaController }

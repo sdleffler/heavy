@@ -44,6 +44,8 @@ local tag_skid_beeg = assert(rust.sprite_sheets.mario:get_tag("tall_skid"))
 local tag_jump_beeg = assert(rust.sprite_sheets.mario:get_tag("tall_jump"))
 local tag_HENSHIN = assert(rust.sprite_sheets.mario:get_tag("transform"))
 
+local hurt_invincibility_len = 4 * 60
+
 local GroundState = State:extend("smb1_1.player.GroundState", { name = "ground" })
 do
     function GroundState:update(agent, player)
@@ -212,6 +214,7 @@ do
             rust.RequiresLuaUpdate
         )
         self.run_frames = 0
+        self.invincible_timer = 0
         self.facing_direction = 1
         self.animation = rust.sprite_sheets.mario:get_tag("idle")
         self.prev_animation = self.animation
@@ -233,18 +236,34 @@ do
 
     function Player:on_collide_with_enemy(enemy)
         local _, y = self:velocity_get_linear()
+        print("collision")
 
         -- If we are moving downwards (yes, this is how the OG SMB1 did it too) then count as
         -- SQUEESH
         if y < 0 then
             if enemy.on_squish then enemy:on_squish(self) end
         else
-            -- TODO: handle player damaged case
+            if enemy.on_mario_collide then
+                enemy:on_mario_collide(self)
+            else
+                self:hurt(enemy)
+            end
+        end
+    end
+
+    function Player:hurt(enemy)
+        if self.invincible_timer == 0 then
+            print("hurt mario!")
+            self.invincible_timer = hurt_invincibility_len
         end
     end
 
     function Player:update()
         self.controller:update(self, input)
+
+        -- if mario is currently invincible (either due to a star or due to an enemy hitting him),
+        -- subtract the timer until he is no longer invincible
+        if self.invincible_timer > 0 then self.invincible_timer = self.invincible_timer - 1 end
 
         -- We only want to switch animations if the tag has changed; otherwise, we'll keep
         -- resetting the same animation over and over and it won't move, stuck at the starting

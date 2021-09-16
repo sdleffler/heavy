@@ -24,6 +24,7 @@ use hv_friends::{
 use hv_tiled::{BoxExt, CoordSpace, TileId, TilesetRenderData};
 
 const TIMESTEP: f32 = 1. / 60.;
+const LOAD_DISTANCE_IN_PIXELS: f32 = 32.0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum Button {
@@ -228,7 +229,9 @@ impl EventHandler for SmbOneOne {
             {
                 // Load the enemies in right before they come on screen
                 if (pos.translation.vector.x)
-                    <= ((self.x_scroll + engine.mq().screen_size().0 / 4.0) + 8.0)
+                    <= ((self.x_scroll + engine.mq().screen_size().0 / 4.0)
+                        + 8.0
+                        + LOAD_DISTANCE_IN_PIXELS)
                 {
                     self.to_load.push(obj);
                 }
@@ -238,6 +241,8 @@ impl EventHandler for SmbOneOne {
                 self.space
                     .borrow_mut()
                     .remove_one::<Unloaded>(obj_to_load)?;
+                let table = LuaTable::from_lua(obj_to_load.to_lua(&lua)?, &lua)?;
+                table.call_method("on_load", ())?;
             }
 
             for (obj, ()) in self
@@ -302,8 +307,13 @@ impl EventHandler for SmbOneOne {
                             aabb = collider.compute_aabb(pos);
 
                             if vel.linear.x.signum() == overlap.x.signum() {
-                                // If the collision is in the direction we're moving, stop.
-                                vel.linear.x = 0.;
+                                if maybe_player.is_none() {
+                                    // If we're not a player, swap the direction
+                                    vel.linear.x *= -1.;
+                                } else {
+                                    // If the collision is in the direction we're moving, stop.
+                                    vel.linear.x = 0.;
+                                }
 
                                 // TODO: Collision state (touching left/right)
                             }

@@ -11,7 +11,9 @@ local revival_length = 10.0
 local almost_reviving_length = 8.0
 
 -- Need to set these once they actually move
-local walk_speed = 0
+local shelled_velocity = 10 * 16
+local walk_velocity = 2 * 16
+local gravity_velocity = 8 * 16
 local shell_speed = 0
 local dt = 1.0 / 60.0
 
@@ -19,25 +21,44 @@ local tag_walk = assert(rust.sprite_sheets.koopa:get_tag("walk"))
 local tag_in_shell = assert(rust.sprite_sheets.koopa:get_tag("shell_spin"))
 local tag_reviving = assert(rust.sprite_sheets.koopa:get_tag("reviving"))
 
+function launch_shell(player, koopa)
+    pp_x, _ = player:position_get_coords()
+    kp_x, _ = koopa:position_get_coords()
+    vx, vy = koopa:velocity_get_linear()
+    if pp_x >= kp_x then
+        koopa:velocity_set_linear(-shelled_velocity, vy)
+    else
+        koopa:velocity_set_linear(shelled_velocity, vy)
+    end
+end
+
 local Walking = State:extend("smb1_1.koop.walking", { name = "walk" })
 do
-    function Walking:init(agent, koopa) koopa.tag = tag_walk end
+    function Walking:init(agent, koopa)
+        koopa:velocity_set_linear(-walk_velocity, 0)
+        koopa.tag = tag_walk
+    end
 
     function Walking:update(agent, koopa)
+        vx, _ = koopa:velocity_get_linear()
+        koopa:velocity_set_linear(vx, -gravity_velocity)
         koopa:sprite_animation_update(1.0 / 60.0)
-        -- TODO: implement walking
     end
 
     function Walking:on_squish(agent, koopa, player)
         player:bounce(koopa)
         agent:switch("shell_stop", koopa)
     end
+
+    function Walking:on_mario_collide(agent, koopa, player) player:hurt(koopa) end
 end
 
 local ShellStop = State:extend("smb1_1.koopa.ShellStop", { name = "shell_stop" })
 do
     function ShellStop:init(agent, koopa)
         koopa.tag = tag_in_shell
+        _, vy = koopa:velocity_get_linear()
+        koopa:velocity_set_linear(0, vy)
         self.revive_timer = 0
     end
 
@@ -62,27 +83,35 @@ do
 
     function ShellStop:on_squish(agent, koopa, player)
         player:bounce(koopa)
-        agent:switch("shell_drift", koopa)
+        agent:switch("shell_drift", koopa, player)
+    end
+
+    function ShellStop:on_mario_collide(agent, koopa, player)
+        agent:switch("shell_drift", koopa, player)
     end
 end
 
 local ShellDrift = State:extend("smb1_1.koopa.ShellDrift", { name = "shell_drift" })
 do
+    function ShellDrift:init(agent, koopa, player) launch_shell(player, koopa) end
+
     function ShellDrift:update(agent, koopa)
-        -- Implement the shell sliding
-        -- Implement going back to shell stop after being bounced on
+        vx, _ = koopa:velocity_get_linear()
+        koopa:velocity_set_linear(vx, -gravity_velocity)
     end
 
     function ShellDrift:on_squish(agent, koopa, player)
         player:bounce(koopa)
         agent:switch("shell_stop", koopa)
     end
+
+    function ShellDrift:on_mario_collide(agent, koopa, player) player:hurt(koopa) end
 end
 
 local KoopaController = Agent:extend("KoopaController")
 do
     KoopaController:add_states{ Walking, ShellStop, ShellDrift }
-    KoopaController:bind{ "update", "on_squish" }
+    KoopaController:bind{ "update", "on_squish", "on_mario_collide" }
 end
 
 local Koopa = GameObject:extend("smb1_1.game_objects.Koopa"):with(Velocity):with(Collider):with(
@@ -100,7 +129,6 @@ do
         self.tag = rust.sprite_sheets.koopa:get_tag("walk")
         self.last_tag = self.tag
         self.controller = KoopaController:new()
-        self.controller:push("walk", self)
         self.revive_timer = 0.0
         self:sprite_animation_goto_tag(self.tag)
     end
@@ -118,6 +146,10 @@ do
     end
 
     function Koopa:on_squish(player) self.controller:on_squish(self, player) end
+
+    function Koopa:on_mario_collide(player) self.controller:on_mario_collide(self, player) end
+
+    function Koopa:on_load() self.controller:push("walk", self) end
 end
 
 return { Koopa = Koopa, KoopaController = KoopaController }
