@@ -38,7 +38,7 @@ do
     function DyingState:update(agent, goomba)
         self.dying_counter = self.dying_counter + 1
         -- After 2 seconds, the goomba is officially dead
-        if (self.dying_counter / 60) >= dying_time then rust.space:despawn(goomba) end
+        if (self.dying_counter / 60) >= dying_time then goomba.to_despawn = true end
     end
 end
 
@@ -64,13 +64,15 @@ do
         )
         self.tag = rust.sprite_sheets.goomba:get_tag("walk")
         self.last_tag = self.tag
+        self.to_despawn = false
         self.controller = GoombaController:new()
         self:sprite_animation_goto_tag(self.tag)
     end
 
     function Goomba:update()
-        self:sprite_animation_update(dt)
         self.controller:update(self, input)
+
+        self:sprite_animation_update(dt)
 
         -- We only want to switch animations if the tag has changed; otherwise, we'll keep
         -- resetting the same animation over and over and it won't move, stuck at the starting
@@ -79,6 +81,12 @@ do
             self.last_tag = self.tag
             self:sprite_animation_goto_tag(self.tag)
         end
+
+        -- Check if the goomba went out of bounds
+        px, py = self:position_get_coords()
+        if px < 0 or py < 0 then self.to_despawn = true end
+
+        if self.to_despawn then rust.space:despawn(self) end
     end
 
     function Goomba:on_squish(player) self.controller:on_squish(self, player) end

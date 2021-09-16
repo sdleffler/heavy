@@ -236,7 +236,6 @@ do
 
     function Player:on_collide_with_enemy(enemy)
         local _, y = self:velocity_get_linear()
-        print("collision")
 
         -- If we are moving downwards (yes, this is how the OG SMB1 did it too) then count as
         -- SQUEESH

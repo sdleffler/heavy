@@ -127,6 +127,7 @@ do
             rust.RequiresLuaUpdate, rust.Unloaded
         )
         self.tag = rust.sprite_sheets.koopa:get_tag("walk")
+        self.to_despawn = false;
         self.last_tag = self.tag
         self.controller = KoopaController:new()
         self.revive_timer = 0.0
@@ -135,7 +136,6 @@ do
 
     function Koopa:update()
         self.controller:update(self, input)
-
         -- We only want to switch animations if the tag has changed; otherwise, we'll keep
         -- resetting the same animation over and over and it won't move, stuck at the starting
         -- frame.
@@ -143,6 +143,12 @@ do
             self.last_tag = self.tag
             self:sprite_animation_goto_tag(self.tag)
         end
+
+        -- Check if the koopa needs to be despawned
+        px, py = self:position_get_coords()
+        if px < 0 or py < 0 then self.to_despawn = true end
+
+        if self.to_despawn then rust.space:despawn(self) end
     end
 
     function Koopa:on_squish(player) self.controller:on_squish(self, player) end
