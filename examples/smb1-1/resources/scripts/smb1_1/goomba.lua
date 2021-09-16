@@ -7,11 +7,8 @@ local Velocity = hf.components.Velocity
 local Collider = hf.components.Collider
 local SpriteAnimation = hf.components.SpriteAnimation
 
-local dying_counter = 0
 local dt = 1.0 / 60.0
 local dying_time = 1
-
-local is_dead = false
 
 local AliveState = State:extend("smb1_1.goomba.AliveState", { name = "alive" })
 do function AliveState:update(agent, goomba) goomba:sprite_animation_update(dt) end end
@@ -19,9 +16,9 @@ do function AliveState:update(agent, goomba) goomba:sprite_animation_update(dt) 
 local DyingState = State:extend("smb1_1.goomba.DyingState", { name = "dying" })
 do
     function DyingState:update(agent, goomba)
-        dying_counter = dying_counter + 1
+        goomba.dying_counter = goomba.dying_counter + 1
         -- After 2 seconds, the goomba is officially dead
-        if (dying_counter / 60) >= dying_time then rust.space:despawn(goomba) end
+        if (goomba.dying_counter / 60) >= dying_time then rust.space:despawn(goomba) end
     end
 end
 
@@ -48,6 +45,8 @@ do
         self.last_tag = self.tag
         self.controller = GoombaController:new()
         self.controller:push("alive")
+        self.dead = false
+        self.dying_counter = 0
         self:sprite_animation_goto_tag(self.tag)
     end
 
@@ -64,13 +63,9 @@ do
     end
 
     function Goomba:on_squish(player)
-        self.controller:push("dying")
         self.tag = rust.sprite_sheets.goomba:get_tag("dead")
-        is_dead = true
-    end
-
-    function Goomba:is_dead()
-        return is_dead
+        self.controller:push("dying")
+        self.dead = true
     end
 end
 

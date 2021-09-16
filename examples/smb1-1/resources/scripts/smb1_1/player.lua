@@ -231,8 +231,8 @@ do
         -- If we are moving downwards (yes, this is how the OG SMB1 did it too) then count as
         -- SQUEESH
         if y < 0 then
-            if enemy.on_squish and enemy.is_dead then
-                if not enemy.is_dead() then
+            if enemy.on_squish then
+                if not enemy.dead then
                     self:velocity_add_linear(0, jump_impulse)
                     enemy:on_squish(self)
                 end
