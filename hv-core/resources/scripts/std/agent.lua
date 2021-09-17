@@ -2,6 +2,8 @@ local class = require("std.class")
 
 local State = class("State")
 
+function State:init() end
+
 function State:message(agent, msg, ...)
     local handler = self[msg]
     if handler then handler(self, agent, ...) end
@@ -22,13 +24,17 @@ end
 function Agent:push(state, ...)
     local ty = assert(self.states[state], "no such state!")
     local stack = self.stack
-    stack[#stack + 1] = ty:new(self, ...)
+    local new_state = ty:create()
+    stack[#stack + 1] = new_state
+    new_state:init(self, ...)
 end
 
 function Agent:switch(state, ...)
     local ty = assert(self.states[state], "no such state!")
     local stack = self.stack
-    stack[#stack] = ty:new(self, ...)
+    local new_state = ty:create()
+    stack[#stack] = new_state
+    new_state:init(self, ...)
 end
 
 function Agent:pop()
