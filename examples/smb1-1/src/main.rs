@@ -3,7 +3,7 @@ use std::path::Path;
 use hv_core::{
     components::DynamicComponentConstructor,
     conf::Conf,
-    engine::{Engine, EventHandler},
+    engine::{Engine, EngineRefCache, EventHandler},
     filesystem::Filesystem,
     input::{GamepadAxis, GamepadButton, InputBinding, InputState, KeyCode, KeyMods, MouseButton},
     prelude::*,
@@ -84,12 +84,9 @@ struct Unloaded;
 
 struct SmbOneOne {
     space: Shared<Space>,
-    input_binding: InputBinding<Axis, Button>,
-    input_state: Shared<InputState<Axis, Button>>,
     tile_layer_batches: hv_tiled::TileLayerBatches,
     x_scroll: f32,
     map: hv_tiled::Map,
-    timer: TimeContext,
     ts_render_data: TilesetRenderData,
     to_update: Vec<Object>,
     to_collide: Vec<(Object, Object)>,
@@ -106,9 +103,8 @@ struct SmbOneOne {
 }
 
 impl SmbOneOne {
-    fn new(engine: &Engine) -> Result<Shared<Self>> {
+    fn new(engine: &Engine, input_state: Shared<InputState<Axis, Button>>) -> Result<Shared<Self>> {
         let space = engine.get::<Spaces>().borrow_mut().create_space();
-        let input_state = Shared::new(InputState::new());
         let lua = engine.lua();
         let mut texture_cache = engine.get::<TextureCache>().owned_borrow_mut();
         let goomba_texture = texture_cache.get_or_load("/sprite_sheets/goomba-sheet.png")?;
@@ -132,7 +128,6 @@ impl SmbOneOne {
             button.set("Down", Button::Down)?;
             button.set("Up", Button::Up)?;
 
-            let input_state = input_state.clone();
             let space = space.clone();
 
             let requires_update = DynamicComponentConstructor::copy(RequiresLuaUpdate);
@@ -177,9 +172,6 @@ impl SmbOneOne {
         let tile_layer_batches =
             hv_tiled::TileLayerBatches::new(&map.tile_layers, &ts_render_data, &map, engine);
 
-        let mut simple_handler = SimpleHandler::new("main");
-        simple_handler.init(engine)?;
-
         let gfx_lock = engine.get::<GraphicsLock>();
         let mut gfx = gfx_lock.lock();
         let goomba_batch = SpriteBatch::new(&mut gfx, goomba_texture);
@@ -188,13 +180,10 @@ impl SmbOneOne {
         drop(gfx);
 
         Ok(Shared::new(SmbOneOne {
-            input_binding: default_input_bindings(),
-            input_state,
             space,
             tile_layer_batches,
             x_scroll: 0.,
             map,
-            timer: TimeContext::new(),
             ts_render_data,
             to_update: Vec::new(),
             to_collide: Vec::new(),
@@ -509,38 +498,32 @@ impl SmbOneOne {
     }
 
     fn update(&mut self, engine: &Engine, lua: &Lua, dt: f32) -> Result<()> {
-        self.timer.tick();
-        let mut counter = 0;
-        while self.timer.check_update_time_forced(60, &mut counter) {
-            self.tile_layer_batches
-                .update_all_batches(dt, &self.ts_render_data);
+        self.tile_layer_batches
+            .update_all_batches(dt, &self.ts_render_data);
 
-            if lua.globals().get("is_player_dead")? {
-                for (obj, ()) in self
-                    .space
-                    .borrow()
-                    .query::<()>()
-                    .with::<PlayerMarker>()
-                    .iter()
-                {
-                    self.to_update.push(obj);
-                }
-
-                for obj in self.to_update.iter() {
-                    let table = LuaTable::from_lua(obj.to_lua(lua)?, lua)?;
-                    table.call_method("update", ())?;
-                }
-            } else {
-                self.load_nearby_objects(engine, lua)?;
-                self.run_required_lua_updates(engine, lua, dt)?;
-                self.integrate_object_positions(engine, lua, dt)?;
-                self.dispatch_object_on_object_collisions(engine, lua)?;
+        if lua.globals().get("is_player_dead")? {
+            for (obj, ()) in self
+                .space
+                .borrow()
+                .query::<()>()
+                .with::<PlayerMarker>()
+                .iter()
+            {
+                self.to_update.push(obj);
             }
 
-            self.update_object_sprite_batches(engine, lua)?;
-
-            self.input_state.borrow_mut().update(TIMESTEP);
+            for obj in self.to_update.iter() {
+                let table = LuaTable::from_lua(obj.to_lua(lua)?, lua)?;
+                table.call_method("update", ())?;
+            }
+        } else {
+            self.load_nearby_objects(engine, lua)?;
+            self.run_required_lua_updates(engine, lua, dt)?;
+            self.integrate_object_positions(engine, lua, dt)?;
+            self.dispatch_object_on_object_collisions(engine, lua)?;
         }
+
+        self.update_object_sprite_batches(engine, lua)?;
 
         Ok(())
     }
@@ -564,6 +547,103 @@ impl SmbOneOne {
         gfx.modelview_mut().pop();
 
         Ok(())
+    }
+}
+
+impl LuaUserData for SmbOneOne {
+    fn add_methods<'lua, M: LuaUserDataMethods<'lua, Self>>(methods: &mut M) {
+        let mut engine_cache = EngineRefCache::new();
+        methods.add_method_mut("update", move |lua, this, dt| {
+            this.update(&engine_cache.get(lua), lua, dt).to_lua_err()?;
+            Ok(())
+        });
+
+        let mut engine_cache = EngineRefCache::new();
+        methods.add_method_mut("draw", move |lua, this, ()| {
+            this.draw(&engine_cache.get(lua)).to_lua_err()?;
+            Ok(())
+        });
+
+        let mut engine_cache = EngineRefCache::new();
+        methods.add_method_mut("load_nearby_objects", move |lua, this, ()| {
+            this.load_nearby_objects(&engine_cache.get(lua), lua)
+                .to_lua_err()?;
+            Ok(())
+        });
+
+        let mut engine_cache = EngineRefCache::new();
+        methods.add_method_mut("run_required_lua_updates", move |lua, this, dt| {
+            this.run_required_lua_updates(&engine_cache.get(lua), lua, dt)
+                .to_lua_err()?;
+            Ok(())
+        });
+
+        let mut engine_cache = EngineRefCache::new();
+        methods.add_method_mut("integrate_object_positions", move |lua, this, dt| {
+            this.integrate_object_positions(&engine_cache.get(lua), lua, dt)
+                .to_lua_err()?;
+            Ok(())
+        });
+
+        let mut engine_cache = EngineRefCache::new();
+        methods.add_method_mut(
+            "dispatch_object_on_object_collisions",
+            move |lua, this, ()| {
+                this.dispatch_object_on_object_collisions(&engine_cache.get(lua), lua)
+                    .to_lua_err()?;
+                Ok(())
+            },
+        );
+
+        let mut engine_cache = EngineRefCache::new();
+        methods.add_method_mut("update_object_sprite_batches", move |lua, this, ()| {
+            this.update_object_sprite_batches(&engine_cache.get(lua), lua)
+                .to_lua_err()?;
+            Ok(())
+        });
+    }
+}
+
+struct SmbOneOneEventHandler {
+    simple_handler: SimpleHandler,
+    input_binding: InputBinding<Axis, Button>,
+    input_state: Shared<InputState<Axis, Button>>,
+    timer: TimeContext,
+    inner: Shared<SmbOneOne>,
+}
+
+impl SmbOneOneEventHandler {
+    fn new(engine: &Engine) -> Result<Self> {
+        let input_state = Shared::new(InputState::new());
+        Ok(Self {
+            simple_handler: SimpleHandler::new("main"),
+            timer: TimeContext::new(),
+            inner: SmbOneOne::new(engine, input_state.clone())?,
+            input_state,
+            input_binding: default_input_bindings(),
+        })
+    }
+}
+
+impl EventHandler for SmbOneOneEventHandler {
+    fn init(&mut self, engine: &Engine) -> Result<()> {
+        engine.lua().globals().set("game", self.inner.clone())?;
+        self.simple_handler.init(engine)
+    }
+
+    fn update(&mut self, engine: &Engine, _dt: f32) -> Result<()> {
+        self.timer.tick();
+        let mut counter = 0;
+        while self.timer.check_update_time_forced(60, &mut counter) {
+            self.simple_handler.update(engine, TIMESTEP)?;
+            self.input_state.borrow_mut().update(TIMESTEP);
+        }
+
+        Ok(())
+    }
+
+    fn draw(&mut self, engine: &Engine) -> Result<()> {
+        self.simple_handler.draw(engine)
     }
 
     fn key_down_event(&mut self, _: &Engine, keycode: KeyCode, _: KeyMods, _: bool) {
@@ -597,46 +677,6 @@ impl SmbOneOne {
                 .update_effect(effect, position.abs() > f32::EPSILON);
         }
     }
-}
-
-struct SmbOneOneEventHandler {
-    inner: Shared<SmbOneOne>,
-}
-
-impl SmbOneOneEventHandler {
-    fn new(engine: &Engine) -> Result<Self> {
-        Ok(Self {
-            inner: SmbOneOne::new(engine)?,
-        })
-    }
-}
-
-impl EventHandler for SmbOneOneEventHandler {
-    fn update(&mut self, engine: &Engine, dt: f32) -> Result<()> {
-        self.inner.borrow_mut().update(engine, &engine.lua(), dt)
-    }
-
-    fn draw(&mut self, engine: &Engine) -> Result<()> {
-        self.inner.borrow_mut().draw(engine)
-    }
-
-    fn key_down_event(
-        &mut self,
-        engine: &Engine,
-        keycode: KeyCode,
-        keymods: KeyMods,
-        repeat: bool,
-    ) {
-        self.inner
-            .borrow_mut()
-            .key_down_event(engine, keycode, keymods, repeat)
-    }
-
-    fn key_up_event(&mut self, engine: &Engine, keycode: KeyCode, keymods: KeyMods) {
-        self.inner
-            .borrow_mut()
-            .key_up_event(engine, keycode, keymods)
-    }
 
     fn char_event(&mut self, _engine: &Engine, _character: char, _keymods: KeyMods, _repeat: bool) {
         // self.inner
@@ -668,24 +708,6 @@ impl EventHandler for SmbOneOneEventHandler {
         // self.inner
         //     .borrow_mut()
         //     .mouse_button_up_event(engine, button, x, y)
-    }
-
-    fn gamepad_button_down_event(&mut self, engine: &Engine, button: GamepadButton, repeat: bool) {
-        self.inner
-            .borrow_mut()
-            .gamepad_button_down_event(engine, button, repeat)
-    }
-
-    fn gamepad_button_up_event(&mut self, engine: &Engine, button: GamepadButton) {
-        self.inner
-            .borrow_mut()
-            .gamepad_button_up_event(engine, button)
-    }
-
-    fn gamepad_axis_changed_event(&mut self, engine: &Engine, axis: GamepadAxis, position: f32) {
-        self.inner
-            .borrow_mut()
-            .gamepad_axis_changed_event(engine, axis, position)
     }
 
     fn resize_event(&mut self, _engine: &Engine, _width: f32, _height: f32) {

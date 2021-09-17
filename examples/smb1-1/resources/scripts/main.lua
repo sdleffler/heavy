@@ -16,10 +16,12 @@ end
 
 function hv.load() load_level() end
 
-function hv.update()
-    -- TODO
+function hv.update(dt)
+    -- Delegate to the full Rust update method on the game object.
+    game:update(dt)
 end
 
 function hv.draw()
-    -- TODO (will this even be done in Lua at all?)
+    -- Delegate to the Rust draw method on the game object.
+    game:draw()
 end
