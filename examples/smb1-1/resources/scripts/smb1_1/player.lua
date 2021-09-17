@@ -201,21 +201,21 @@ death_animation = coroutine.create(
         going_up = 1.5 * 60
         move_rate = 2
         -- initial pause
-        for i = 0, initial_pause, 1 do coroutine.yield(false) end
+        for i = 0, initial_pause, 1 do coroutine.yield() end
         -- going up
         xp, yp = player:position_get_coords()
         while (yp < going_up) do
             xp, yp = player:position_get_coords()
             xp, yp = player:position_get_coords()
             player:position_set_coords(xp, yp + move_rate)
-            coroutine.yield(false)
+            coroutine.yield()
         end
         -- goin down
         xp, yp = player:position_get_coords()
         while (yp >= -8) do
             xp, yp = player:position_get_coords()
             player:position_set_coords(xp, yp - move_rate)
-            coroutine.yield(false)
+            coroutine.yield()
         end
     end
                   )
