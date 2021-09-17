@@ -225,14 +225,13 @@ do
     function Dead:init(agent, player)
         player.animation = tag_dead
         player:collider_remove()
-        is_player_dead = true
+        smb.controller:switch("player_died")
     end
 
     function Dead:update(agent, player)
         coroutine.resume(death_animation, player)
         if coroutine.status(death_animation) == "dead" then
-            -- rust.space:despawn(player)
-            print("end")
+            smb.controller:switch("resetting")
         end
     end
 end

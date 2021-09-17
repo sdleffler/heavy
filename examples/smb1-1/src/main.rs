@@ -377,10 +377,6 @@ impl SmbOneOne {
         let mut to_collide = self.to_collide.borrow_mut();
 
         // Collect any object-on-object collisions events, for later dispatch to Lua.
-        //
-        // TODO: we may want to modify this query loop to also collect enemy-on-enemy
-        // collision events (so goombas and koopas and so on can change direction when they
-        // hit each other and spinning koopa shells can kill other enemies, etc.)
         to_collide.clear();
         for (object1, (Position(pos1), collider1)) in self
             .space
@@ -502,36 +498,40 @@ impl SmbOneOne {
         Ok(())
     }
 
-    fn update(&self, engine: &Engine, lua: &Lua, dt: f32) -> Result<()> {
+    fn update_normal(&self, engine: &Engine, lua: &Lua, dt: f32) -> Result<()> {
         self.tile_layer_batches
             .borrow_mut()
             .update_all_batches(dt, &self.ts_render_data);
 
-        if lua.globals().get("is_player_dead")? {
-            let mut to_update = self.to_update.borrow_mut();
+        self.load_nearby_objects(engine, lua)?;
+        self.run_required_lua_updates(engine, lua, dt)?;
+        self.integrate_object_positions(engine, lua, dt)?;
+        self.dispatch_object_on_object_collisions(engine, lua)?;
 
-            for (obj, ()) in self
-                .space
-                .borrow()
-                .query::<()>()
-                .with::<PlayerMarker>()
-                .iter()
-            {
-                to_update.push(obj);
-            }
+        Ok(())
+    }
 
-            for obj in to_update.drain(..) {
-                let table = LuaTable::from_lua(obj.to_lua(lua)?, lua)?;
-                table.call_method("update", ())?;
-            }
-        } else {
-            self.load_nearby_objects(engine, lua)?;
-            self.run_required_lua_updates(engine, lua, dt)?;
-            self.integrate_object_positions(engine, lua, dt)?;
-            self.dispatch_object_on_object_collisions(engine, lua)?;
+    fn update_player_died(&self, _engine: &Engine, lua: &Lua, dt: f32) -> Result<()> {
+        self.tile_layer_batches
+            .borrow_mut()
+            .update_all_batches(dt, &self.ts_render_data);
+
+        let mut to_update = self.to_update.borrow_mut();
+
+        for (obj, ()) in self
+            .space
+            .borrow()
+            .query::<()>()
+            .with::<PlayerMarker>()
+            .iter()
+        {
+            to_update.push(obj);
         }
 
-        self.update_object_sprite_batches(engine, lua)?;
+        for obj in to_update.drain(..) {
+            let table = LuaTable::from_lua(obj.to_lua(lua)?, lua)?;
+            table.call_method("update", ())?;
+        }
 
         Ok(())
     }
@@ -598,8 +598,14 @@ impl LuaUserData for SmbOneOne {
             Ok((*lua.get_resource::<EngineRef>()?.borrow()).clone())
         };
 
-        methods.add_method("update", move |lua, this, dt| {
-            this.update(&get_engine(lua)?.upgrade(), lua, dt)
+        methods.add_method("update_normal", move |lua, this, dt| {
+            this.update_normal(&get_engine(lua)?.upgrade(), lua, dt)
+                .to_lua_err()?;
+            Ok(())
+        });
+
+        methods.add_method("update_player_died", move |lua, this, dt| {
+            this.update_player_died(&get_engine(lua)?.upgrade(), lua, dt)
                 .to_lua_err()?;
             Ok(())
         });
