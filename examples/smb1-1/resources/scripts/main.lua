@@ -1,6 +1,6 @@
--- Grab the global `space` and shove it into a local variable.
+-- The special "game" object contains a Lua userdata referring to the instance of `SmbOneOne`.
 is_player_dead = false
-local space = rust.space
+local space = game.space
 
 function load_level()
     space:clear()
@@ -17,11 +17,11 @@ end
 function hv.load() load_level() end
 
 function hv.update(dt)
-    -- Delegate to the full Rust update method on the game object.
+    -- Delegate to the full game update method on the game object.
     game:update(dt)
 end
 
 function hv.draw()
-    -- Delegate to the Rust draw method on the game object.
+    -- Delegate to the game draw method on the game object.
     game:draw()
 end

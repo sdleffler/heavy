@@ -83,6 +83,10 @@ struct PlayerMarker;
 struct Unloaded;
 
 struct SmbOneOne {
+    input_state: Shared<InputState<Axis, Button>>,
+    button_table: LuaRegistryKey,
+    sprite_sheets_table: LuaRegistryKey,
+
     space: Shared<Space>,
     tile_layer_batches: hv_tiled::TileLayerBatches,
     x_scroll: f32,
@@ -105,7 +109,6 @@ struct SmbOneOne {
 impl SmbOneOne {
     fn new(engine: &Engine, input_state: Shared<InputState<Axis, Button>>) -> Result<Shared<Self>> {
         let space = engine.get::<Spaces>().borrow_mut().create_space();
-        let lua = engine.lua();
         let mut texture_cache = engine.get::<TextureCache>().owned_borrow_mut();
         let goomba_texture = texture_cache.get_or_load("/sprite_sheets/goomba-sheet.png")?;
         let koopa_texture = texture_cache.get_or_load("/sprite_sheets/koopa.png")?;
@@ -118,7 +121,12 @@ impl SmbOneOne {
         let mario_sheet = sprite_sheet_cache.get_or_load("/sprite_sheets/mario_ss.json")?;
         drop(sprite_sheet_cache);
 
+        let button_table;
+        let sprite_sheets_table;
+
         {
+            let lua = engine.lua();
+
             let button = lua.create_table()?;
             button.set("A", Button::A)?;
             button.set("B", Button::B)?;
@@ -127,43 +135,14 @@ impl SmbOneOne {
             button.set("Right", Button::Right)?;
             button.set("Down", Button::Down)?;
             button.set("Up", Button::Up)?;
+            button_table = lua.create_registry_value(button.clone())?;
 
-            let space = space.clone();
-
-            let requires_update = DynamicComponentConstructor::copy(RequiresLuaUpdate);
-            let goomba_marker = DynamicComponentConstructor::copy(GoombaMarker);
-            let koopa_marker = DynamicComponentConstructor::copy(KoopaMarker);
-            let player_marker = DynamicComponentConstructor::copy(PlayerMarker);
-            let unloaded = DynamicComponentConstructor::copy(Unloaded);
-
-            let goomba_sheet = goomba_sheet.clone();
-            let koopa_sheet = koopa_sheet.clone();
-            let mario_sheet = mario_sheet.clone();
-
-            let chunk = mlua::chunk! {
-                {
-                    input = $input_state,
-                    button = $button,
-                    space = $space,
-
-                    sprite_sheets = {
-                        goomba = $goomba_sheet,
-                        koopa = $koopa_sheet,
-                        mario = $mario_sheet,
-                    },
-
-                    RequiresLuaUpdate = $requires_update,
-                    GoombaMarker = $goomba_marker,
-                    KoopaMarker = $koopa_marker,
-                    PlayerMarker = $player_marker,
-                    Unloaded = $unloaded,
-                }
-            };
-
-            lua.globals()
-                .set("rust", lua.load(chunk).eval::<LuaTable>()?)?;
+            let sprite_sheets = lua.create_table()?;
+            sprite_sheets.set("goomba", goomba_sheet.clone())?;
+            sprite_sheets.set("koopa", koopa_sheet.clone())?;
+            sprite_sheets.set("mario", mario_sheet.clone())?;
+            sprite_sheets_table = lua.create_registry_value(sprite_sheets.clone())?;
         }
-        drop(lua);
 
         let map = hv_tiled::Map::new("/maps/mario_bros_1-1.lua", engine, Some("maps/"))?;
 
@@ -180,6 +159,10 @@ impl SmbOneOne {
         drop(gfx);
 
         Ok(Shared::new(SmbOneOne {
+            input_state,
+            button_table,
+            sprite_sheets_table,
+
             space,
             tile_layer_batches,
             x_scroll: 0.,
@@ -202,56 +185,89 @@ impl SmbOneOne {
 }
 
 impl SmbOneOne {
-    fn load_nearby_objects(&mut self, engine: &Engine, lua: &Lua) -> Result<()> {
-        for (obj, (Position(pos), _)) in self
-            .space
-            .borrow_mut()
-            .query_mut::<(&Position, &Unloaded)>()
-        {
+    fn load_nearby_objects(this: &Shared<Self>, engine: &Engine, lua: &Lua) -> Result<()> {
+        let mut this_mut = this.borrow_mut();
+        let Self {
+            space,
+            to_load,
+            x_scroll,
+            ..
+        } = &mut *this_mut;
+
+        for (obj, (Position(pos), _)) in space.borrow_mut().query_mut::<(&Position, &Unloaded)>() {
             // Load the enemies in right before they come on screen
             if (pos.translation.vector.x)
-                <= ((self.x_scroll + engine.mq().screen_size().0 / 4.0)
-                    + 8.0
-                    + LOAD_DISTANCE_IN_PIXELS)
+                <= ((*x_scroll + engine.mq().screen_size().0 / 4.0) + 8.0 + LOAD_DISTANCE_IN_PIXELS)
             {
-                self.to_load.push(obj);
+                to_load.push(obj);
             }
         }
 
-        for obj_to_load in self.to_load.drain(..) {
-            self.space
+        let mut to_load = std::mem::take(to_load);
+        drop(this_mut);
+
+        for obj_to_load in to_load.drain(..) {
+            this.borrow_mut()
+                .space
                 .borrow_mut()
                 .remove_one::<Unloaded>(obj_to_load)?;
             let table = LuaTable::from_lua(obj_to_load.to_lua(lua)?, lua)?;
             table.call_method("on_load", ())?;
         }
 
+        this.borrow_mut().to_load = to_load;
+
         Ok(())
     }
 
-    fn run_required_lua_updates(&mut self, _engine: &Engine, lua: &Lua, dt: f32) -> Result<()> {
-        for (obj, ()) in self
-            .space
+    fn run_required_lua_updates(
+        this: &Shared<Self>,
+        _engine: &Engine,
+        lua: &Lua,
+        dt: f32,
+    ) -> Result<()> {
+        let mut this_mut = this.borrow_mut();
+        let Self {
+            space, to_update, ..
+        } = &mut *this_mut;
+        for (obj, ()) in space
             .borrow_mut()
             .query_mut::<()>()
             .with::<RequiresLuaUpdate>()
             .without::<Unloaded>()
         {
-            self.to_update.push(obj);
+            to_update.push(obj);
         }
 
-        for obj_to_update in self.to_update.drain(..) {
+        let mut to_update = std::mem::take(to_update);
+        drop(this_mut);
+
+        for obj_to_update in to_update.drain(..) {
             let table = LuaTable::from_lua(obj_to_update.to_lua(lua)?, lua)?;
             table.call_method("update", dt)?;
         }
 
+        this.borrow_mut().to_update = to_update;
+
         Ok(())
     }
 
-    fn integrate_object_positions(&mut self, _engine: &Engine, lua: &Lua, dt: f32) -> Result<()> {
+    fn integrate_object_positions(
+        this: &Shared<Self>,
+        _engine: &Engine,
+        lua: &Lua,
+        dt: f32,
+    ) -> Result<()> {
+        let mut this_mut = this.borrow_mut();
+        let Self {
+            space,
+            to_headbutt,
+            map,
+            ..
+        } = &mut *this_mut;
+
         // Query: integrate positions for all objects w/o colliders.
-        for (_, (Position(pos), Velocity(vel))) in self
-            .space
+        for (_, (Position(pos), Velocity(vel))) in space
             .borrow_mut()
             .query_mut::<(&mut Position, &Velocity)>()
             .without::<Collider>()
@@ -262,9 +278,9 @@ impl SmbOneOne {
         // Query: handle collisions between blocks and objects with positions, velocities, and
         // colliders. In addition, collect "headbutt" events to be dispatched to Lua once the
         // query is finished and the borrows are released.
-        self.to_headbutt.clear();
+        to_headbutt.clear();
         for (player_object, (Position(pos), Velocity(vel), collider, maybe_player)) in
-            self.space.borrow_mut().query_mut::<(
+            space.borrow_mut().query_mut::<(
                 &mut Position,
                 &mut Velocity,
                 &Collider,
@@ -279,17 +295,17 @@ impl SmbOneOne {
             let mut aabb = collider.compute_aabb(pos);
             let pixel_aabb = aabb.floor_to_u32();
 
-            for (tile, x, y) in self.map.get_tiles_in_bb_in_layer(
+            for (tile, x, y) in map.get_tiles_in_bb_in_layer(
                 pixel_aabb,
-                *self.map.tile_layer_map.get("Foreground").unwrap(),
+                *map.tile_layer_map.get("Foreground").unwrap(),
                 CoordSpace::Pixel,
             ) {
                 let mut tile_bb = Box2::<f32>::invalid();
-                if let Some(object_group) = self.map.get_obj_grp_from_tile_id(&tile) {
-                    for object in self.map.get_objs_from_obj_group(object_group) {
+                if let Some(object_group) = map.get_obj_grp_from_tile_id(&tile) {
+                    for object in map.get_objs_from_obj_group(object_group) {
                         tile_bb.merge(&Box2::new(
-                            object.x + (x * self.map.meta_data.tilewidth) as f32,
-                            object.y + (y * self.map.meta_data.tileheight) as f32,
+                            object.x + (x * map.meta_data.tilewidth) as f32,
+                            object.y + (y * map.meta_data.tileheight) as f32,
                             object.width,
                             object.height,
                         ));
@@ -326,17 +342,17 @@ impl SmbOneOne {
             let mut aabb = collider.compute_aabb(pos);
             let pixel_aabb = aabb.floor_to_u32();
 
-            for (tile, x, y) in self.map.get_tiles_in_bb_in_layer(
+            for (tile, x, y) in map.get_tiles_in_bb_in_layer(
                 pixel_aabb,
-                *self.map.tile_layer_map.get("Foreground").unwrap(),
+                *map.tile_layer_map.get("Foreground").unwrap(),
                 CoordSpace::Pixel,
             ) {
                 let mut tile_bb = Box2::<f32>::invalid();
-                if let Some(object_group) = self.map.get_obj_grp_from_tile_id(&tile) {
-                    for object in self.map.get_objs_from_obj_group(object_group) {
+                if let Some(object_group) = map.get_obj_grp_from_tile_id(&tile) {
+                    for object in map.get_objs_from_obj_group(object_group) {
                         tile_bb.merge(&Box2::new(
-                            object.x + (x * self.map.meta_data.tilewidth) as f32,
-                            object.y + (y * self.map.meta_data.tileheight) as f32,
+                            object.x + (x * map.meta_data.tilewidth) as f32,
+                            object.y + (y * map.meta_data.tileheight) as f32,
                             object.width,
                             object.height,
                         ));
@@ -358,7 +374,7 @@ impl SmbOneOne {
                             if overlap.y.signum() < 0. {
                                 is_grounded = true;
                             } else if overlap.y.signum() > 0. && maybe_player.is_some() {
-                                self.to_headbutt.push((player_object, (x, y, tile)));
+                                to_headbutt.push((player_object, (x, y, tile)));
                             }
                         }
                     }
@@ -370,31 +386,42 @@ impl SmbOneOne {
                 .set("is_grounded", is_grounded)?;
         }
 
+        let mut to_headbutt = std::mem::take(to_headbutt);
+        drop(this_mut);
+
         // Dispatch any headbutt events gathered from the previous query.
-        for (player_object, (x, y, _tile)) in self.to_headbutt.drain(..) {
+        for (player_object, (x, y, _tile)) in to_headbutt.drain(..) {
             LuaTable::from_lua(player_object.to_lua(lua)?, lua)?
                 .call_method("on_headbutt_block", (x, y))?;
         }
 
+        this.borrow_mut().to_headbutt = to_headbutt;
+
         Ok(())
     }
 
-    fn dispatch_object_on_object_collisions(&mut self, _engine: &Engine, lua: &Lua) -> Result<()> {
+    fn dispatch_object_on_object_collisions(
+        this: &Shared<Self>,
+        _engine: &Engine,
+        lua: &Lua,
+    ) -> Result<()> {
+        let mut this_mut = this.borrow_mut();
+        let Self {
+            space, to_collide, ..
+        } = &mut *this_mut;
         // Collect any object-on-object collisions events, for later dispatch to Lua.
         //
         // TODO: we may want to modify this query loop to also collect enemy-on-enemy
         // collision events (so goombas and koopas and so on can change direction when they
         // hit each other and spinning koopa shells can kill other enemies, etc.)
-        self.to_collide.clear();
-        for (object1, (Position(pos1), collider1)) in self
-            .space
+        to_collide.clear();
+        for (object1, (Position(pos1), collider1)) in space
             .borrow()
             .query::<(&Position, &Collider)>()
             .without::<Unloaded>()
             .iter()
         {
-            for (object2, (Position(pos2), collider2)) in self
-                .space
+            for (object2, (Position(pos2), collider2)) in space
                 .borrow()
                 .query::<(&Position, &Collider)>()
                 .without::<Unloaded>()
@@ -407,16 +434,21 @@ impl SmbOneOne {
                     &(pos2.to_isometry() * collider2.local_tx),
                     collider2.shape.as_ref(),
                 )? {
-                    self.to_collide.push((object1, object2));
+                    to_collide.push((object1, object2));
                 }
             }
         }
 
+        let mut to_collide = std::mem::take(&mut this_mut.to_collide);
+        drop(this_mut);
+
         // Dispatch collected player-on-enemy collision events.
-        for (object1, object2) in self.to_collide.drain(..) {
+        for (object1, object2) in to_collide.drain(..) {
             LuaTable::from_lua(object1.to_lua(lua)?, lua)?
                 .call_method("on_collide_with_object", object2)?;
         }
+
+        this.borrow_mut().to_collide = to_collide;
 
         Ok(())
     }
@@ -497,33 +529,44 @@ impl SmbOneOne {
         Ok(())
     }
 
-    fn update(&mut self, engine: &Engine, lua: &Lua, dt: f32) -> Result<()> {
-        self.tile_layer_batches
-            .update_all_batches(dt, &self.ts_render_data);
+    fn update(this: &Shared<Self>, engine: &Engine, lua: &Lua, dt: f32) -> Result<()> {
+        let mut this_mut = this.borrow_mut();
+        let Self {
+            tile_layer_batches,
+            ts_render_data,
+            space,
+            to_update,
+            ..
+        } = &mut *this_mut;
+        tile_layer_batches.update_all_batches(dt, ts_render_data);
 
         if lua.globals().get("is_player_dead")? {
-            for (obj, ()) in self
-                .space
-                .borrow()
-                .query::<()>()
-                .with::<PlayerMarker>()
-                .iter()
-            {
-                self.to_update.push(obj);
+            for (obj, ()) in space.borrow().query::<()>().with::<PlayerMarker>().iter() {
+                to_update.push(obj);
             }
 
-            for obj in self.to_update.iter() {
+            let mut to_update = std::mem::take(&mut this_mut.to_update);
+            drop(this_mut);
+
+            for obj in to_update.drain(..) {
                 let table = LuaTable::from_lua(obj.to_lua(lua)?, lua)?;
                 table.call_method("update", ())?;
             }
+
+            this_mut = this.borrow_mut();
+            this_mut.to_update = to_update;
         } else {
-            self.load_nearby_objects(engine, lua)?;
-            self.run_required_lua_updates(engine, lua, dt)?;
-            self.integrate_object_positions(engine, lua, dt)?;
-            self.dispatch_object_on_object_collisions(engine, lua)?;
+            drop(this_mut);
+
+            Self::load_nearby_objects(this, engine, lua)?;
+            Self::run_required_lua_updates(this, engine, lua, dt)?;
+            Self::integrate_object_positions(this, engine, lua, dt)?;
+            Self::dispatch_object_on_object_collisions(this, engine, lua)?;
+
+            this_mut = this.borrow_mut();
         }
 
-        self.update_object_sprite_batches(engine, lua)?;
+        this_mut.update_object_sprite_batches(engine, lua)?;
 
         Ok(())
     }
@@ -551,10 +594,36 @@ impl SmbOneOne {
 }
 
 impl LuaUserData for SmbOneOne {
+    fn add_fields<'lua, F: LuaUserDataFields<'lua, Self>>(fields: &mut F) {
+        fields.add_field_method_get("input_state", |_, this| Ok(this.input_state.clone()));
+        fields.add_field_method_get("space", |_, this| Ok(this.space.clone()));
+        fields.add_field_method_get("button", |lua, this| {
+            lua.registry_value::<LuaValue>(&this.button_table)
+        });
+        fields.add_field_method_get("sprite_sheets", |lua, this| {
+            lua.registry_value::<LuaValue>(&this.sprite_sheets_table)
+        });
+        fields.add_field_method_get("RequiresLuaUpdate", |_, _| {
+            Ok(DynamicComponentConstructor::copy(RequiresLuaUpdate))
+        });
+        fields.add_field_method_get("GoombaMarker", |_, _| {
+            Ok(DynamicComponentConstructor::copy(GoombaMarker))
+        });
+        fields.add_field_method_get("KoopaMarker", |_, _| {
+            Ok(DynamicComponentConstructor::copy(KoopaMarker))
+        });
+        fields.add_field_method_get("PlayerMarker", |_, _| {
+            Ok(DynamicComponentConstructor::copy(PlayerMarker))
+        });
+        fields.add_field_method_get("Unloaded", |_, _| {
+            Ok(DynamicComponentConstructor::copy(Unloaded))
+        });
+    }
+
     fn add_methods<'lua, M: LuaUserDataMethods<'lua, Self>>(methods: &mut M) {
         let mut engine_cache = EngineRefCache::new();
-        methods.add_method_mut("update", move |lua, this, dt| {
-            this.update(&engine_cache.get(lua), lua, dt).to_lua_err()?;
+        methods.add_function_mut("update", move |lua, (this, dt): (Shared<Self>, f32)| {
+            Self::update(&this, &engine_cache.get(lua), lua, dt).to_lua_err()?;
             Ok(())
         });
 
@@ -565,31 +634,36 @@ impl LuaUserData for SmbOneOne {
         });
 
         let mut engine_cache = EngineRefCache::new();
-        methods.add_method_mut("load_nearby_objects", move |lua, this, ()| {
-            this.load_nearby_objects(&engine_cache.get(lua), lua)
-                .to_lua_err()?;
+        methods.add_function_mut("load_nearby_objects", move |lua, this: Shared<Self>| {
+            Self::load_nearby_objects(&this, &engine_cache.get(lua), lua).to_lua_err()?;
             Ok(())
         });
 
         let mut engine_cache = EngineRefCache::new();
-        methods.add_method_mut("run_required_lua_updates", move |lua, this, dt| {
-            this.run_required_lua_updates(&engine_cache.get(lua), lua, dt)
-                .to_lua_err()?;
-            Ok(())
-        });
+        methods.add_function_mut(
+            "run_required_lua_updates",
+            move |lua, (this, dt): (Shared<Self>, f32)| {
+                Self::run_required_lua_updates(&this, &engine_cache.get(lua), lua, dt)
+                    .to_lua_err()?;
+                Ok(())
+            },
+        );
 
         let mut engine_cache = EngineRefCache::new();
-        methods.add_method_mut("integrate_object_positions", move |lua, this, dt| {
-            this.integrate_object_positions(&engine_cache.get(lua), lua, dt)
-                .to_lua_err()?;
-            Ok(())
-        });
+        methods.add_function_mut(
+            "integrate_object_positions",
+            move |lua, (this, dt): (Shared<Self>, f32)| {
+                Self::integrate_object_positions(&this, &engine_cache.get(lua), lua, dt)
+                    .to_lua_err()?;
+                Ok(())
+            },
+        );
 
         let mut engine_cache = EngineRefCache::new();
-        methods.add_method_mut(
+        methods.add_function_mut(
             "dispatch_object_on_object_collisions",
-            move |lua, this, ()| {
-                this.dispatch_object_on_object_collisions(&engine_cache.get(lua), lua)
+            move |lua, this: Shared<Self>| {
+                Self::dispatch_object_on_object_collisions(&this, &engine_cache.get(lua), lua)
                     .to_lua_err()?;
                 Ok(())
             },

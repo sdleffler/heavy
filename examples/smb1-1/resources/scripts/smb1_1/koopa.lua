@@ -18,9 +18,9 @@ local gravity_velocity = 8 * 16
 local shell_speed = 0
 local dt = 1.0 / 60.0
 
-local tag_walk = assert(rust.sprite_sheets.koopa:get_tag("walk"))
-local tag_in_shell = assert(rust.sprite_sheets.koopa:get_tag("shell_spin"))
-local tag_reviving = assert(rust.sprite_sheets.koopa:get_tag("reviving"))
+local tag_walk = assert(game.sprite_sheets.koopa:get_tag("walk"))
+local tag_in_shell = assert(game.sprite_sheets.koopa:get_tag("shell_spin"))
+local tag_reviving = assert(game.sprite_sheets.koopa:get_tag("reviving"))
 
 function launch_shell(player, koopa)
     pp_x, _ = player:position_get_coords()
@@ -141,10 +141,10 @@ do
     function Koopa:init(space, x, y)
         Koopa.super.init(
             self, space, x, y, Velocity(), Collider(hf.collision.Collider.cuboid(8, 8)),
-            SpriteAnimation(gfx.SpriteAnimation.new(rust.sprite_sheets.koopa)), rust.KoopaMarker,
-            rust.RequiresLuaUpdate, rust.Unloaded
+            SpriteAnimation(gfx.SpriteAnimation.new(game.sprite_sheets.koopa)), game.KoopaMarker,
+            game.RequiresLuaUpdate, game.Unloaded
         )
-        self.tag = rust.sprite_sheets.koopa:get_tag("walk")
+        self.tag = game.sprite_sheets.koopa:get_tag("walk")
         self.to_despawn = false;
         self.last_tag = self.tag
         self.controller = KoopaController:new()
@@ -166,7 +166,7 @@ do
         px, py = self:position_get_coords()
         if px < 0 or py < 0 then self.to_despawn = true end
 
-        if self.to_despawn then rust.space:despawn(self) end
+        if self.to_despawn then game.space:despawn(self) end
     end
 
     function Koopa:on_squish(player) self.controller:on_squish(self, player) end
@@ -178,9 +178,7 @@ do
         end
     end
 
-    function Koopa:on_mario_collide(player)
-        self.controller:on_mario_collide(self, player)
-    end
+    function Koopa:on_mario_collide(player) self.controller:on_mario_collide(self, player) end
 
     function Koopa:on_load() self.controller:push("walk", self) end
 end

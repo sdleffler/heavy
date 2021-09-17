@@ -23,9 +23,7 @@ do
     end
 
     function AliveState:on_squish(agent, goomba, player)
-        if player then
-            player:bounce(goomba)
-        end
+        if player then player:bounce(goomba) end
         agent:switch("dying", goomba)
         goomba:velocity_set_linear(0, 0)
     end
@@ -40,7 +38,7 @@ end
 local DyingState = State:extend("smb1_1.goomba.DyingState", { name = "dying" })
 do
     function DyingState:init(agent, goomba)
-        goomba.tag = rust.sprite_sheets.goomba:get_tag("dead")
+        goomba.tag = game.sprite_sheets.goomba:get_tag("dead")
         self.dying_counter = 0
         goomba:collider_remove()
     end
@@ -68,11 +66,11 @@ do
     function Goomba:init(space, x, y)
         Goomba.super.init(
             self, space, x, y, Velocity(),
-            SpriteAnimation(gfx.SpriteAnimation.new(rust.sprite_sheets.goomba)),
-            Collider(hf.collision.Collider.cuboid(8, 8)), rust.GoombaMarker, rust.RequiresLuaUpdate,
-            rust.Unloaded
+            SpriteAnimation(gfx.SpriteAnimation.new(game.sprite_sheets.goomba)),
+            Collider(hf.collision.Collider.cuboid(8, 8)), game.GoombaMarker, game.RequiresLuaUpdate,
+            game.Unloaded
         )
-        self.tag = rust.sprite_sheets.goomba:get_tag("walk")
+        self.tag = game.sprite_sheets.goomba:get_tag("walk")
         self.last_tag = self.tag
         self.to_despawn = false
         self.controller = GoombaController:new()
@@ -96,7 +94,7 @@ do
         px, py = self:position_get_coords()
         if px < 0 or py < 0 then self.to_despawn = true end
 
-        if self.to_despawn then rust.space:despawn(self) end
+        if self.to_despawn then game.space:despawn(self) end
     end
 
     function Goomba:on_squish(player) self.controller:on_squish(self, player) end
