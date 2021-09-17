@@ -195,6 +195,31 @@ do
     end
 end
 
+death_animation = coroutine.create(
+                      function(player)
+        initial_pause = 1 * 60
+        going_up = 1.5 * 60
+        move_rate = 0.1
+        -- initial pause
+        for i = 0, initial_pause, 1 do coroutine.yield(false) end
+        -- going up
+        xp, yp = player:position_get_coords()
+        while (yp < going_up) do
+            xp, yp = player:position_get_coords()
+            xp, yp = player:position_get_coords()
+            player:position_set_coords(xp, yp + move_rate)
+            coroutine.yield(false)
+        end
+        -- goin down
+        xp, yp = player:position_get_coords()
+        while (yp >= -8) do
+            xp, yp = player:position_get_coords()
+            player:position_set_coords(xp, yp - move_rate)
+            coroutine.yield(false)
+        end
+    end
+                  )
+
 local Dead = State:extend("smb1_1.player.Dead", { name = "dead" })
 do
     function Dead:init(agent, player)
@@ -204,12 +229,10 @@ do
     end
 
     function Dead:update(agent, player)
-        if player.death_wait > 0 then
-            player.death_wait = player.death_wait - 1
-        else
-            player.death_wait = player.death_wait + 1
-            xp, yp = player:position_get_coords()
-            player:position_set_coords(xp, yp + player.death_wait)
+        coroutine.resume(death_animation, player)
+        if coroutine.status(death_animation) == "dead" then
+            -- rust.space:despawn(player)
+            print("end")
         end
     end
 end
@@ -234,7 +257,6 @@ do
             rust.RequiresLuaUpdate
         )
         self.is_big = false
-        self.death_wait = 1 * 60 -- how long to wait until the dying animation plays
         self.run_frames = 0
         self.invincible_timer = 0
         self.facing_direction = 1
