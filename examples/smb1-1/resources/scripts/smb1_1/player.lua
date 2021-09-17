@@ -197,9 +197,9 @@ end
 
 death_animation = coroutine.create(
                       function(player)
-        initial_pause = 1 * 60
+        initial_pause = 0.5 * 60
         going_up = 1.5 * 60
-        move_rate = 0.1
+        move_rate = 2
         -- initial pause
         for i = 0, initial_pause, 1 do coroutine.yield(false) end
         -- going up
