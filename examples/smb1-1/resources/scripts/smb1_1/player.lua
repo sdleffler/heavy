@@ -195,31 +195,6 @@ do
     end
 end
 
-death_animation = coroutine.create(
-                      function(player)
-        initial_pause = 0.5 * 60
-        going_up = 1.5 * 60
-        move_rate = 2
-        -- initial pause
-        for i = 0, initial_pause, 1 do coroutine.yield() end
-        -- going up
-        xp, yp = player:position_get_coords()
-        while (yp < going_up) do
-            xp, yp = player:position_get_coords()
-            xp, yp = player:position_get_coords()
-            player:position_set_coords(xp, yp + move_rate)
-            coroutine.yield()
-        end
-        -- goin down
-        xp, yp = player:position_get_coords()
-        while (yp >= -8) do
-            xp, yp = player:position_get_coords()
-            player:position_set_coords(xp, yp - move_rate)
-            coroutine.yield()
-        end
-    end
-                  )
-
 local Dead = State:extend("smb1_1.player.Dead", { name = "dead" })
 do
     function Dead:init(agent, player)
@@ -229,8 +204,8 @@ do
     end
 
     function Dead:update(agent, player)
-        coroutine.resume(death_animation, player)
-        if coroutine.status(death_animation) == "dead" then
+        coroutine.resume(player.death_animation, player)
+        if coroutine.status(player.death_animation) == "dead" then
             smb.controller:switch("resetting")
         end
     end
@@ -262,6 +237,32 @@ do
         self.animation = game.sprite_sheets.mario:get_tag("idle")
         self.prev_animation = self.animation
         self.controller = PlayerController:new()
+
+        self.death_animation = coroutine.create(
+                                   function(player)
+                initial_pause = 0.5 * 60
+                going_up = 1.5 * 60
+                move_rate = 2
+                -- initial pause
+                for i = 0, initial_pause, 1 do coroutine.yield() end
+                -- going up
+                xp, yp = player:position_get_coords()
+                while (yp < going_up) do
+                    xp, yp = player:position_get_coords()
+                    xp, yp = player:position_get_coords()
+                    player:position_set_coords(xp, yp + move_rate)
+                    coroutine.yield()
+                end
+                -- goin down
+                xp, yp = player:position_get_coords()
+                while (yp >= -8) do
+                    xp, yp = player:position_get_coords()
+                    player:position_set_coords(xp, yp - move_rate)
+                    coroutine.yield()
+                end
+            end
+                               )
+
         self.controller:push("ground")
         self:sprite_animation_goto_tag(self.animation)
     end
