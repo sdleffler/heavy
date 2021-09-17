@@ -7,8 +7,8 @@ local Velocity = hf.components.Velocity
 local Collider = hf.components.Collider
 local SpriteAnimation = hf.components.SpriteAnimation
 
-local button = rust.button
-local input = rust.input
+local button = game.button
+local input = game.input_state
 
 function sign(n) return (n > 0 and 1) or (n == 0 and 0) or -1 end
 
@@ -34,16 +34,16 @@ local midair_low_deceleration = mpf_to_pps(0, 0, 14, 4)
 local midair_high_acceleration = mpf_to_pps(0, 0, 14, 4)
 local midair_high_deceleration = mpf_to_pps(0, 0, 13, 0)
 
-local tag_dead = assert(rust.sprite_sheets.mario:get_tag("dead"))
-local tag_idle_smol = assert(rust.sprite_sheets.mario:get_tag("idle"))
-local tag_walk_smol = assert(rust.sprite_sheets.mario:get_tag("walk"))
-local tag_skid_smol = assert(rust.sprite_sheets.mario:get_tag("skid"))
-local tag_jump_smol = assert(rust.sprite_sheets.mario:get_tag("jump"))
-local tag_idle_beeg = assert(rust.sprite_sheets.mario:get_tag("tall_idle"))
-local tag_walk_beeg = assert(rust.sprite_sheets.mario:get_tag("tall_walk"))
-local tag_skid_beeg = assert(rust.sprite_sheets.mario:get_tag("tall_skid"))
-local tag_jump_beeg = assert(rust.sprite_sheets.mario:get_tag("tall_jump"))
-local tag_HENSHIN = assert(rust.sprite_sheets.mario:get_tag("transform"))
+local tag_dead = assert(game.sprite_sheets.mario:get_tag("dead"))
+local tag_idle_smol = assert(game.sprite_sheets.mario:get_tag("idle"))
+local tag_walk_smol = assert(game.sprite_sheets.mario:get_tag("walk"))
+local tag_skid_smol = assert(game.sprite_sheets.mario:get_tag("skid"))
+local tag_jump_smol = assert(game.sprite_sheets.mario:get_tag("jump"))
+local tag_idle_beeg = assert(game.sprite_sheets.mario:get_tag("tall_idle"))
+local tag_walk_beeg = assert(game.sprite_sheets.mario:get_tag("tall_walk"))
+local tag_skid_beeg = assert(game.sprite_sheets.mario:get_tag("tall_skid"))
+local tag_jump_beeg = assert(game.sprite_sheets.mario:get_tag("tall_jump"))
+local tag_HENSHIN = assert(game.sprite_sheets.mario:get_tag("transform"))
 
 local hurt_invincibility_len = 4 * 60
 
@@ -230,15 +230,15 @@ do
     function Player:init(space, x, y)
         Player.super.init(
             self, space, x, y, Velocity(), Collider(hf.collision.Collider.cuboid(7.9, 8)),
-            SpriteAnimation(gfx.SpriteAnimation.new(rust.sprite_sheets.mario)), rust.PlayerMarker,
-            rust.RequiresLuaUpdate
+            SpriteAnimation(gfx.SpriteAnimation.new(game.sprite_sheets.mario)), game.PlayerMarker,
+            game.RequiresLuaUpdate
         )
         self.is_big = false
         self.death_wait = 1 * 60 -- how long to wait until the dying animation plays
         self.run_frames = 0
         self.invincible_timer = 0
         self.facing_direction = 1
-        self.animation = rust.sprite_sheets.mario:get_tag("idle")
+        self.animation = game.sprite_sheets.mario:get_tag("idle")
         self.prev_animation = self.animation
         self.controller = PlayerController:new()
         self.controller:push("ground")
