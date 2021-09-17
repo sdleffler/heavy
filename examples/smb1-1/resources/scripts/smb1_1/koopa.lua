@@ -33,6 +33,8 @@ function launch_shell(player, koopa)
     end
 end
 
+function get_sign(n) return (n > 0 and 1) or (n == 0 and 0) or -1 end
+
 local Walking = State:extend("smb1_1.koop.walking", { name = "walk" })
 do
     function Walking:init(agent, koopa)
@@ -118,7 +120,14 @@ do
         agent:switch("shell_stop", koopa)
     end
 
-    function ShellDrift:on_mario_collide(agent, koopa, player) player:hurt(koopa) end
+    function ShellDrift:on_mario_collide(agent, koopa, player)
+        px_p, _ = player:position_get_coords()
+        px_k, _ = koopa:position_get_coords()
+
+        vx_k, _ = koopa:velocity_get_linear()
+
+        if get_sign(vx_k) == get_sign(px_p - px_k) then player:hurt(koopa) end
+    end
 
     function ShellDrift:on_enemy_collide(agent, koopa, enemy) enemy:on_squish() end
 end

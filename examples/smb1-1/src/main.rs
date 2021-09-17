@@ -375,6 +375,8 @@ impl SmbOneOne {
 
     fn dispatch_object_on_object_collisions(&self, _engine: &Engine, lua: &Lua) -> Result<()> {
         let mut to_collide = self.to_collide.borrow_mut();
+        // Mario can only collide with 1 enemy per frame, so we limit the amount of objects here
+        // to just 1
 
         // Collect any object-on-object collisions events, for later dispatch to Lua.
         to_collide.clear();
@@ -383,6 +385,7 @@ impl SmbOneOne {
             .borrow()
             .query::<(&Position, &Collider)>()
             .without::<Unloaded>()
+            .without::<PlayerMarker>()
             .iter()
         {
             for (object2, (Position(pos2), collider2)) in self
@@ -403,6 +406,35 @@ impl SmbOneOne {
                 }
             }
         }
+
+        let space = self.space.borrow();
+        let mut mario_query = space
+            .query::<(&Position, &Collider)>()
+            .with::<PlayerMarker>();
+
+        let (object1, (Position(pos1), collider1)) = mario_query.iter().next().unwrap();
+
+        for (object2, (Position(pos2), collider2)) in self
+            .space
+            .borrow()
+            .query::<(&Position, &Collider)>()
+            .without::<Unloaded>()
+            .iter()
+            .filter(|&(object2, _)| object1 != object2)
+        {
+            if parry2d::query::intersection_test(
+                &(pos1.to_isometry() * collider1.local_tx),
+                collider1.shape.as_ref(),
+                &(pos2.to_isometry() * collider2.local_tx),
+                collider2.shape.as_ref(),
+            )? {
+                to_collide.push((object1, object2));
+                break;
+            }
+        }
+
+        drop(mario_query);
+        drop(space);
 
         // Dispatch collected player-on-enemy collision events.
         for (object1, object2) in to_collide.drain(..) {
