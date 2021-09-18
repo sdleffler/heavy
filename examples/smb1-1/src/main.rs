@@ -96,7 +96,7 @@ struct SmbOneOne {
     ts_render_data: TilesetRenderData,
     to_update: AtomicRefCell<Vec<Object>>,
     to_collide: AtomicRefCell<Vec<(Object, Object)>>,
-    to_headbutt: AtomicRefCell<Vec<(Object, (u32, u32, TileId))>>,
+    to_headbutt: AtomicRefCell<Vec<(Object, (i32, i32, TileId))>>,
     to_load: AtomicRefCell<Vec<Object>>,
 
     goomba_batch: AtomicRefCell<SpriteBatch<CachedTexture>>,
@@ -146,7 +146,8 @@ impl SmbOneOne {
             sprite_sheets_table = lua.create_registry_value(sprite_sheets.clone())?;
         }
 
-        let map = hv_tiled::Map::new("/maps/mario_bros_1-1.lua", engine, Some("maps/"))?;
+        let map =
+            hv_tiled::lua_parser::parse_map("/maps/mario_bros_1-1.lua", engine, Some("maps/"))?;
 
         let ts_render_data = hv_tiled::TilesetRenderData::new(&map.tilesets, engine)?;
 
@@ -271,7 +272,7 @@ impl SmbOneOne {
             pos.translation.vector.x += vel.linear.x * TIMESTEP;
 
             let mut aabb = collider.compute_aabb(pos);
-            let pixel_aabb = aabb.floor_to_u32();
+            let pixel_aabb = aabb.floor_to_i32();
 
             for (tile, x, y) in map.get_tiles_in_bb_in_layer(
                 pixel_aabb,
@@ -282,8 +283,8 @@ impl SmbOneOne {
                 if let Some(object_group) = map.get_obj_grp_from_tile_id(&tile) {
                     for object in map.get_objs_from_obj_group(object_group) {
                         tile_bb.merge(&Box2::new(
-                            object.x + (x * map.meta_data.tilewidth) as f32,
-                            object.y + (y * map.meta_data.tileheight) as f32,
+                            object.x + (x * map.meta_data.tilewidth as i32) as f32,
+                            object.y + (y * map.meta_data.tileheight as i32) as f32,
                             object.width,
                             object.height,
                         ));
@@ -318,7 +319,7 @@ impl SmbOneOne {
             pos.translation.vector.y += vel.linear.y * TIMESTEP;
 
             let mut aabb = collider.compute_aabb(pos);
-            let pixel_aabb = aabb.floor_to_u32();
+            let pixel_aabb = aabb.floor_to_i32();
 
             for (tile, x, y) in map.get_tiles_in_bb_in_layer(
                 pixel_aabb,
@@ -329,8 +330,8 @@ impl SmbOneOne {
                 if let Some(object_group) = map.get_obj_grp_from_tile_id(&tile) {
                     for object in map.get_objs_from_obj_group(object_group) {
                         tile_bb.merge(&Box2::new(
-                            object.x + (x * map.meta_data.tilewidth) as f32,
-                            object.y + (y * map.meta_data.tileheight) as f32,
+                            object.x + (x * map.meta_data.tilewidth as i32) as f32,
+                            object.y + (y * map.meta_data.tileheight as i32) as f32,
                             object.width,
                             object.height,
                         ));
@@ -574,14 +575,14 @@ impl SmbOneOne {
         let scale = 4.0;
 
         gfx.modelview_mut().origin().translate2(
-            (Vector2::new(*self.x_scroll.borrow() * -1.0, 0.0) * scale).map(|t| t.floor()),
+            (Vector2::new(*self.x_scroll.borrow() * -1.0, 0.) * scale).map(|t| t.floor()),
         );
         gfx.modelview_mut().push(None);
         gfx.modelview_mut().scale2(Vector2::new(4.0, 4.0));
 
         self.tile_layer_batches
             .borrow_mut()
-            .draw_mut(&mut gfx, Instance::new());
+            .draw_mut(&mut gfx, Instance::new().translate2(Vector2::new(0., 16.)));
         self.goomba_batch
             .borrow_mut()
             .draw_mut(&mut gfx, Instance::new());

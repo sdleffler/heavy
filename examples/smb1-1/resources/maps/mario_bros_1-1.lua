@@ -759,6 +759,37 @@ return {
           }
         },
         {
+          id = 258,
+          objectGroup = {
+            type = "objectgroup",
+            draworder = "index",
+            id = 2,
+            name = "",
+            visible = true,
+            opacity = 1,
+            offsetx = 0,
+            offsety = 0,
+            parallaxx = 1,
+            parallaxy = 1,
+            properties = {},
+            objects = {
+              {
+                id = 1,
+                name = "",
+                type = "",
+                shape = "rectangle",
+                x = 0,
+                y = 0,
+                width = 16,
+                height = 16,
+                rotation = 0,
+                visible = true,
+                properties = {}
+              }
+            }
+          }
+        },
+        {
           id = 336,
           objectGroup = {
             type = "objectgroup",
@@ -819,6 +850,37 @@ return {
               }
             }
           }
+        },
+        {
+          id = 352,
+          objectGroup = {
+            type = "objectgroup",
+            draworder = "index",
+            id = 2,
+            name = "",
+            visible = true,
+            opacity = 1,
+            offsetx = 0,
+            offsety = 0,
+            parallaxx = 1,
+            parallaxy = 1,
+            properties = {},
+            objects = {
+              {
+                id = 1,
+                name = "",
+                type = "",
+                shape = "rectangle",
+                x = 0,
+                y = 0,
+                width = 16,
+                height = 16,
+                rotation = 0,
+                visible = true,
+                properties = {}
+              }
+            }
+          }
         }
       }
     }
@@ -841,7 +903,128 @@ return {
       properties = {},
       encoding = "base64",
       compression = "zlib",
-      data = "eJzt07ENwCAAA0FYMktk/54qE4DEKzpL17v5MczMzOzbCxzxzD23/8NfaBEatAgNWoQGLUKDFqFBi9CgRWjQIjRoERq0CA1ahAYtQoMWoUGL0LDb4gIu1tpc"
+      chunks = {
+        {
+          x = 0, y = -16, width = 16, height = 16,
+          data = "eJxjYKAMZI/iUTyKhywGAO2kZFE="
+        },
+        {
+          x = 16, y = -16, width = 16, height = 16,
+          data = "eJxjYKAMZI/iUTyKhywGAO2kZFE="
+        },
+        {
+          x = 32, y = -16, width = 16, height = 16,
+          data = "eJxjYKAMZI/iUTyKhywGAO2kZFE="
+        },
+        {
+          x = 48, y = -16, width = 16, height = 16,
+          data = "eJxjYKAMZI/iUTyKhywGAO2kZFE="
+        },
+        {
+          x = 64, y = -16, width = 16, height = 16,
+          data = "eJxjYKAMZI/iUTyKhywGAO2kZFE="
+        },
+        {
+          x = 80, y = -16, width = 16, height = 16,
+          data = "eJxjYKAMZI/iUTyKhywGAO2kZFE="
+        },
+        {
+          x = 96, y = -16, width = 16, height = 16,
+          data = "eJxjYKAMZI/iUTyKhywGAO2kZFE="
+        },
+        {
+          x = 112, y = -16, width = 16, height = 16,
+          data = "eJxjYKAMZI/iUTyKhywGAO2kZFE="
+        },
+        {
+          x = 128, y = -16, width = 16, height = 16,
+          data = "eJxjYKAMZI/iUTyKhywGAO2kZFE="
+        },
+        {
+          x = 144, y = -16, width = 16, height = 16,
+          data = "eJxjYKAMZI/iUTyKhywGAO2kZFE="
+        },
+        {
+          x = 160, y = -16, width = 16, height = 16,
+          data = "eJxjYKAMZI/iUTyKhywGAO2kZFE="
+        },
+        {
+          x = 176, y = -16, width = 16, height = 16,
+          data = "eJxjYKAMZI/iUTyKhywGAO2kZFE="
+        },
+        {
+          x = 192, y = -16, width = 16, height = 16,
+          data = "eJxjYKAMZI/iUTyKhywGAO2kZFE="
+        },
+        {
+          x = 208, y = -16, width = 16, height = 16,
+          data = "eJxjYKAMZCPhMEbS8aj+Uf2j+gdOPwCXrVUV"
+        },
+        {
+          x = 224, y = -16, width = 16, height = 16,
+          data = "eJxjYKAMhDEi8Kj+Uf2j+oeWfgBeaQ9M"
+        },
+        {
+          x = 0, y = 0, width = 16, height = 16,
+          data = "eJzLZmBgyKYAj4JRMAqGLgAA/NcGsQ=="
+        },
+        {
+          x = 16, y = 0, width = 16, height = 16,
+          data = "eJzLZmBgyKYAj4JRMAqGLgAA/NcGsQ=="
+        },
+        {
+          x = 32, y = 0, width = 16, height = 16,
+          data = "eJzLZmBgyKYAj4JRMAqGLgAA/NcGsQ=="
+        },
+        {
+          x = 48, y = 0, width = 16, height = 16,
+          data = "eJzLZmBgyKYAj4JRMAqGLgAA/NcGsQ=="
+        },
+        {
+          x = 64, y = 0, width = 16, height = 16,
+          data = "eJzLZmBgyKYAj4JRMAqGLgAA/NcGsQ=="
+        },
+        {
+          x = 80, y = 0, width = 16, height = 16,
+          data = "eJzLZmBgyKYAj4JRMAqGLgAA/NcGsQ=="
+        },
+        {
+          x = 96, y = 0, width = 16, height = 16,
+          data = "eJzLZmBgyKYAj4JRMAqGLgAA/NcGsQ=="
+        },
+        {
+          x = 112, y = 0, width = 16, height = 16,
+          data = "eJzLZmBgyKYAj4JRMAqGLgAA/NcGsQ=="
+        },
+        {
+          x = 128, y = 0, width = 16, height = 16,
+          data = "eJzLZmBgyKYAj4JRMAqGLgAA/NcGsQ=="
+        },
+        {
+          x = 144, y = 0, width = 16, height = 16,
+          data = "eJzLZmBgyKYAj4JRMAqGLgAA/NcGsQ=="
+        },
+        {
+          x = 160, y = 0, width = 16, height = 16,
+          data = "eJzLZmBgyKYAj4JRMAqGLgAA/NcGsQ=="
+        },
+        {
+          x = 176, y = 0, width = 16, height = 16,
+          data = "eJzLZmBgyKYAj4JRMAqGLgAA/NcGsQ=="
+        },
+        {
+          x = 192, y = 0, width = 16, height = 16,
+          data = "eJzLZmBgyKYAj4JRMAqGLgAA/NcGsQ=="
+        },
+        {
+          x = 208, y = 0, width = 16, height = 16,
+          data = "eJzLZmBgyIbiMEbS8SgYBaNg6AIAES0FrQ=="
+        },
+        {
+          x = 224, y = 0, width = 16, height = 16,
+          data = "eJwLY2RgCIPiUTAKRsHIAgAUJQEG"
+        }
+      }
     },
     {
       type = "tilelayer",
@@ -860,7 +1043,68 @@ return {
       properties = {},
       encoding = "base64",
       compression = "zlib",
-      data = "eJzt129OhDAQh+FyGPVE6t3UqOcxRr3LfvLf6pBlsyMhZQoDbfF9ksnuB2jnR2mAEAAAAADE3Es9dPWYaW6veXNm8VRzjpp7n2rsPtbXJHbci9RrV28r9DU0t2VeSx7vLKms2cey1JJjSO7ecxi7j/U1WfO6pOyvKeOWvM7W7KVnWWoNAQDb4f1tm4NnBus3EOBtC+9tnhlKf88GAAAAlnbWnApAPpeyB3fye73AXrz1HzKLreRobSVLbTnG+m2fhReqPJ+NT1IfUs8Tzy/lWs/JUUqGo7lrchMOme7cOpqmtnvL0u+uq/Pm9N/Dezf3p9SX1Hfk2L3Uj6rQxHvfq+Pm0nMPjWfNkZqhf55HlqFe9Lgpa9IfZ+11CXrentQcf6ycoWXt97j/rvRebA7na5a8sXsaAID/7BfYu7KD"
+      chunks = {
+        {
+          x = 0, y = -16, width = 16, height = 16,
+          data = "eJxjYBgFo2AUzKZA7ykg/gXEZ8jQ+xOq9zcQ/wHiv3jU/gPi/0iYgZEMC9EAAPTCDA8="
+        },
+        {
+          x = 16, y = -16, width = 16, height = 16,
+          data = "eJxjYBgeYB4QzwfiBQTk5+NQdw6IzwPxBRz6YfLnCagbBSMPzKZA7ykg/gXEZ7DI/QPi/yAGIwUWEAAAfBMQmg=="
+        },
+        {
+          x = 32, y = -16, width = 16, height = 16,
+          data = "eJxjYBhcYB4Qz4fiBWToPwfE56H4AvWcNQpGwYCCf0D8H4oZGKlnLgC3LAi2"
+        },
+        {
+          x = 48, y = -16, width = 16, height = 16,
+          data = "eJxjYBjeYB4QzwfiBWTqPwfE54H4ArUcNAoGNZhNgd5TQPwLiM+QofcnVO9vIP4DxH9xqPsHxP+RMKUAAF+OEFg="
+        },
+        {
+          x = 64, y = -16, width = 16, height = 16,
+          data = "eJxjYBg8YB4QzwfiBWTqPwfE54H4Agl2kQtgdo2CUQACs8nVyMjAcApI/QLiM3iU/QPi/1D11AQArvoMTw=="
+        },
+        {
+          x = 80, y = -16, width = 16, height = 16,
+          data = "eJxjYBi8YB4Qz4fiBTjU4JM/B8TnofgCDv2E5EfBKBis4B8VzAAABhgLAw=="
+        },
+        {
+          x = 96, y = -16, width = 16, height = 16,
+          data = "eJxjYBgFQxHMA+L5FOg/B8TnqeSW4QpmU6D3FBD/AuIzBNT9h2IGRoTYT6je30D8B4j/UuAOQgAALNAM7A=="
+        },
+        {
+          x = 112, y = -16, width = 16, height = 16,
+          data = "eJxjYBi+YB4QzwfiBWTqPwfE54H4ArUchAUsoFA/Ld02CsgHs4B4NhDPIULtPyD+j4QZGBkYTgGpX0B8Bo96kDpKAQDIqhAW"
+        },
+        {
+          x = 128, y = -16, width = 16, height = 16,
+          data = "eJxjYBj8YB4Qz4fiBQTksak5B8TnofgCFv3I8rjUjIJRMBwBAC3oDN8="
+        },
+        {
+          x = 144, y = -16, width = 16, height = 16,
+          data = "eJxjYBgFQxXMo1D/Oaq4YviD2RToPQXEv4D4DB41/6EYHfyE6v0NxH+A+C8F7sAFANRtC30="
+        },
+        {
+          x = 160, y = -16, width = 16, height = 16,
+          data = "eJxjYBj+YB4QzwfiBWTqPwfE54H4ArUchAQocRcI0Mpdo4A6YDa5GhkZGE4BqV9AfAaL9D8g/k+u2UgAAE7GDFI="
+        },
+        {
+          x = 176, y = -16, width = 16, height = 16,
+          data = "eJxjYBjcYB4Qz4fiBWToPwfE56H4AvWcRXWA7E9y/Irsz8Hu11GABBgH1noAy9UM4A=="
+        },
+        {
+          x = 192, y = -16, width = 16, height = 16,
+          data = "eJxjYBgFo2DoAVVGCCYXhAL1fsYhN5sIu9WhGB2cAuJfQHwGj/7PUKyGpv8nVO9vIP4DxH8J6A+jwP8wAAAndA5o"
+        },
+        {
+          x = 208, y = -16, width = 16, height = 16,
+          data = "eJxjYBgFo2DggCojZfrDKdSvzkiZGz5DMcX6gW74iSb3lwJziQUAJKcGkA=="
+        },
+        {
+          x = 224, y = -16, width = 16, height = 16,
+          data = "eJxjYBgFo2AUDBT4D8UMjANjPwD/ewIA"
+        }
+      }
     },
     {
       type = "tilelayer",
@@ -879,7 +1123,128 @@ return {
       properties = {},
       encoding = "base64",
       compression = "zlib",
-      data = "eJztmU1uwjAYBYO4U+/RI3QDvU42aS8E3Aep7bauRCQr9c9zHMdOmJGeCMpnYxuPgkXXAQAAAAAAAABAKY6H/+99mfKxzhABNs2LWOdyTAUXAeKcxDpchBzuVlz3+kdc95+FrbvYF+y7Ve4J8bXLWbdnXPMchkdibN1FgJYZOlwEqM3Q4SJAbaYe7snF6RllPPPYryU5m7wvWJfKWvP09d8L12pfvtpQ/eC5jjH1IKXtiH3GVubk8nBPLpZE8edvDp9CX2od6Lh8Uva2ywO17Vx8HpZ0sfX/+lOeT4o/uFiHkE+h/e3zINY29XeNXR/ysLaLF5OryU38jCVJcQIX20TxybXHQx7E2qZ+f2N9zEP1Oa4wx8Uvk2+TH5PXA3HFpkSfS/a75expLd4yU3v8rQYX113n2uNYIrku/gKFXAfu"
+      chunks = {
+        {
+          x = 0, y = -16, width = 16, height = 16,
+          data = "eJxjYBgFo2AUDFUQyEgZBgCyMAUh"
+        },
+        {
+          x = 16, y = -16, width = 16, height = 16,
+          data = "eJxjYBgFwxFMHGgH0Amg+/MTVAyZHkwgHYgzKNA/HYhnIPEDGSnDAAZwDDk="
+        },
+        {
+          x = 32, y = -16, width = 16, height = 16,
+          data = "eJxjYBgFo2AUYAPpQJxBgf7pQDyDxvoDGSnDAJzCCE4="
+        },
+        {
+          x = 48, y = -16, width = 16, height = 16,
+          data = "eJxjYBgFo2DognQgzqBA3XQgnkGEflzqBlp/ICNlGABLuQ3Z"
+        },
+        {
+          x = 64, y = -16, width = 16, height = 16,
+          data = "eJxjYBgFo2AUDFUQyIgdE6MGhAGPmwQr"
+        },
+        {
+          x = 80, y = -16, width = 16, height = 16,
+          data = "eJxjYBgFwwV8IgEPFwDyy0SG4eUnUkAgI/EYm14AwucQtA=="
+        },
+        {
+          x = 96, y = -16, width = 16, height = 16,
+          data = "eJxjYBgFQx18QsITB9gtgxV8GmgH0AgEMlKGAUNnCXo="
+        },
+        {
+          x = 112, y = -16, width = 16, height = 16,
+          data = "eJxjYBgFwwVMHGgHDACYSAQbHXyikVsGAgQyUoYB+pQIVw=="
+        },
+        {
+          x = 128, y = -16, width = 16, height = 16,
+          data = "eJxjYBgFAwk+IWFschOhGJv8KCAMcIUtNcA0CvWSq38aEg5kpAwDAJJCEGU="
+        },
+        {
+          x = 144, y = -16, width = 16, height = 16,
+          data = "eJxjYBgFo2Dogmk42MTog2F0MVL0YtOPzwx0vbj0YzMDm95ARsowAHvFFYk="
+        },
+        {
+          x = 160, y = -16, width = 16, height = 16,
+          data = "eJxjYBgFo2Dog2lk6PmEpp8cM9D14zIjHYgziNSPzYzpQDwDj/5ARvIwAH5cDUk="
+        },
+        {
+          x = 176, y = -16, width = 16, height = 16,
+          data = "eJxjYBgFIxVMo1AvufqnMZCvfxoa/gTEE6E0qXpJsR+bXnz604E4g4BefPqnA/EMAnpBOJCRMgwAaCUerA=="
+        },
+        {
+          x = 192, y = -16, width = 16, height = 16,
+          data = "eJxjYBgFhIAZhfrTaKh/2qj+Ya8fn5pARsowALqrDjM="
+        },
+        {
+          x = 208, y = -16, width = 16, height = 16,
+          data = "eJxjYBg+gJkRk48LE6OfUvtH9Q9t/ZSmH3roD2RE4EQyMACpFwaR"
+        },
+        {
+          x = 224, y = -16, width = 16, height = 16,
+          data = "eJxjYBgeYPqo/lH9A6D/KBAfA+LjZOr/CsTfgPg7mfoTGRGYHAAAvPYMQQ=="
+        },
+        {
+          x = 0, y = 0, width = 16, height = 16,
+          data = "eJwLZGRgCKQAj4JRMAqGLgAA600FIQ=="
+        },
+        {
+          x = 16, y = 0, width = 16, height = 16,
+          data = "eJwLZGRgCKQAj4JRMAqGLgAA600FIQ=="
+        },
+        {
+          x = 32, y = 0, width = 16, height = 16,
+          data = "eJwLZGRgCKQAj4JRMAqGLgAA600FIQ=="
+        },
+        {
+          x = 48, y = 0, width = 16, height = 16,
+          data = "eJwLZGRgCKQAj4JRMAqGLgAA600FIQ=="
+        },
+        {
+          x = 64, y = 0, width = 16, height = 16,
+          data = "eJwLZGRgCMSCkQE2eWzqRsEoGAVDCwAALgsEKw=="
+        },
+        {
+          x = 80, y = 0, width = 16, height = 16,
+          data = "eJwLZGRgCCQSowNsYqNgFIyCoQMACyUD2Q=="
+        },
+        {
+          x = 96, y = 0, width = 16, height = 16,
+          data = "eJwLZGRgCKQAj4JRMAqGLgAA600FIQ=="
+        },
+        {
+          x = 112, y = 0, width = 16, height = 16,
+          data = "eJwLZGRgCKQAj4JRMAqGLgAA600FIQ=="
+        },
+        {
+          x = 128, y = 0, width = 16, height = 16,
+          data = "eJwLZGRgCKQAj4JRMAqGLgAA600FIQ=="
+        },
+        {
+          x = 144, y = 0, width = 16, height = 16,
+          data = "eJwLZGRgCKQAj4JRMAqGLgAA600FIQ=="
+        },
+        {
+          x = 160, y = 0, width = 16, height = 16,
+          data = "eJxjYICAQEby8CgYBaNg6AIAXHkEfQ=="
+        },
+        {
+          x = 176, y = 0, width = 16, height = 16,
+          data = "eJwLZGRgCKQAj4JRMAqGLgAA600FIQ=="
+        },
+        {
+          x = 192, y = 0, width = 16, height = 16,
+          data = "eJwLZGRgCKQAj4JRMAqGLgAA600FIQ=="
+        },
+        {
+          x = 208, y = 0, width = 16, height = 16,
+          data = "eJwLZGRgCITiRDLwKBgFo2DoAgAOSQXx"
+        },
+        {
+          x = 224, y = 0, width = 16, height = 16,
+          data = "eJxLZGRgSITiUTAKRsHIAgCXoQEn"
+        }
+      }
     },
     {
       type = "tilelayer",
@@ -898,7 +1263,32 @@ return {
       properties = {},
       encoding = "base64",
       compression = "zlib",
-      data = "eJzt1zEKQCEIANA6qve/REtjfIIGs/8eCIKLioutAQAAAAAAQG0xg7p6dgNFndy9nQMAADdZ/TfxUXtR5p8WG/nr/jQrAAAAADkGajYDzg=="
+      chunks = {
+        {
+          x = 16, y = -16, width = 16, height = 16,
+          data = "eJxjYBgFwxEwDrQD6AQS8YhhkxsFqAAAX8cBJQ=="
+        },
+        {
+          x = 80, y = -16, width = 16, height = 16,
+          data = "eJxjYBgFo2BoA8aBdsAQBgAFPAAC"
+        },
+        {
+          x = 96, y = -16, width = 16, height = 16,
+          data = "eJxjYBgFwwkkDrQDRsGQAgDYMABi"
+        },
+        {
+          x = 112, y = -16, width = 16, height = 16,
+          data = "eJxjYBgFwwUwDrQDBgAkEsEeBbgBAGRfASU="
+        },
+        {
+          x = 128, y = -16, width = 16, height = 16,
+          data = "eJxjYBgFgxkkQvEoGAW0AADPSwDD"
+        },
+        {
+          x = 176, y = -16, width = 16, height = 16,
+          data = "eJxjYBgFo2Bog8SBdsAQBgB7vABi"
+        }
+      }
     },
     {
       type = "tilelayer",
@@ -917,7 +1307,12 @@ return {
       properties = {},
       encoding = "base64",
       compression = "zlib",
-      data = "eJzt1UENAAAIxDCs4t8EBu5PAm0yDasCAAAAAAAAALZ1CAA+Sk/0RgC+8kUAAACAOwarQgc0"
+      chunks = {
+        {
+          x = 208, y = -16, width = 16, height = 16,
+          data = "eJxjYBgFwxkkYsEDaTc93TDQ9g8FAAAc7Qc0"
+        }
+      }
     },
     {
       type = "objectgroup",
@@ -938,12 +1333,12 @@ return {
           type = "",
           shape = "rectangle",
           x = 1600,
-          y = 208,
+          y = -64,
           width = 16,
           height = 16,
           rotation = 0,
           gid = 242,
-          visible = true,
+          visible = false,
           properties = {
             ["amount"] = 10,
             ["breakable"] = false,
@@ -958,7 +1353,7 @@ return {
           type = "",
           shape = "rectangle",
           x = 1056,
-          y = 192,
+          y = -80,
           width = 16,
           height = 16,
           rotation = 0,
@@ -974,7 +1369,7 @@ return {
           type = "",
           shape = "rectangle",
           x = 1712,
-          y = 208,
+          y = -64,
           width = 16,
           height = 16,
           rotation = 0,
@@ -1007,7 +1402,7 @@ return {
           type = "",
           shape = "point",
           x = 944,
-          y = 192,
+          y = -80,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1023,7 +1418,7 @@ return {
           type = "",
           shape = "point",
           x = 3408,
-          y = 64,
+          y = -208,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1038,7 +1433,7 @@ return {
           type = "",
           shape = "point",
           x = 3584,
-          y = 240,
+          y = -32,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1054,7 +1449,7 @@ return {
           type = "",
           shape = "point",
           x = 2736,
-          y = 224,
+          y = -48,
           width = 0,
           height = 0,
           rotation = 0,
@@ -1083,8 +1478,8 @@ return {
           name = "Flag Pole",
           type = "",
           shape = "rectangle",
-          x = 3207,
-          y = 112,
+          x = 3208,
+          y = -160,
           width = 16,
           height = 16,
           rotation = 0,
@@ -1113,7 +1508,7 @@ return {
           type = "",
           shape = "rectangle",
           x = 48,
-          y = 240,
+          y = -32,
           width = 16,
           height = 16,
           rotation = 0,
@@ -1127,8 +1522,8 @@ return {
           name = "Goomba",
           type = "",
           shape = "rectangle",
-          x = 352,
-          y = 240,
+          x = 368,
+          y = -32,
           width = 16,
           height = 16,
           rotation = 0,
@@ -1142,8 +1537,8 @@ return {
           name = "Goomba",
           type = "",
           shape = "rectangle",
-          x = 656,
-          y = 240,
+          x = 672,
+          y = -32,
           width = 16,
           height = 16,
           rotation = 0,
@@ -1157,8 +1552,8 @@ return {
           name = "Goomba",
           type = "",
           shape = "rectangle",
-          x = 848,
-          y = 240,
+          x = 864,
+          y = -32,
           width = 16,
           height = 16,
           rotation = 0,
@@ -1172,8 +1567,8 @@ return {
           name = "Goomba",
           type = "",
           shape = "rectangle",
-          x = 874,
-          y = 240,
+          x = 890,
+          y = -32,
           width = 16,
           height = 16,
           rotation = 0,
@@ -1187,8 +1582,8 @@ return {
           name = "Goomba",
           type = "",
           shape = "rectangle",
-          x = 1328,
-          y = 112,
+          x = 1344,
+          y = -160,
           width = 16,
           height = 16,
           rotation = 0,
@@ -1202,8 +1597,8 @@ return {
           name = "Goomba",
           type = "",
           shape = "rectangle",
-          x = 1360,
-          y = 112,
+          x = 1376,
+          y = -160,
           width = 16,
           height = 16,
           rotation = 0,
@@ -1217,8 +1612,8 @@ return {
           name = "Goomba",
           type = "",
           shape = "rectangle",
-          x = 1632,
-          y = 240,
+          x = 1648,
+          y = -32,
           width = 16,
           height = 16,
           rotation = 0,
@@ -1232,8 +1627,8 @@ return {
           name = "Goomba",
           type = "",
           shape = "rectangle",
-          x = 1648,
-          y = 240,
+          x = 1664,
+          y = -32,
           width = 16,
           height = 16,
           rotation = 0,
@@ -1247,8 +1642,8 @@ return {
           name = "Koopa",
           type = "",
           shape = "rectangle",
-          x = 1808,
-          y = 240,
+          x = 1824,
+          y = -32,
           width = 16,
           height = 16,
           rotation = 0,
@@ -1262,8 +1657,8 @@ return {
           name = "Goomba",
           type = "",
           shape = "rectangle",
-          x = 1936,
-          y = 240,
+          x = 1952,
+          y = -32,
           width = 16,
           height = 16,
           rotation = 0,
@@ -1277,8 +1672,8 @@ return {
           name = "Goomba",
           type = "",
           shape = "rectangle",
-          x = 1968,
-          y = 240,
+          x = 1984,
+          y = -32,
           width = 16,
           height = 16,
           rotation = 0,
@@ -1292,8 +1687,8 @@ return {
           name = "Goomba",
           type = "",
           shape = "rectangle",
-          x = 2080,
-          y = 240,
+          x = 2096,
+          y = -32,
           width = 16,
           height = 16,
           rotation = 0,
@@ -1307,8 +1702,8 @@ return {
           name = "Goomba",
           type = "",
           shape = "rectangle",
-          x = 2096,
-          y = 240,
+          x = 2112,
+          y = -32,
           width = 16,
           height = 16,
           rotation = 0,
@@ -1322,8 +1717,8 @@ return {
           name = "Goomba",
           type = "",
           shape = "rectangle",
-          x = 2176,
-          y = 240,
+          x = 2192,
+          y = -32,
           width = 16,
           height = 16,
           rotation = 0,
@@ -1337,8 +1732,8 @@ return {
           name = "Goomba",
           type = "",
           shape = "rectangle",
-          x = 2160,
-          y = 240,
+          x = 2176,
+          y = -32,
           width = 16,
           height = 16,
           rotation = 0,
@@ -1352,8 +1747,8 @@ return {
           name = "Goomba",
           type = "",
           shape = "rectangle",
-          x = 2848,
-          y = 240,
+          x = 2864,
+          y = -32,
           width = 16,
           height = 16,
           rotation = 0,
@@ -1367,8 +1762,8 @@ return {
           name = "Goomba",
           type = "",
           shape = "rectangle",
-          x = 2880,
-          y = 240,
+          x = 2896,
+          y = -32,
           width = 16,
           height = 16,
           rotation = 0,

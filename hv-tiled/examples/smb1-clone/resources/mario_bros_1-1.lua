@@ -1599,7 +1599,72 @@ return {
       properties = {},
       encoding = "base64",
       compression = "gzip",
-      data = "H4sIAAAAAAAACu3TsY0DAQwDQbtJN/H955871QEk6Blgcyng6wUAfPuT9FhX6fulpa7S90tLXaXvl5a6St8vLXWVvl9a6ip9v7TUVfp+aamr9P3SUlfp+6WlrtL3S0tdpe+XlrpK3y8tdZW+X1rqCekfpJWekP5BWolNn/ct4Dn2CD3sEXrYI/SwR+hhj9DDHqGHPUIPe4Qe9gg97BF62CP0sEfoYY/Qwx6hhz3+pn9M+bxEIHkAAA=="
+      chunks = {
+        {
+          x = -112, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNgwA6yicS4wKj+Uf2j+snXT6wZlOoHAHBAn+sABAAA"
+        },
+        {
+          x = -96, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACstmYGDIHsWjeBSPSAwAlvuqagAEAAA="
+        },
+        {
+          x = -80, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACstmYGDIHsWjeBSPSAwAlvuqagAEAAA="
+        },
+        {
+          x = -64, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACstmYGDIHsWjeBSPSAwAlvuqagAEAAA="
+        },
+        {
+          x = -48, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACstmYGDIHsWjeBSPSAwAlvuqagAEAAA="
+        },
+        {
+          x = -32, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACstmYGDIHsWjeBSPSAwAlvuqagAEAAA="
+        },
+        {
+          x = -16, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACstmYGDIHsWjeBSPSAwAlvuqagAEAAA="
+        },
+        {
+          x = 0, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACstmYGDIHsWjeBSPSAwAlvuqagAEAAA="
+        },
+        {
+          x = 16, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACstmYGDIHsWjeBSPSAwAlvuqagAEAAA="
+        },
+        {
+          x = 32, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACstmYGDIHsWjeBSPSAwAlvuqagAEAAA="
+        },
+        {
+          x = 48, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACstmYGDIHsWjeBSPSAwAlvuqagAEAAA="
+        },
+        {
+          x = 64, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACstmYGDIHsWjeBSPSAwAlvuqagAEAAA="
+        },
+        {
+          x = 80, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACstmYGDIHsWjeBSPSAwAlvuqagAEAAA="
+        },
+        {
+          x = 96, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACstmYGDIJgLjAsToHdU/qn9U/+DUDwBOgfwoAAQAAA=="
+        },
+        {
+          x = -16, y = 0, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNgIA2EMaJiUsGo/lH9o/oHj34AU6HmIQAEAAA="
+        },
+        {
+          x = 0, y = 0, width = 16, height = 16,
+          data = "H4sIAAAAAAAACgtjZGAIIwGjA1L0juof1T+qf3DpBwBEEDBeAAQAAA=="
+        }
+      }
     },
     {
       type = "tilelayer",
@@ -1618,7 +1683,64 @@ return {
       properties = {},
       encoding = "base64",
       compression = "gzip",
-      data = "H4sIAAAAAAAACu3XW06DQBQGYLoYdUXq3tSo6zGNupc+eatOI01HQspQhqvfl5y0DzBzfoYJUBQAAEAb96Eeynocae5c846ZJac555hz71003cvxdTl23HOol7JeB+irbu6UeVPy5M7SVmr2pixzyVFn7N7H0nQvx9dlyGvTZo+dMu6U1zo1+9Sz9LWGACxP7m/dMeTMkPo9BH1YwjtczgxTf+cGAIAhna0OBYzrMuzDTfi97mk/3vYz7OCWkmNnKVnmlqOp390z8SKq3M/Ip1DvodYnnj+V690lx1Qy7HVdk5viN9Ndto5OM7d7K6XfTVnnq8P/XN7K+T9CfYb6OnLsNtR3VMXqeP/b6Liu4rnrxkvN0TZD9bwcWep6icdtsybVcYZelyKet6Jtjj8GzrCT2u9+D17F+9F3JAAAAAAAAAAAAAAAAAAAAPwLP7U7ywcgeQAA"
+      chunks = {
+        {
+          x = -112, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNgGAWjYHiD2RToPQXEv4D4DBl6f0L1/gbiP0D8lwJ30AoAANgzEwMABAAA"
+        },
+        {
+          x = -96, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNgGPxgHhDPB+IFZOo/B8TngfgCtRw0CkYMmE2kun9A/B8JMzAyMJwCUr+A+Awe9QMNAJYGgFoABAAA"
+        },
+        {
+          x = -80, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNgoB+YB8TzoXgBDnF0OWRwDojPQ/EFHOLocqNgFNAUMA60AygDABXJsUwABAAA"
+        },
+        {
+          x = -64, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNgGLpgHoX6z1HFFaNgqIDZFOg9BcS/gPgMFrl/QPwfihkYMeV/QvX+BuI/QPyXAndQGwAAip1FyAAEAAA="
+        },
+        {
+          x = -48, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNgoA+YB8TzgXgBmjg2MWzgHBCfB+ILaOLYxEbBKKAmmE2kun9A/B8JMzAyMJwCUr+A+AxtnEYxAACaPxAnAAQAAA=="
+        },
+        {
+          x = -32, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNgGBgwD4jnE5CD4QVY1JwD4vM49MPkYPgCJQ4dBaOAAPgHxP9BDMYBdggZAACXK8zQAAQAAA=="
+        },
+        {
+          x = -16, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNgoAzMB+IFFOg/D8QXKHTDKBgFpILZFOg9BcS/gPgMHjX/gPg/FDMwIsR/QvX+BuI/FLiBWgAANHNTWAAEAAA="
+        },
+        {
+          x = 0, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNgGJpgHhDPp0D/OSA+TyW3oAOY2xaQqR/mtgvUctAooCqYBcSzgXgOEP8loPYfEP9HwgyMDAyngNQvID5DQzcSCwDS/momAAQAAA=="
+        },
+        {
+          x = 16, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNgGFiwgID8PCCej4TR1V8goP8cEJ9HwoTUj4JRQAn4B8T/QQzGAXYIkQAAY3OalQAEAAA="
+        },
+        {
+          x = 32, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNgoAzMA+L5ULyADP3ngPg8FF+g0C2jYBTQE5wiQs1/KEYHP4H4F3WdQxYAAAzyzhYABAAA"
+        },
+        {
+          x = 48, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNgGAW0APOAeD4QLyBT/zkgPg/EF6jloGEKZlOo/xcQn6HA7t9A/AeI/5KikZGB4RTU7oEGAMOon8wABAAA"
+        },
+        {
+          x = 64, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNgGDgwD4rnA/ECMvSfg+LzQHyBes6iOoD5EYYXkKgf5kcYHsx+HWngDBaxf0D8H8RgpK9byAEAiz41ugAEAAA="
+        },
+        {
+          x = 80, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNgoAzMh+IFZOo/D8UXKHTHKBgFxIDZFOg9BcS/gPgMGXp/QvX+BuI/QPyXAndQEwAA+COWLQAEAAA="
+        },
+        {
+          x = 96, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNgGAWjgLpAlRGByQGhQH2fgXQ4GfpBdqojYVLd8BmK1RgRbHL0hyHrJzMc6AEAikDIGwAEAAA="
+        }
+      }
     },
     {
       type = "tilelayer",
@@ -1637,7 +1759,72 @@ return {
       properties = {},
       encoding = "base64",
       compression = "gzip",
-      data = "H4sIAAAAAAAACu3b3U3DMBRAYVcI2IhnVmAEXoANYI28BDYoCwF7dAKM1NDI8s91EsdX9vmkK4qaRKmTI4gExgAAAAAAAABAW+5qnwCAf0+1TwDdOM3G995wHt/7vWihx6H2CVRwypjQfmvWrcc1X2M8T0oLPQKajYYeAQ1GQ4+ABm6LrfXoPrNMz0DzryU923nZcLtce33O0PEHwWvpsULbxrYfA69T3BZy9p3Mn7kln8nXYms9liRp6N3Oh+BY0u0g52tKcn/7WpDuu1SoRXq8SPUmaYge64g1FbvHQy2k9s39/Wa+faxFerxINUKPOkma8t3nsRZS++Zev2n7VIvSn+d7eDgwoSmxTqx/eE1qn0eJ60uPZda21PWq/Rk1TEtrgTZd2Wt7NOb+0870fWhcx53PFWjdX2evtsU3egSqczujR6AeX2dS9Ahsix4BPegR0IMeAT3oEdCDHgE96BHQgx4BPfh7AECPJT1+2fm287PniQIdWNLjtX19Y+eW/zMANvV4WDcAtkOPffoFS4koZyB5AAA="
+      chunks = {
+        {
+          x = -112, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNgGAWjYBQMNhDISBymVD8AkkdhOAAEAAA="
+        },
+        {
+          x = -96, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNgGAVDDUwcaAfQCaD78xNUDJke6iCQcWAxAHAJF0UABAAA"
+        },
+        {
+          x = -80, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNgGAWjYOSBdCDOoEB+OhDPoIJ8IOPAYgBYoMtRAAQAAA=="
+        },
+        {
+          x = -64, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNgGAWjYHCCdCDOoED/dCCeMcj1BzIOLAYAnwRBbgAEAAA="
+        },
+        {
+          x = -48, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNgGAWjYGBBOhBnUKB/OhDPGKL6AxlJx9TUDwBa77MtAAQAAA=="
+        },
+        {
+          x = -32, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNgGAVDAXzCgYczAPlvIsPw9mcg48BiAEYWmIAABAAA"
+        },
+        {
+          x = -16, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNgGAUDCT5hwbjkJ9LXaaOADiCQEYJxiROLydUPAHl3mdkABAAA"
+        },
+        {
+          x = 0, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNgGAVDAUwcaAfQEHzCIT6RCPZQB4GMA4sBYLizRwAEAAA="
+        },
+        {
+          x = 16, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNgGAW0Ap+QMDa5ifR1zpAA2MKKGmoHKwhkHFgMAJm7HUMABAAA"
+        },
+        {
+          x = 32, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNgGAWUgIlA/GmgHTGEAb6wm4aDTQyYhkU/sWZMY8Ctn5AZ03CoxSUeyDiwGACLVS2NAAQAAA=="
+        },
+        {
+          x = 48, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNgGAWjYHCBaVCMzCdVL7p+YsyYxoBfPz4z0PXi0o9uRiAjbkyMGkr1AwBmSIG5AAQAAA=="
+        },
+        {
+          x = 64, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNgGAWjYPCBT1A8EUrTEqQDcQYF6qcD8QwS9MPUTwPiQMaBxQDB4jnDAAQAAA=="
+        },
+        {
+          x = 80, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNgGAWDEUyDYkr0kqN/GgP5+tH1kqIfm15i9ePSS4x+fHrpoT+QcWAxALYaDtwABAAA"
+        },
+        {
+          x = 96, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNgGNrAjEL9aaP6R/VTAKZRqD+QkThMK/0A90jeWQAEAAA="
+        },
+        {
+          x = -16, y = 0, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNgIA0wMzIwLGdgcFgBxCRqhesvB+qtoEA/JWBU/6j+oaw/kREVU6ofADozN8IABAAA"
+        },
+        {
+          x = 0, y = 0, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNmZGBgxoHRwXJMIZx66aWfFDCqf/jpp0f6uwrE14D4Opn6WYFsNiBmx+KmREbSMLX1AwCYgtCFAAQAAA=="
+        }
+      }
     },
     {
       type = "tilelayer",
@@ -1656,7 +1843,36 @@ return {
       properties = {},
       encoding = "base64",
       compression = "gzip",
-      data = "H4sIAAAAAAAACu3XMQrAMAgAwPSp/v8TWTqmIZDBxN6BILiouNgaAAAAAAAA1BZvcLcnu4FL7dy+nQMAACcb/TsxqVWU+bfFQl7dn2YFAAAAAAAAAAAAAAAAAAAAAACALx1vEMXoIHkAAA=="
+      chunks = {
+        {
+          x = -96, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNgGAVDDTAOtAPoBBLxiGGTGwWkAwD8nHmUAAQAAA=="
+        },
+        {
+          x = -32, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNgGAWjYPACxoF2wDAHAM08rioABAAA"
+        },
+        {
+          x = -16, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNgGAVDBSQOtANGwbADAEwA77oABAAA"
+        },
+        {
+          x = 0, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNgGAVDATAOtAMGACQSwR4FlAEA5uG+SgAEAAA="
+        },
+        {
+          x = 16, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNgGAUDBRIH2gGjYMQDAJrqqBsABAAA"
+        },
+        {
+          x = 32, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNgGAWUgMSBdsAoGAUUAABLdVABAAQAAA=="
+        },
+        {
+          x = 64, y = -16, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNgGAWjYPCCxIF2wDAHABQg8RYABAAA"
+        }
+      }
     },
     {
       type = "tilelayer",
@@ -1675,465 +1891,10 @@ return {
       properties = {},
       encoding = "base64",
       compression = "gzip",
-      data = "H4sIAAAAAAAACu3VsQkAAAgEMVd2/8YFvlcwgZvhqgAAAAAAAAAAAAAAAAAAAAAAAAAAAGBXhwDgs/RGjwTgO38EAAAAgHsGkjiw+yB5AAA="
-    },
-    {
-      type = "objectgroup",
-      draworder = "topdown",
-      id = 18,
-      name = "Unique Tiles",
-      visible = true,
-      opacity = 1,
-      offsetx = 0,
-      offsety = 0,
-      parallaxx = 1,
-      parallaxy = 1,
-      properties = {},
-      objects = {
+      chunks = {
         {
-          id = 28,
-          name = "Timer Coin Block",
-          type = "",
-          shape = "rectangle",
-          x = 1616,
-          y = 208,
-          width = 16,
-          height = 16,
-          rotation = 0,
-          gid = 242,
-          visible = true,
-          properties = {
-            ["amount"] = 10,
-            ["breakable"] = false,
-            ["spawns"] = "coin",
-            ["timer"] = 5,
-            ["turns_into"] = 148
-          }
-        },
-        {
-          id = 29,
-          name = "1 up hidden block",
-          type = "",
-          shape = "rectangle",
-          x = 1072,
-          y = 192,
-          width = 16,
-          height = 16,
-          rotation = 0,
-          gid = 145,
-          visible = true,
-          properties = {
-            ["spawns"] = "1-up"
-          }
-        },
-        {
-          id = 64,
-          name = "Star Block",
-          type = "",
-          shape = "rectangle",
-          x = 1728,
-          y = 208,
-          width = 16,
-          height = 16,
-          rotation = 0,
-          gid = 242,
-          visible = true,
-          properties = {
-            ["breakable"] = false,
-            ["spawns"] = "star",
-            ["turns_into"] = 148
-          }
-        }
-      }
-    },
-    {
-      type = "objectgroup",
-      draworder = "topdown",
-      id = 17,
-      name = "Warp Zones",
-      visible = true,
-      opacity = 1,
-      offsetx = 0,
-      offsety = 0,
-      parallaxx = 1,
-      parallaxy = 1,
-      properties = {},
-      objects = {
-        {
-          id = 47,
-          name = "In 1",
-          type = "",
-          shape = "point",
-          x = 960,
-          y = 192,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["direction"] = "down",
-            ["output"] = { id = 48 }
-          }
-        },
-        {
-          id = 48,
-          name = "Out 1",
-          type = "",
-          shape = "point",
-          x = 1664,
-          y = 320,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["direction"] = "down"
-          }
-        },
-        {
-          id = 49,
-          name = "In 2",
-          type = "",
-          shape = "point",
-          x = 1840,
-          y = 496,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["direction"] = "right",
-            ["output"] = { id = 50 }
-          }
-        },
-        {
-          id = 50,
-          name = "Out 2",
-          type = "",
-          shape = "point",
-          x = 2752,
-          y = 224,
-          width = 0,
-          height = 0,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["direction"] = "up"
-          }
-        }
-      }
-    },
-    {
-      type = "objectgroup",
-      draworder = "topdown",
-      id = 20,
-      name = "Flag",
-      visible = true,
-      opacity = 1,
-      offsetx = 0,
-      offsety = 0,
-      parallaxx = 1,
-      parallaxy = 1,
-      properties = {},
-      objects = {
-        {
-          id = 46,
-          name = "Flag Pole",
-          type = "",
-          shape = "rectangle",
-          x = 3223,
-          y = 112,
-          width = 16,
-          height = 16,
-          rotation = 0,
-          gid = 105,
-          visible = true,
-          properties = {}
-        }
-      }
-    },
-    {
-      type = "objectgroup",
-      draworder = "topdown",
-      id = 21,
-      name = "Characters",
-      visible = true,
-      opacity = 1,
-      offsetx = 0,
-      offsety = 0,
-      parallaxx = 1,
-      parallaxy = 1,
-      properties = {},
-      objects = {
-        {
-          id = 55,
-          name = "Mario",
-          type = "",
-          shape = "rectangle",
-          x = 64,
-          y = 240,
-          width = 16,
-          height = 16,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["player"] = 1
-          }
-        },
-        {
-          id = 56,
-          name = "Goomba",
-          type = "",
-          shape = "rectangle",
-          x = 368,
-          y = 240,
-          width = 16,
-          height = 16,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["enemy"] = "goomba"
-          }
-        },
-        {
-          id = 57,
-          name = "Goomba",
-          type = "",
-          shape = "rectangle",
-          x = 672,
-          y = 240,
-          width = 16,
-          height = 16,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["enemy"] = "goomba"
-          }
-        },
-        {
-          id = 58,
-          name = "Goomba",
-          type = "",
-          shape = "rectangle",
-          x = 864,
-          y = 240,
-          width = 16,
-          height = 16,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["enemy"] = "goomba"
-          }
-        },
-        {
-          id = 59,
-          name = "Goomba",
-          type = "",
-          shape = "rectangle",
-          x = 890,
-          y = 240,
-          width = 16,
-          height = 16,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["enemy"] = "goomba"
-          }
-        },
-        {
-          id = 60,
-          name = "Goomba",
-          type = "",
-          shape = "rectangle",
-          x = 1344,
-          y = 112,
-          width = 16,
-          height = 16,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["enemy"] = "goomba"
-          }
-        },
-        {
-          id = 61,
-          name = "Goomba",
-          type = "",
-          shape = "rectangle",
-          x = 1376,
-          y = 112,
-          width = 16,
-          height = 16,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["enemy"] = "goomba"
-          }
-        },
-        {
-          id = 62,
-          name = "Goomba",
-          type = "",
-          shape = "rectangle",
-          x = 1648,
-          y = 240,
-          width = 16,
-          height = 16,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["enemy"] = "goomba"
-          }
-        },
-        {
-          id = 63,
-          name = "Goomba",
-          type = "",
-          shape = "rectangle",
-          x = 1664,
-          y = 240,
-          width = 16,
-          height = 16,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["enemy"] = "goomba"
-          }
-        },
-        {
-          id = 65,
-          name = "Koopa",
-          type = "",
-          shape = "rectangle",
-          x = 1824,
-          y = 240,
-          width = 16,
-          height = 16,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["enemy"] = "g_koopa"
-          }
-        },
-        {
-          id = 66,
-          name = "Goomba",
-          type = "",
-          shape = "rectangle",
-          x = 1952,
-          y = 240,
-          width = 16,
-          height = 16,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["enemy"] = "goomba"
-          }
-        },
-        {
-          id = 67,
-          name = "Goomba",
-          type = "",
-          shape = "rectangle",
-          x = 1984,
-          y = 240,
-          width = 16,
-          height = 16,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["enemy"] = "goomba"
-          }
-        },
-        {
-          id = 68,
-          name = "Goomba",
-          type = "",
-          shape = "rectangle",
-          x = 2096,
-          y = 240,
-          width = 16,
-          height = 16,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["enemy"] = "goomba"
-          }
-        },
-        {
-          id = 69,
-          name = "Goomba",
-          type = "",
-          shape = "rectangle",
-          x = 2112,
-          y = 240,
-          width = 16,
-          height = 16,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["enemy"] = "goomba"
-          }
-        },
-        {
-          id = 70,
-          name = "Goomba",
-          type = "",
-          shape = "rectangle",
-          x = 2192,
-          y = 240,
-          width = 16,
-          height = 16,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["enemy"] = "goomba"
-          }
-        },
-        {
-          id = 71,
-          name = "Goomba",
-          type = "",
-          shape = "rectangle",
-          x = 2176,
-          y = 240,
-          width = 16,
-          height = 16,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["enemy"] = "goomba"
-          }
-        },
-        {
-          id = 72,
-          name = "Goomba",
-          type = "",
-          shape = "rectangle",
-          x = 2864,
-          y = 240,
-          width = 16,
-          height = 16,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["enemy"] = "goomba"
-          }
-        },
-        {
-          id = 73,
-          name = "Goomba",
-          type = "",
-          shape = "rectangle",
-          x = 2896,
-          y = 240,
-          width = 16,
-          height = 16,
-          rotation = 0,
-          visible = true,
-          properties = {
-            ["enemy"] = "goomba"
-          }
+          x = 0, y = 0, width = 16, height = 16,
+          data = "H4sIAAAAAAAACmNgGAUDDQqx4IG0m55uGGj7RzoAABrgkxgABAAA"
         }
       }
     }

@@ -1,3 +1,7 @@
+pub mod lua_parser;
+
+use crate::lua_parser::ColorExt;
+
 use hv_core::{engine::Engine, prelude::*};
 
 use hv_friends::{
@@ -17,20 +21,14 @@ const FLIPPED_VERTICALLY_FLAG: u32 = 0x40000000;
 const FLIPPED_DIAGONALLY_FLAG: u32 = 0x20000000;
 const UNSET_FLAGS: u32 = 0x1FFFFFFF;
 
+const CHUNK_SIZE: u32 = 16;
+
+const EMPTY_TILE: TileId = TileId(0, TileMetaData(0));
+
 #[derive(Debug, Clone)]
 pub enum LayerType {
     Tile,
     Object,
-}
-
-impl LayerType {
-    pub fn from_lua(t: &LuaTable) -> Result<Self, Error> {
-        match t.get::<_, LuaString>("type")?.to_str()? {
-            "objectgroup" => Ok(LayerType::Object),
-            "tilelayer" => Ok(LayerType::Tile),
-            s => Err(anyhow!("Unsupported layer type: {}", s)),
-        }
-    }
 }
 
 // TODO: This type was pulled from the Tiled crate, but the Color and File variants
@@ -48,101 +46,42 @@ pub enum Property {
 }
 
 pub trait BoxExt {
-    fn floor_to_u32(self) -> Box2<u32>;
-    fn to_pixel_space(self, map_md: &MapMetaData) -> Box2<u32>;
+    fn floor_to_i32(self) -> Box2<i32>;
+    fn to_pixel_space(self, map_md: &MapMetaData) -> Box2<i32>;
 }
 
 impl BoxExt for Box2<f32> {
-    fn floor_to_u32(self) -> Box2<u32> {
+    fn floor_to_i32(self) -> Box2<i32> {
         Box2::new(
-            self.mins.x as u32,
-            self.mins.y as u32,
-            (self.maxs.x - self.mins.x) as u32,
-            (self.maxs.y - self.mins.y) as u32,
+            self.mins.x as i32,
+            self.mins.y as i32,
+            (self.maxs.x - self.mins.x) as i32,
+            (self.maxs.y - self.mins.y) as i32,
         )
     }
 
-    fn to_pixel_space(self, map_md: &MapMetaData) -> Box2<u32> {
-        self.floor_to_u32().to_pixel_space(map_md)
+    fn to_pixel_space(self, map_md: &MapMetaData) -> Box2<i32> {
+        self.floor_to_i32().to_pixel_space(map_md)
     }
 }
 
-impl BoxExt for Box2<u32> {
-    fn floor_to_u32(self) -> Box2<u32> {
+impl BoxExt for Box2<i32> {
+    fn floor_to_i32(self) -> Box2<i32> {
         self
     }
 
-    fn to_pixel_space(self, map_md: &MapMetaData) -> Box2<u32> {
+    fn to_pixel_space(self, map_md: &MapMetaData) -> Box2<i32> {
         Box2::new(
-            self.mins.x / map_md.tilewidth,
-            self.mins.y / map_md.tileheight,
-            (self.maxs.x - self.mins.x) / map_md.tilewidth,
-            (self.maxs.y - self.mins.y) / map_md.tileheight,
+            self.mins.x / (map_md.tilewidth as i32),
+            self.mins.y / (map_md.tileheight as i32),
+            (self.maxs.x - self.mins.x) / (map_md.tilewidth as i32),
+            (self.maxs.y - self.mins.y) / (map_md.tileheight as i32),
         )
-    }
-}
-
-pub trait ColorExt {
-    fn from_tiled_hex(hex: &str) -> Result<Color, Error>;
-    fn from_tiled_lua_table(c_t: &LuaTable) -> Result<Color, Error>;
-}
-
-impl ColorExt for Color {
-    fn from_tiled_hex(hex: &str) -> Result<Color, Error> {
-        Ok(Color::from_rgb_u32(u32::from_str_radix(
-            hex.trim_start_matches('#'),
-            16,
-        )?))
-    }
-
-    fn from_tiled_lua_table(c_t: &LuaTable) -> Result<Color, Error> {
-        match c_t.get::<_, LuaTable>("color") {
-            Ok(t) => {
-                let mut iter = t.sequence_values();
-                let r = iter
-                    .next()
-                    .ok_or_else(|| anyhow!("Should've gotten a value for R, got nothing"))??;
-                let g = iter
-                    .next()
-                    .ok_or_else(|| anyhow!("Should've gotten a value for G, got nothing"))??;
-                let b = iter
-                    .next()
-                    .ok_or_else(|| anyhow!("Should've gotten a value for B, got nothing"))??;
-                Ok(Color::from_rgb(r, g, b))
-            }
-            Err(_) => Ok(Color::BLACK),
-        }
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct Properties(HashMap<String, Property>);
-
-impl Properties {
-    pub fn from_lua(props: &LuaTable) -> Result<Self, Error> {
-        let mut properties = HashMap::new();
-        let props_t = props.get::<_, LuaTable>("properties")?;
-
-        for pair_res in props_t.pairs() {
-            let pair = pair_res?;
-            let val = match pair.1 {
-                LuaValue::Boolean(b) => Property::Bool(b),
-                LuaValue::Integer(i) => Property::Int(i),
-                LuaValue::Number(n) => Property::Float(n),
-                LuaValue::String(s) => Property::String(s.to_str()?.to_owned()),
-                LuaValue::Table(t) => Property::Obj(ObjectId::new(t.get("id")?, false)), // I believe tables will only come through for Object properties
-                l => {
-                    return Err(anyhow!(
-                        "Got an unexpected value in the properties section: {:?}",
-                        l
-                    ))
-                }
-            };
-            properties.insert(pair.0, val);
-        }
-        Ok(Properties(properties))
-    }
-}
 
 #[derive(Debug, Clone)]
 pub enum Encoding {
@@ -239,7 +178,7 @@ pub struct ObjectLayerId {
 #[derive(Debug, Clone)]
 pub struct MapMetaData {
     pub tsx_ver: String,
-    pub lua_ver: String,
+    pub lua_ver: Option<String>,
     pub tiled_ver: String,
     pub orientation: Orientation,
     pub render_order: RenderOrder,
@@ -252,42 +191,83 @@ pub struct MapMetaData {
     pub properties: Properties,
 }
 
-impl MapMetaData {
-    pub fn from_lua(map_table: &LuaTable) -> Result<Self, Error> {
-        let render_order = match map_table.get::<_, LuaString>("renderorder")?.to_str()? {
-            "right-down" => RenderOrder::RightDown,
-            r => return Err(anyhow!("Got an unsupported renderorder: {}", r)),
-        };
+#[derive(Debug, Clone)]
+pub struct Chunk {
+    // Contains the coordinates of the chunk in tile space
+    tile_x: i32,
+    tile_y: i32,
+    data: Vec<TileId>,
+}
 
-        let orientation = match map_table.get::<_, LuaString>("orientation")?.to_str()? {
-            "orthogonal" => Orientation::Orthogonal,
-            o => return Err(anyhow!("Got an unsupported orientation: {}", o)),
-        };
+impl Chunk {
+    fn new(x: i32, y: i32) -> Self {
+        Chunk {
+            tile_x: x,
+            tile_y: y,
+            data: vec![EMPTY_TILE; (CHUNK_SIZE * CHUNK_SIZE) as usize],
+        }
+    }
+}
 
-        Ok(MapMetaData {
-            width: map_table.get("width")?,
-            height: map_table.get("height")?,
-            tilewidth: map_table.get("tilewidth")?,
-            tileheight: map_table.get("tileheight")?,
-            tsx_ver: map_table
-                .get::<_, LuaString>("version")?
-                .to_str()?
-                .to_owned(),
-            lua_ver: map_table
-                .get::<_, LuaString>("luaversion")?
-                .to_str()?
-                .to_owned(),
-            tiled_ver: map_table
-                .get::<_, LuaString>("tiledversion")?
-                .to_str()?
-                .to_owned(),
-            nextlayerid: map_table.get::<_, LuaInteger>("nextlayerid")? as u32,
-            nextobjectid: map_table.get::<_, LuaInteger>("nextobjectid")? as u32,
-            properties: Properties::from_lua(map_table)?,
-            orientation,
-            render_order,
+#[derive(Debug, Default, Clone)]
+pub struct Chunks(HashMap<(i32, i32), Chunk>);
+
+impl Chunks {
+    pub fn new() -> Self {
+        Chunks(HashMap::default())
+    }
+
+    pub fn set_tile(&mut self, x: i32, y: i32, tile: TileId) -> Option<TileId> {
+        let (chunk_x, tile_x) = (
+            x.div_euclid(CHUNK_SIZE as i32),
+            x.rem_euclid(CHUNK_SIZE as i32) as u32,
+        );
+        let (chunk_y, tile_y) = (
+            y.div_euclid(CHUNK_SIZE as i32),
+            y.rem_euclid(CHUNK_SIZE as i32) as u32,
+        );
+        let chunk = self
+            .0
+            .entry((chunk_x, chunk_y))
+            .or_insert_with(|| Chunk::new(x, y));
+        let index = (tile_y * CHUNK_SIZE + tile_x) as usize;
+        let tile_id = chunk.data[index];
+        chunk.data[index] = tile;
+        if tile_id != EMPTY_TILE {
+            Some(tile_id)
+        } else {
+            None
+        }
+    }
+
+    pub fn get_tile(&self, x: i32, y: i32) -> Option<TileId> {
+        let y = -y;
+        let (chunk_x, tile_x) = (
+            x.div_euclid(CHUNK_SIZE as i32),
+            x.rem_euclid(CHUNK_SIZE as i32) as u32,
+        );
+        let (chunk_y, tile_y) = (
+            y.div_euclid(CHUNK_SIZE as i32),
+            y.rem_euclid(CHUNK_SIZE as i32) as u32,
+        );
+
+        self.0.get(&(chunk_x, chunk_y)).and_then(|chunk| {
+            match chunk.data[((CHUNK_SIZE * tile_y) + tile_x) as usize] {
+                EMPTY_TILE => None,
+                t => Some(t),
+            }
         })
     }
+}
+
+pub fn to_chunks(data: &[TileId], width: u32, height: u32) -> Chunks {
+    let mut chunks = Chunks::default();
+    for y in 0..height {
+        for x in 0..width {
+            chunks.set_tile(x as i32, y as i32, data[(y * width + x) as usize]);
+        }
+    }
+    chunks
 }
 
 #[derive(Debug, Clone)]
@@ -304,61 +284,13 @@ pub struct TileLayer {
     offset_x: u32,
     offset_y: u32,
     properties: Properties,
-    data: Vec<TileId>,
+    data: Chunks,
 }
 
 impl TileLayer {
-    pub fn from_lua(t: &LuaTable, llid: u32, tile_buffer: &[TileId]) -> Result<TileLayer, Error> {
-        let layer_type = match t.get::<_, LuaString>("type")?.to_str()? {
-            "tilelayer" => LayerType::Tile,
-            s => return Err(anyhow!("Got an unsupported tilelayer type: {}", s)),
-        };
-
-        let encoding = match t.get::<_, LuaString>("encoding")?.to_str()? {
-            "lua" => Encoding::Lua,
-            "base64" => Encoding::Base64,
-            e => return Err(anyhow!("Got an unsupported encoding type: {}", e)),
-        };
-
-        let compression = match t.get::<_, LuaString>("compression") {
-            Ok(e) => match e.to_str()? {
-                "gzip" => Some(Compression::GZip),
-                "zlib" => Some(Compression::ZLib),
-                "zstd" => return Err(anyhow!("Zstd compression is not supported!")),
-                e => return Err(anyhow!("Got a corrupted compression format: {}", e)),
-            },
-            Err(_) => None,
-        };
-
-        if !t.contains_key("data")? {
-            return Err(anyhow!("Infinite maps not supported yet!"));
-        }
-
-        let data = TileLayer::parse_tile_data(encoding, compression, t, tile_buffer)?;
-
-        Ok(TileLayer {
-            id: TileLayerId {
-                glid: t.get("id")?,
-                llid,
-            },
-            name: t.get::<_, LuaString>("name")?.to_str()?.to_owned(),
-            x: t.get("x")?,
-            y: t.get("y")?,
-            visible: t.get("visible")?,
-            opacity: t.get("opacity")?,
-            offset_x: t.get("offsetx")?,
-            offset_y: t.get("offsety")?,
-            properties: Properties::from_lua(t)?,
-            data,
-            layer_type,
-            width: t.get("width")?,
-            height: t.get("height")?,
-        })
-    }
-
     fn parse_tile_data(
-        encoding: Encoding,
-        compression: Option<Compression>,
+        encoding: &Encoding,
+        compression: &Option<Compression>,
         t: &LuaTable,
         tile_buffer: &[TileId],
     ) -> Result<Vec<TileId>, Error> {
@@ -427,11 +359,6 @@ impl TileLayer {
 
         Ok(tile_ids)
     }
-
-    // TODO: implement infinite maps
-    // fn parse_tile_chunks() {
-
-    // }
 }
 
 type ObjectLayer = ObjectGroup;
@@ -455,116 +382,29 @@ pub enum CoordSpace {
 }
 
 impl Map {
-    pub fn new(map_path: &str, engine: &Engine, path_prefix: Option<&str>) -> Result<Map, Error> {
-        let mut fs = engine.fs();
-        let lua = engine.lua();
-        let mut tiled_lua_map = fs.open(Path::new(map_path))?;
-
-        drop(fs);
-
-        let mut tiled_buffer: Vec<u8> = Vec::new();
-        tiled_lua_map.read_to_end(&mut tiled_buffer)?;
-        let lua_chunk = lua.load(&tiled_buffer);
-        let tiled_lua_table = lua_chunk.eval::<LuaTable>()?;
-        let meta_data = MapMetaData::from_lua(&tiled_lua_table)?;
-
-        let mut tilesets = Vec::new();
-        // We initialize the tile_buffer with 1 0'd out TileId to account for the fact
-        // that layer indexing starts at 1 instead of 0
-        let mut tile_buffer = vec![TileId(0, TileMetaData(0))];
-        let mut obj_slab = slab::Slab::new();
-
-        for (tileset, i) in tiled_lua_table
-            .get::<_, LuaTable>("tilesets")?
-            .sequence_values::<LuaTable>()
-            .zip(0..)
-        {
-            let tileset = Tileset::from_lua(&tileset?, path_prefix, i, &mut obj_slab)?;
-            tile_buffer.reserve(tileset.tilecount as usize);
-            for tile_id_num in tileset.first_gid..tileset.tilecount {
-                tile_buffer.push(TileId(
-                    tile_id_num,
-                    TileMetaData::new(i, false, false, false),
-                ));
-            }
-            tilesets.push(tileset);
-        }
-
-        let mut tile_layers = Vec::new();
-        let mut object_layers = Vec::new();
-
-        let mut tile_layer_map = HashMap::new();
-        let mut object_layer_map = HashMap::new();
-
-        let mut obj_id_to_ref_map = HashMap::new();
-
-        let mut tile_llid = 0;
-        let mut obj_llid = 0;
-
-        for layer in tiled_lua_table
-            .get::<_, LuaTable>("layers")?
-            .sequence_values::<LuaTable>()
-        {
-            let layer = layer?;
-            let layer_type = LayerType::from_lua(&layer)?;
-            match layer_type {
-                LayerType::Tile => {
-                    let tile_layer = TileLayer::from_lua(&layer, tile_llid, &tile_buffer)?;
-                    tile_layer_map.insert(tile_layer.name.clone(), tile_layer.id);
-                    tile_layers.push(tile_layer);
-                    tile_llid += 1;
-                }
-                LayerType::Object => {
-                    let (obj_group, obj_ids_and_refs) =
-                        ObjectGroup::from_lua(&layer, obj_llid, true, &mut obj_slab)?;
-                    for (obj_id, obj_ref) in obj_ids_and_refs.iter() {
-                        obj_id_to_ref_map.insert(obj_id.clone(), *obj_ref);
-                    }
-                    object_layer_map.insert(obj_group.name.clone(), obj_group.id);
-                    object_layers.push(obj_group);
-                    obj_llid += 1;
-                }
-            }
-        }
-
-        drop(tiled_lua_table);
-        drop(lua);
-
-        Ok(Map {
-            meta_data,
-            tile_layers,
-            tilesets: Tilesets(tilesets),
-            object_layers,
-            tile_layer_map,
-            object_layer_map,
-            obj_slab,
-            obj_id_to_ref_map,
-        })
-    }
-
     pub fn get_tile_at(
         &self,
-        x: u32,
-        y: u32,
+        x: i32,
+        y: i32,
         coordinate_space: CoordSpace,
     ) -> Vec<(TileId, TileLayerId)> {
         let mut tile_layer_buff = Vec::new();
         let (x, y) = match coordinate_space {
-            CoordSpace::Pixel => (x / self.meta_data.tilewidth, y / self.meta_data.tileheight),
+            CoordSpace::Pixel => (
+                x / (self.meta_data.tilewidth) as i32,
+                y / (self.meta_data.tileheight as i32),
+            ),
             CoordSpace::Tile => (x, y),
         };
-        let offset = (self.meta_data.height * self.meta_data.width) - self.meta_data.width;
 
         for layer in self.tile_layers.iter() {
             // We subtract top from y * self.meta_data.width since tiled stores it's tiles top left
             // to bottom right, and we want to index bottom left to top right
-            if let Some(tile_id) = layer
-                .data
-                .get(((offset - (y * self.meta_data.width)) + x) as usize)
-            {
+
+            if let Some(tile_id) = layer.data.get_tile(x, y) {
                 // TODO: there should be a better way to ID a layer than this
                 if tile_id.to_index().is_some() {
-                    tile_layer_buff.push((*tile_id, layer.id));
+                    tile_layer_buff.push((tile_id, layer.id));
                 }
             }
         }
@@ -573,43 +413,42 @@ impl Map {
 
     pub fn get_tile_in_layer(
         &self,
-        x: u32,
-        y: u32,
+        x: i32,
+        y: i32,
         layer: TileLayerId,
         coordinate_space: CoordSpace,
     ) -> Option<TileId> {
         let (x, y) = match coordinate_space {
-            CoordSpace::Pixel => (x / self.meta_data.tilewidth, y / self.meta_data.tileheight),
+            CoordSpace::Pixel => (
+                x / (self.meta_data.tilewidth as i32),
+                y / (self.meta_data.tileheight as i32),
+            ),
             CoordSpace::Tile => (x, y),
         };
 
-        let offset = (self.meta_data.height * self.meta_data.width) - self.meta_data.width;
-
         let layer = &self.tile_layers[layer.llid as usize];
 
-        match layer
-            .data
-            .get(((offset - (y * self.meta_data.width)) + x) as usize)
-        {
-            Some(t_id) if t_id.to_index().is_some() => Some(*t_id),
+        match layer.data.get_tile(x, y) {
+            Some(t_id) if t_id.to_index().is_some() => Some(t_id),
             Some(_) | None => None,
         }
     }
 
     pub fn get_tiles_in_bb(
         &self,
-        bb: Box2<u32>,
+        bb: Box2<i32>,
         coordinate_space: CoordSpace,
-    ) -> impl Iterator<Item = (Vec<(TileId, TileLayerId)>, u32, u32)> + '_ {
+    ) -> impl Iterator<Item = (Vec<(TileId, TileLayerId)>, i32, i32)> + '_ {
+        assert!(bb.is_valid());
         let box_in_tiles = match coordinate_space {
             CoordSpace::Pixel => (
                 (
-                    (bb.mins.x / (self.meta_data.tilewidth)),
-                    (bb.mins.y / (self.meta_data.tileheight)),
+                    (bb.mins.x as f32 / (self.meta_data.tilewidth as f32)).floor() as i32,
+                    (bb.mins.y as f32 / (self.meta_data.tileheight as f32)).floor() as i32,
                 ),
                 (
-                    (bb.maxs.x as f32 / (self.meta_data.tilewidth as f32)).ceil() as u32,
-                    (bb.maxs.y as f32 / (self.meta_data.tileheight as f32)).ceil() as u32,
+                    (bb.maxs.x as f32 / (self.meta_data.tilewidth as f32)).ceil() as i32,
+                    (bb.maxs.y as f32 / (self.meta_data.tileheight as f32)).ceil() as i32,
                 ),
             ),
 
@@ -623,19 +462,20 @@ impl Map {
 
     pub fn get_tiles_in_bb_in_layer(
         &self,
-        bb: Box2<u32>,
+        bb: Box2<i32>,
         layer_id: TileLayerId,
         coordinate_space: CoordSpace,
-    ) -> impl Iterator<Item = (TileId, u32, u32)> + '_ {
+    ) -> impl Iterator<Item = (TileId, i32, i32)> + '_ {
+        assert!(bb.is_valid());
         let box_in_tiles = match coordinate_space {
             CoordSpace::Pixel => (
                 (
-                    (bb.mins.x / (self.meta_data.tilewidth)),
-                    (bb.mins.y / (self.meta_data.tileheight)),
+                    (bb.mins.x as f32 / (self.meta_data.tilewidth) as f32).floor() as i32,
+                    (bb.mins.y as f32 / (self.meta_data.tileheight) as f32).floor() as i32,
                 ),
                 (
-                    (bb.maxs.x as f32 / (self.meta_data.tilewidth as f32)).ceil() as u32,
-                    (bb.maxs.y as f32 / (self.meta_data.tileheight as f32)).ceil() as u32,
+                    (bb.maxs.x as f32 / (self.meta_data.tilewidth as f32)).ceil() as i32,
+                    (bb.maxs.y as f32 / (self.meta_data.tileheight as f32)).ceil() as i32,
                 ),
             ),
 
@@ -738,9 +578,9 @@ impl DrawableMut for TileLayerBatches {
 }
 
 pub struct TileLayerBatch {
-    id: TileLayerId,
+    _id: TileLayerId,
     sprite_sheet_info: Vec<HashMap<SpriteId, SpriteSheetState>>,
-    pub sprite_id_map: HashMap<(u32, u32), SpriteId>,
+    pub sprite_id_map: HashMap<(i32, i32), SpriteId>,
     sprite_batches: Vec<SpriteBatch<CachedTexture>>,
     pub visible: bool,
     pub opacity: f64,
@@ -776,67 +616,71 @@ impl TileLayerBatch {
             drop(acquired_lock);
         }
 
-        let top = layer.height * map_meta_data.tileheight;
+        for ((chunk_x, chunk_y), chunk) in layer.data.0.iter() {
+            for tile_y in 0..CHUNK_SIZE {
+                for tile_x in 0..CHUNK_SIZE {
+                    let tile = chunk.data[(tile_y * CHUNK_SIZE + tile_x) as usize];
+                    // Tile indices start at 1, 0 represents no tile, so we offset the tile by 1
+                    // first, and skip making the instance param if the tile is 0
+                    if let Some(index) = tile.to_index() {
+                        let (scale_x, trans_fix_x) = if tile.1.flipx() {
+                            (-1.0, -1.0 * map_meta_data.tilewidth as f32)
+                        } else {
+                            (1.0, 0.0)
+                        };
 
-        for y_cord in 0..layer.height {
-            for x_cord in 0..layer.width {
-                let tile = layer.data[(y_cord * layer.width + x_cord) as usize];
-                // Tile indices start at 1, 0 represents no tile, so we offset the tile by 1
-                // first, and skip making the instance param if the tile is 0
-                if let Some(index) = tile.to_index() {
-                    let (scale_x, trans_fix_x) = if tile.1.flipx() {
-                        (-1.0, -1.0 * map_meta_data.tilewidth as f32)
-                    } else {
-                        (1.0, 0.0)
-                    };
+                        let (scale_y, trans_fix_y) = if tile.1.flipy() {
+                            (-1.0, -1.0 * map_meta_data.tileheight as f32)
+                        } else {
+                            (1.0, 0.0)
+                        };
 
-                    let (scale_y, trans_fix_y) = if tile.1.flipy() {
-                        (-1.0, -1.0 * map_meta_data.tileheight as f32)
-                    } else {
-                        (1.0, 0.0)
-                    };
+                        let (rotation, y_scale, x_trans, y_trans) = if tile.1.diag_flip() {
+                            (
+                                std::f32::consts::FRAC_PI_2,
+                                -1.0,
+                                map_meta_data.tilewidth as f32,
+                                map_meta_data.tileheight as f32 * -1.0,
+                            )
+                        } else {
+                            (0.0, 1.0, 0.0, 0.0)
+                        };
 
-                    let (rotation, y_scale, x_trans, y_trans) = if tile.1.diag_flip() {
-                        (
-                            std::f32::consts::FRAC_PI_2,
-                            -1.0,
-                            map_meta_data.tilewidth as f32,
-                            map_meta_data.tileheight as f32 * -1.0,
-                        )
-                    } else {
-                        (0.0, 1.0, 0.0, 0.0)
-                    };
+                        let tile_x_global = (chunk_x * CHUNK_SIZE as i32) + tile_x as i32;
+                        let tile_y_global = (((chunk_y * -1) - 1) * CHUNK_SIZE as i32)
+                            + (CHUNK_SIZE - tile_y) as i32
+                            - 1;
 
-                    let sprite_id = sprite_batches[tile.1.tileset_id() as usize].insert(
-                        Instance::new()
-                            .src(ts_render_data.uvs[index])
-                            .color(Color::new(1.0, 1.0, 1.0, layer.opacity as f32))
-                            .translate2(Vector2::new(
-                                (x_cord * map_meta_data.tilewidth) as f32,
-                                // Need to offset by 1 here since tiled renders maps top right to bottom left, but we do bottom left to top right
-                                (top - ((y_cord + 1) * map_meta_data.tileheight)) as f32,
-                            ))
-                            .scale2(Vector2::new(scale_x, scale_y))
-                            .translate2(Vector2::new(trans_fix_x, trans_fix_y))
-                            .scale2(Vector2::new(1.0, y_scale))
-                            .translate2(Vector2::new(x_trans, y_trans))
-                            .rotate2(rotation),
-                    );
-
-                    sprite_id_map.insert((x_cord, (layer.height - y_cord - 1)), sprite_id);
-
-                    if let Some(t) = ts_render_data.tile_to_tag_map.get(&tile) {
-                        let anim_state = ts_render_data.textures_and_spritesheets
-                            [tile.1.tileset_id() as usize]
-                            .1
-                            .at_tag(*t, true);
-                        ss_state[tile.1.tileset_id() as usize].insert(
-                            sprite_id,
-                            SpriteSheetState {
-                                anim_state,
-                                sprite_tag: *t,
-                            },
+                        let sprite_id = sprite_batches[tile.1.tileset_id() as usize].insert(
+                            Instance::new()
+                                .src(ts_render_data.uvs[index])
+                                .color(Color::new(1.0, 1.0, 1.0, layer.opacity as f32))
+                                .translate2(Vector2::new(
+                                    (tile_x_global * map_meta_data.tilewidth as i32) as f32,
+                                    (tile_y_global * map_meta_data.tileheight as i32) as f32,
+                                ))
+                                .scale2(Vector2::new(scale_x, scale_y))
+                                .translate2(Vector2::new(trans_fix_x, trans_fix_y))
+                                .scale2(Vector2::new(1.0, y_scale))
+                                .translate2(Vector2::new(x_trans, y_trans))
+                                .rotate2(rotation),
                         );
+
+                        sprite_id_map.insert((tile_x_global, tile_y_global), sprite_id);
+
+                        if let Some(t) = ts_render_data.tile_to_tag_map.get(&tile) {
+                            let anim_state = ts_render_data.textures_and_spritesheets
+                                [tile.1.tileset_id() as usize]
+                                .1
+                                .at_tag(*t, true);
+                            ss_state[tile.1.tileset_id() as usize].insert(
+                                sprite_id,
+                                SpriteSheetState {
+                                    anim_state,
+                                    sprite_tag: *t,
+                                },
+                            );
+                        }
                     }
                 }
             }
@@ -848,7 +692,7 @@ impl TileLayerBatch {
             opacity: layer.opacity,
             offx: (layer.x * map_meta_data.tilewidth) as f32,
             offy: (layer.y * map_meta_data.tileheight) as f32,
-            id: layer.id,
+            _id: layer.id,
             sprite_batches,
             sprite_id_map,
         }
@@ -867,79 +711,79 @@ impl TileLayerBatch {
         }
     }
 
-    pub fn set_tile(
-        &mut self,
-        x: u32,
-        y: u32,
-        tile: TileId,
-        ts_render_data: &TilesetRenderData,
-        map: &mut Map,
-    ) -> Option<(SpriteId, TileId)> {
-        // Insert the new tile into the sprite sheet
-        let index = tile.to_index().unwrap();
-        let sprite_id = self.sprite_batches[tile.1.tileset_id() as usize].insert(
-            Instance::new()
-                .src(ts_render_data.uvs[index])
-                .color(Color::new(1.0, 1.0, 1.0, self.opacity as f32))
-                .translate2(Vector2::new(
-                    (x * map.meta_data.tilewidth) as f32,
-                    // Need to offset by 1 here since tiled renders maps top right to bottom left, but we do bottom left to top right
-                    (y * map.meta_data.tileheight) as f32,
-                )),
-        );
+    // pub fn set_tile(
+    //     &mut self,
+    //     x: u32,
+    //     y: u32,
+    //     tile: TileId,
+    //     ts_render_data: &TilesetRenderData,
+    //     map: &mut Map,
+    // ) -> Option<(SpriteId, TileId)> {
+    //     // Insert the new tile into the sprite sheet
+    //     let index = tile.to_index().unwrap();
+    //     let sprite_id = self.sprite_batches[tile.1.tileset_id() as usize].insert(
+    //         Instance::new()
+    //             .src(ts_render_data.uvs[index])
+    //             .color(Color::new(1.0, 1.0, 1.0, self.opacity as f32))
+    //             .translate2(Vector2::new(
+    //                 (x * map.meta_data.tilewidth) as f32,
+    //                 // Need to offset by 1 here since tiled renders maps top right to bottom left, but we do bottom left to top right
+    //                 (y * map.meta_data.tileheight) as f32,
+    //             )),
+    //     );
 
-        // If it's an animated tile, add it to the sprite sheet state hashmap so that it'll get updated correctly
-        if let Some(t) = ts_render_data.tile_to_tag_map.get(&tile) {
-            let anim_state = ts_render_data.textures_and_spritesheets[tile.1.tileset_id() as usize]
-                .1
-                .at_tag(*t, true);
-            self.sprite_sheet_info[tile.1.tileset_id() as usize].insert(
-                sprite_id,
-                SpriteSheetState {
-                    anim_state,
-                    sprite_tag: *t,
-                },
-            );
-        }
+    //     // If it's an animated tile, add it to the sprite sheet state hashmap so that it'll get updated correctly
+    //     if let Some(t) = ts_render_data.tile_to_tag_map.get(&tile) {
+    //         let anim_state = ts_render_data.textures_and_spritesheets[tile.1.tileset_id() as usize]
+    //             .1
+    //             .at_tag(*t, true);
+    //         self.sprite_sheet_info[tile.1.tileset_id() as usize].insert(
+    //             sprite_id,
+    //             SpriteSheetState {
+    //                 anim_state,
+    //                 sprite_tag: *t,
+    //             },
+    //         );
+    //     }
 
-        // We first remove the tile, as if we insert first, remove will fail due to insert updating
-        // values in place
-        let ret_val = self.remove_tile(x, y, map);
+    //     // We first remove the tile, as if we insert first, remove will fail due to insert updating
+    //     // values in place
+    //     let ret_val = self.remove_tile(x, y, map);
 
-        // Update the layer with the new tile id
-        let layer = &mut map.tile_layers[self.id.llid as usize];
+    //     // Update the layer with the new tile id
+    //     let layer = &mut map.tile_layers[self.id.llid as usize];
 
-        let top = (layer.height * map.meta_data.width - 1) - map.meta_data.height;
+    //     let top = (layer.height * map.meta_data.width - 1) - map.meta_data.height;
 
-        layer.data[(top - (y * layer.width + x)) as usize] = tile;
+    //     layer.data[(top - (y * layer.width + x)) as usize] = tile;
 
-        // Insert the new sprite id, we unwrap() here to trigger a panic in the event
-        let res = self.sprite_id_map.insert((x, y), sprite_id);
-        assert!(res.is_none(),
-                "There is a bug in the hv_tiled remove_tile function, remove_tile should've removed the tile, but instead we got {:?}", res.unwrap());
+    //     // Insert the new sprite id, we unwrap() here to trigger a panic in the event
+    //     let res = self.sprite_id_map.insert((x, y), sprite_id);
+    //     assert!(res.is_none(),
+    //             "There is a bug in the hv_tiled remove_tile function, remove_tile should've removed the tile, but instead we got {:?}", res.unwrap());
 
-        ret_val
-    }
+    //     ret_val
+    // }
 
-    pub fn remove_tile(&mut self, x: u32, y: u32, map: &mut Map) -> Option<(SpriteId, TileId)> {
-        let layer = &mut map.tile_layers[self.id.llid as usize];
+    // pub fn remove_tile(&mut self, x: u32, y: u32, map: &mut Map) -> Option<(SpriteId, TileId)> {
+    //     let layer = &mut map.tile_layers[self.id.llid as usize];
 
-        let top = (layer.width * layer.height) - layer.width;
+    //     let top = (layer.width * layer.height) - layer.width;
 
-        let tile_ref = &mut layer.data[(top - (y * layer.width) + x) as usize];
-        let old_tile = *tile_ref;
+    //     let tile_ref = &mut layer.data[(top - (y * layer.width) + x) as usize];
+    //     let old_tile = *tile_ref;
 
-        if let Some(old_sprite_id) = self.sprite_id_map.remove(&(x, y)) {
-            // Attempt to remove the sprite sheet info if it exists since we don't want to update animation info for a sprite that doesn't exist
-            self.sprite_sheet_info[old_tile.1.tileset_id() as usize].remove(&old_sprite_id);
-            self.sprite_batches[tile_ref.1.tileset_id() as usize].remove(old_sprite_id);
+    //     if let Some(old_sprite_id) = self.sprite_id_map.remove(&(x, y)) {
+    //         // Attempt to remove the sprite sheet info if it exists since we don't want to update animation info for a sprite that doesn't exist
+    //         self.sprite_sheet_info[old_tile.1.tileset_id() as usize].remove(&old_sprite_id);
+    //         self.sprite_batches[tile_ref.1.tileset_id() as usize].remove(old_sprite_id);
 
-            *tile_ref = TileId(0, TileMetaData::new(0, false, false, false));
-            Some((old_sprite_id, old_tile))
-        } else {
-            None
-        }
-    }
+    //         *tile_ref = EMPTY_TILE;
+    //         Some((old_sprite_id, old_tile))
+    //     } else {
+    //         None
+    //     }
+    // }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -971,16 +815,6 @@ pub enum DrawOrder {
     Index,
 }
 
-impl DrawOrder {
-    fn from_lua(t: &LuaTable) -> Result<Self, Error> {
-        match t.get::<_, LuaString>("draworder")?.to_str()? {
-            "topdown" => Ok(DrawOrder::TopDown),
-            "index" => Ok(DrawOrder::Index),
-            s => Err(anyhow!("Unsupported draw order: {}", s)),
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 enum Halign {
     Left,
@@ -989,40 +823,11 @@ enum Halign {
     Justify,
 }
 
-impl Halign {
-    pub fn from_lua(t: &LuaTable) -> Result<Self, Error> {
-        match t.get::<_, LuaString>("halign") {
-            Ok(s) => match s.to_str()? {
-                "left" => Ok(Halign::Left),
-                "center" => Ok(Halign::Center),
-                "right" => Ok(Halign::Right),
-                "justify" => Ok(Halign::Justify),
-                s => Err(anyhow!("Unsupported halign value: {}", s)),
-            },
-            Err(_) => Ok(Halign::Left),
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 enum Valign {
     Top,
     Center,
     Bottom,
-}
-
-impl Valign {
-    pub fn from_lua(t: &LuaTable) -> Result<Self, Error> {
-        match t.get::<_, LuaString>("valign") {
-            Ok(s) => match s.to_str()? {
-                "top" => Ok(Valign::Top),
-                "center" => Ok(Valign::Center),
-                "bottom" => Ok(Valign::Bottom),
-                s => Err(anyhow!("Unsupported valign value: {}", s)),
-            },
-            Err(_) => Ok(Valign::Top),
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -1039,30 +844,6 @@ pub struct Text {
     kerning: bool,
     halign: Halign,
     valign: Valign,
-}
-
-impl Text {
-    pub fn from_lua(t_table: &LuaTable) -> Result<Self, Error> {
-        let fontfamily = match t_table.get::<_, LuaString>("fontfamily") {
-            Ok(s) => s.to_str()?.to_owned(),
-            Err(_) => "sans-serif".to_owned(),
-        };
-
-        Ok(Text {
-            text: t_table.get::<_, LuaString>("text")?.to_str()?.to_owned(),
-            pixelsize: t_table.get("pixelsize").unwrap_or(16),
-            wrapping: t_table.get("wrapping").unwrap_or(false),
-            color: Color::from_tiled_lua_table(t_table)?,
-            bold: t_table.get("bold").unwrap_or(false),
-            italic: t_table.get("italic").unwrap_or(false),
-            underline: t_table.get("underline").unwrap_or(false),
-            strikeout: t_table.get("strikeout").unwrap_or(false),
-            kerning: t_table.get("kerning").unwrap_or(true),
-            halign: Halign::from_lua(t_table)?,
-            valign: Valign::from_lua(t_table)?,
-            fontfamily,
-        })
-    }
 }
 
 #[derive(Debug, Eq, PartialEq, Hash, Clone)]
@@ -1112,47 +893,9 @@ enum LuaShapeResolution {
     ObjectShape(ObjectShape),
 }
 
-impl Object {
-    pub fn from_lua(obj_table: &LuaTable, from_obj_layer: bool) -> Result<Self, Error> {
-        let lua_shape_res = match obj_table.get::<_, LuaString>("shape")?.to_str()? {
-            "text" => LuaShapeResolution::Text(Text::from_lua(obj_table)?),
-            s => LuaShapeResolution::ObjectShape(ObjectShape::from_string(s)?),
-        };
-
-        let (shape, text) = match lua_shape_res {
-            LuaShapeResolution::ObjectShape(s) => (Some(s), None),
-            LuaShapeResolution::Text(t) => (None, Some(t)),
-        };
-        Ok(Object {
-            id: ObjectId::new(obj_table.get("id")?, from_obj_layer),
-            name: obj_table.get::<_, LuaString>("name")?.to_str()?.to_owned(),
-            obj_type: obj_table.get::<_, LuaString>("type")?.to_str()?.to_owned(),
-            x: obj_table.get("x")?,
-            y: obj_table.get("y")?,
-            width: obj_table.get("width")?,
-            height: obj_table.get("height")?,
-            properties: Properties::from_lua(obj_table)?,
-            rotation: obj_table.get("rotation")?,
-            visible: obj_table.get("visible")?,
-            gid: obj_table.get("gid").ok(),
-            shape,
-            text,
-        })
-    }
-}
-
 #[derive(Debug, Clone)]
 pub enum ObjGroupType {
     ObjectGroup,
-}
-
-impl ObjGroupType {
-    pub fn from_lua(t: &LuaTable) -> Result<Self, Error> {
-        match t.get::<_, LuaString>("type")?.to_str()? {
-            "objectgroup" => Ok(ObjGroupType::ObjectGroup),
-            s => Err(anyhow!("Unsupported object group type: {}", s)),
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -1176,48 +919,6 @@ pub struct ObjectGroup {
 }
 
 impl ObjectGroup {
-    pub fn from_lua(
-        objg_table: &LuaTable,
-        llid: u32,
-        from_obj_layer: bool,
-        slab: &mut slab::Slab<Object>,
-    ) -> Result<(Self, Vec<(ObjectId, ObjectRef)>), Error> {
-        let mut obj_ids_and_refs = Vec::new();
-
-        for object in objg_table.get::<_, LuaTable>("objects")?.sequence_values() {
-            let object = Object::from_lua(&object?, from_obj_layer)?;
-
-            obj_ids_and_refs.push((object.id.clone(), ObjectRef(slab.insert(object))));
-        }
-
-        let color = match objg_table.get::<_, LuaString>("color") {
-            Ok(s) => Color::from_tiled_hex(s.to_str()?)?,
-            Err(_) => Color::from_rgb(0xA0, 0xA0, 0x0A4),
-        };
-
-        Ok((
-            ObjectGroup {
-                id: ObjectLayerId {
-                    glid: objg_table.get("id")?,
-                    llid,
-                },
-                name: objg_table.get("name")?,
-                opacity: objg_table.get("opacity")?,
-                visible: objg_table.get("visible")?,
-                layer_index: objg_table.get("layer_index").ok(),
-                properties: Properties::from_lua(objg_table)?,
-                draworder: DrawOrder::from_lua(objg_table)?,
-                obj_group_type: ObjGroupType::from_lua(objg_table)?,
-                tintcolor: objg_table.get("tintcolor").ok(),
-                off_x: objg_table.get("offsetx").unwrap_or(0),
-                off_y: objg_table.get("offsety").unwrap_or(0),
-                object_refs: obj_ids_and_refs.iter().map(|i| i.1).collect(),
-                color,
-            },
-            obj_ids_and_refs,
-        ))
-    }
-
     pub fn get_obj_refs(&self) -> impl Iterator<Item = &ObjectRef> + '_ {
         self.object_refs.iter()
     }
@@ -1227,23 +928,6 @@ impl ObjectGroup {
 // The u32 here represents the duration, TileId is which TileId is assocated with said duration
 pub struct Animation(Vec<(TileId, u32)>);
 
-impl Animation {
-    pub fn from_lua(t: LuaTable, tileset: u32) -> Result<Self, Error> {
-        let mut animation_buffer = Vec::new();
-        for animation in t.sequence_values() {
-            let animation: LuaTable = animation?;
-            animation_buffer.push((
-                TileId(
-                    animation.get("tileid")?,
-                    TileMetaData::new(tileset, false, false, false),
-                ),
-                animation.get("duration")?,
-            ));
-        }
-        Ok(Animation(animation_buffer))
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct Tile {
     pub id: TileId,
@@ -1252,39 +936,6 @@ pub struct Tile {
     pub properties: Properties,
     pub objectgroup: Option<ObjectGroup>,
     pub animation: Option<Animation>,
-}
-
-impl Tile {
-    pub fn from_lua(
-        tile_table: &LuaTable,
-        tileset_num: u32,
-        slab: &mut slab::Slab<Object>,
-    ) -> Result<Self, Error> {
-        let objectgroup = match tile_table.get::<_, LuaTable>("objectGroup") {
-            Ok(t) => Some(ObjectGroup::from_lua(&t, u32::MAX, false, slab)?.0),
-            Err(_) => None,
-        };
-
-        Ok(Tile {
-            // We have to add 1 here, because Tiled Data stores TileIds + 1, so for consistency,
-            // we add 1 here
-            id: TileId(
-                tile_table.get::<_, LuaInteger>("id")? as u32 + 1,
-                TileMetaData::new(tileset_num, false, false, false),
-            ),
-            tile_type: tile_table.get("type").ok(),
-            probability: tile_table.get("probability").unwrap_or(0.0),
-            animation: match tile_table.get::<_, LuaTable>("animation") {
-                Ok(t) => Some(Animation::from_lua(t, tileset_num)?),
-                Err(_) => None,
-            },
-            properties: match tile_table.get::<_, LuaTable>("properties") {
-                Ok(_) => Properties::from_lua(tile_table)?,
-                Err(_) => Properties(HashMap::new()),
-            },
-            objectgroup,
-        })
-    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -1326,33 +977,6 @@ pub struct Tileset {
 }
 
 impl Tileset {
-    pub fn from_lua(
-        ts: &LuaTable,
-        path_prefix: Option<&str>,
-        tileset_number: u32,
-        slab: &mut slab::Slab<Object>,
-    ) -> Result<Tileset, Error> {
-        let mut tiles = HashMap::new();
-        for tile_table in ts.get::<_, LuaTable>("tiles")?.sequence_values() {
-            let tile = Tile::from_lua(&tile_table?, tileset_number, slab)?;
-            tiles.insert(tile.id, tile);
-        }
-
-        Ok(Tileset {
-            name: ts.get::<_, LuaString>("name")?.to_str()?.to_owned(),
-            first_gid: ts.get("firstgid")?,
-            tile_width: ts.get("tilewidth")?,
-            tile_height: ts.get("tileheight")?,
-            spacing: ts.get("spacing")?,
-            margin: ts.get("margin")?,
-            columns: ts.get("columns")?,
-            images: vec![Image::new(ts, path_prefix)?],
-            tilecount: ts.get("tilecount")?,
-            properties: Properties::from_lua(ts)?,
-            tiles,
-        })
-    }
-
     fn get_tile(&self, tile_id: &TileId) -> Option<&Tile> {
         self.tiles.get(tile_id)
     }
