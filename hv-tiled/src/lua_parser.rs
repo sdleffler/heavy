@@ -180,12 +180,11 @@ fn parse_tile_layer(t: &LuaTable, llid: u32, tile_buffer: &[TileId]) -> Result<T
         }
         Chunks(chunks)
     } else {
-        to_chunks(&TileLayer::parse_tile_data(
-            &encoding,
-            &compression,
-            t,
-            tile_buffer,
-        )?, width, height)
+        to_chunks(
+            &TileLayer::parse_tile_data(&encoding, &compression, t, tile_buffer)?,
+            width,
+            height,
+        )
     };
 
     Ok(TileLayer {
