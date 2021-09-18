@@ -275,6 +275,33 @@ impl LuaGraphicsState {
 
         Ok(())
     }
+
+    pub fn rectangle(
+        &mut self,
+        gfx: &mut Graphics,
+        lua_draw_mode: LuaDrawMode,
+        rect: Box2<f32>,
+    ) -> Result<()> {
+        let mode = match lua_draw_mode {
+            LuaDrawMode::Fill => DrawMode::fill(),
+            LuaDrawMode::Line => DrawMode::stroke(self.line_width),
+        };
+
+        self.mesh_builder.rectangle(mode, rect, self.color);
+
+        let mesh = match &mut self.mesh {
+            Some(mesh) => {
+                self.mesh_builder.update(gfx, mesh);
+                mesh
+            }
+            None => self.mesh.insert(self.mesh_builder.build(gfx)),
+        };
+
+        self.mesh_builder.clear();
+        mesh.draw_mut(gfx, Instance::new());
+
+        Ok(())
+    }
 }
 
 pub(crate) fn circle(
@@ -348,6 +375,17 @@ pub(crate) fn print(
             .to_lua_err()?;
 
         Ok(())
+    }
+}
+
+pub(crate) fn rectangle(
+    lgs: Shared<LuaGraphicsState>,
+    gfx_lock: Shared<GraphicsLock>,
+) -> lua_fn!(Fn<'lua>((LuaDrawMode, f32, f32, f32, f32)) -> ()) {
+    move |_, (mode, x, y, w, h)| {
+        lgs.borrow_mut()
+            .rectangle(&mut gfx_lock.lock(), mode, Box2::new(x, y, w, h))
+            .to_lua_err()
     }
 }
 
@@ -491,4 +529,10 @@ pub(crate) fn translate(gfx_lock: Shared<GraphicsLock>) -> lua_fn!(Fn<'lua>((f32
             .translate2(Vector2::new(x, y));
         Ok(())
     }
+}
+
+pub(crate) fn get_dimensions(
+    gfx_lock: Shared<GraphicsLock>,
+) -> lua_fn!(Fn<'lua>(()) -> (f32, f32)) {
+    move |_, ()| Ok(gfx_lock.lock().mq().screen_size())
 }

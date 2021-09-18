@@ -48,6 +48,7 @@ return {
     points = hf_graphics.points,
     polygon = hf_graphics.polygon,
     print = hf_graphics.print,
+    rectangle = hf_graphics.rectangle,
 
     clear = hf_graphics.clear,
     present = hf_graphics.present,
@@ -65,6 +66,8 @@ return {
     shear = hf_graphics.shear,
     transform_point = hf_graphics.transform_point,
     translate = hf_graphics.translate,
+
+    get_dimensions = hf_graphics.get_dimensions,
 
     DrawMode = hf_graphics.DrawMode,
 }

@@ -891,6 +891,7 @@ pub(crate) fn open<'lua>(lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lu
     let points = lua.create_function(self::lua::points(lgs.clone(), gfx_lock.clone()))?;
     let polygon = lua.create_function(self::lua::polygon(lgs.clone(), gfx_lock.clone()))?;
     let print = lua.create_function(self::lua::print(lgs.clone(), gfx_lock.clone()))?;
+    let rectangle = lua.create_function(self::lua::rectangle(lgs.clone(), gfx_lock.clone()))?;
 
     let clear = lua.create_function(self::lua::clear(lgs.clone(), gfx_lock.clone()))?;
     let present = lua.create_function(self::lua::present(gfx_lock.clone()))?;
@@ -908,7 +909,9 @@ pub(crate) fn open<'lua>(lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lu
     let scale = lua.create_function(self::lua::scale(gfx_lock.clone()))?;
     let shear = lua.create_function(self::lua::shear(gfx_lock.clone()))?;
     let transform_point = lua.create_function(self::lua::transform_point(gfx_lock.clone()))?;
-    let translate = lua.create_function(self::lua::translate(gfx_lock))?;
+    let translate = lua.create_function(self::lua::translate(gfx_lock.clone()))?;
+
+    let get_dimensions = lua.create_function(self::lua::get_dimensions(gfx_lock))?;
 
     let draw_mode_fill = LuaDrawMode::Fill;
     let draw_mode_line = LuaDrawMode::Line;
@@ -943,6 +946,7 @@ pub(crate) fn open<'lua>(lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lu
                 points = $points,
                 polygon = $polygon,
                 print = $print,
+                rectangle = $rectangle,
 
                 clear = $clear,
                 present = $present,
@@ -960,6 +964,8 @@ pub(crate) fn open<'lua>(lua: &'lua Lua, engine: &Engine) -> Result<LuaTable<'lu
                 shear = $shear,
                 transform_point = $transform_point,
                 translate = $translate,
+
+                get_dimensions = $get_dimensions,
 
                 DrawMode = {
                     Fill = $draw_mode_fill,

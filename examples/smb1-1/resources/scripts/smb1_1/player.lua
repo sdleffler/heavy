@@ -206,7 +206,7 @@ do
     function Dead:update(agent, player)
         coroutine.resume(player.death_animation, player)
         if coroutine.status(player.death_animation) == "dead" then
-            smb.controller:switch("resetting")
+            smb.controller:switch("wipe_out")
         end
     end
 end
