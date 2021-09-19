@@ -67,7 +67,7 @@ do
 
             local x = -width_x * inout_cubic(offset_t)
             local y = i * (width_y / NUM_WIPE_RECTS)
-            gfx.rectangle(gfx.DrawMode.Fill, x - 16, y, width_x + 16, width_y / NUM_WIPE_RECTS)
+            gfx.rectangle(gfx.DrawMode.Fill, x - 32, y, width_x + 32, width_y / NUM_WIPE_RECTS)
         end
     end
 end
