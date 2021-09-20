@@ -200,6 +200,7 @@ do
     function Dead:init(agent, player)
         player.animation = tag_dead
         player:collider_remove()
+        player:velocity_set_linear(0, 0)
         smb.controller:switch("player_died")
     end
 
@@ -245,20 +246,16 @@ do
                 move_rate = 2
                 -- initial pause
                 for i = 0, initial_pause, 1 do coroutine.yield() end
-                -- going up
-                xp, yp = player:position_get_coords()
-                while (yp < going_up) do
-                    xp, yp = player:position_get_coords()
-                    xp, yp = player:position_get_coords()
-                    player:position_set_coords(xp, yp + move_rate)
-                    coroutine.yield()
-                end
-                -- goin down
-                xp, yp = player:position_get_coords()
+                player:velocity_set_linear(0, jump_impulse)
+                coroutine.yield()
+                local _, yp = player:position_get_coords()
                 while (yp >= -8) do
-                    xp, yp = player:position_get_coords()
-                    player:position_set_coords(xp, yp - move_rate)
+                    _, vy = player:velocity_get_linear()
+                    player:velocity_set_linear(
+                        0, math.max(vy - holding_a_gravity, -maximum_falling_velocity)
+                    )
                     coroutine.yield()
+                    _, yp = player:position_get_coords()
                 end
             end
                                )

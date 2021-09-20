@@ -240,10 +240,12 @@ impl SmbOneOne {
         Ok(())
     }
 
-    fn integrate_object_positions(&self, _engine: &Engine, lua: &Lua, dt: f32) -> Result<()> {
-        let mut to_headbutt = self.to_headbutt.borrow_mut();
-        let map = self.map.borrow();
-
+    fn integrate_objects_without_colliders(
+        &self,
+        _engine: &Engine,
+        _lua: &Lua,
+        dt: f32,
+    ) -> Result<()> {
         // Query: integrate positions for all objects w/o colliders.
         for (_, (Position(pos), Velocity(vel))) in self
             .space
@@ -253,6 +255,12 @@ impl SmbOneOne {
         {
             pos.integrate_mut(vel, dt);
         }
+        Ok(())
+    }
+
+    fn integrate_object_positions(&self, _engine: &Engine, lua: &Lua, _dt: f32) -> Result<()> {
+        let mut to_headbutt = self.to_headbutt.borrow_mut();
+        let map = self.map.borrow();
 
         // Query: handle collisions between blocks and objects with positions, velocities, and
         // colliders. In addition, collect "headbutt" events to be dispatched to Lua once the
@@ -659,6 +667,15 @@ impl LuaUserData for SmbOneOne {
                 .to_lua_err()?;
             Ok(())
         });
+
+        methods.add_method(
+            "integrate_objects_without_colliders",
+            move |lua, this, dt| {
+                this.integrate_objects_without_colliders(&get_engine(lua)?.upgrade(), lua, dt)
+                    .to_lua_err()?;
+                Ok(())
+            },
+        );
 
         methods.add_method("integrate_object_positions", move |lua, this, dt| {
             this.integrate_object_positions(&get_engine(lua)?.upgrade(), lua, dt)

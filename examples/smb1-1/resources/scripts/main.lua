@@ -22,14 +22,20 @@ do
         agent:push("wipe_in")
     end
 
-    function Normal:update(agent, dt) game:update_normal(dt) end
+    function Normal:update(agent, dt)
+        game:integrate_objects_without_colliders(dt)
+        game:update_normal(dt)
+    end
 
     function Normal:draw() game:draw() end
 end
 
 local PlayerDied = State:extend("main.PlayerDied", { name = "player_died" })
 do
-    function PlayerDied:update(agent, dt) game:update_player_died(dt) end
+    function PlayerDied:update(agent, dt)
+        game:integrate_objects_without_colliders(dt)
+        game:update_player_died(dt)
+    end
     function PlayerDied:draw() game:draw() end
 end
 
