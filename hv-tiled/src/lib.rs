@@ -635,7 +635,9 @@ impl TileLayerBatches {
                 .color(Color::new(1.0, 1.0, 1.0, tile_batch.opacity as f32))
                 .translate2(Vector2::new(
                     (addition.x * ts_render_data.tile_width as i32) as f32,
-                    (addition.y * ts_render_data.tile_height as i32) as f32,
+                    // TODO: make sure that this is correct, we subtract one because our origin is 1 unit
+                    // lower than tiled's system
+                    ((addition.y - 1) * ts_render_data.tile_height as i32) as f32,
                 )),
         );
 
