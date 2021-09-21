@@ -149,7 +149,12 @@ impl SmbOneOne {
         let map =
             hv_tiled::lua_parser::parse_map("/maps/mario_bros_1-1.lua", engine, Some("maps/"))?;
 
-        let ts_render_data = hv_tiled::TilesetRenderData::new(&map.tilesets, engine)?;
+        let ts_render_data = hv_tiled::TilesetRenderData::new(
+            map.meta_data.tilewidth,
+            map.meta_data.tileheight,
+            &map.tilesets,
+            engine,
+        )?;
 
         let tile_layer_batches = AtomicRefCell::new(hv_tiled::TileLayerBatches::new(
             &map.tile_layers,
@@ -282,7 +287,7 @@ impl SmbOneOne {
             let mut aabb = collider.compute_aabb(pos);
             let pixel_aabb = aabb.floor_to_i32();
 
-            for (tile, x, y) in map.get_tiles_in_bb_in_layer(
+            for (tile, x, y) in map.get_tiles_in_bb(
                 pixel_aabb,
                 *map.tile_layer_map.get("Foreground").unwrap(),
                 CoordSpace::Pixel,
@@ -329,7 +334,7 @@ impl SmbOneOne {
             let mut aabb = collider.compute_aabb(pos);
             let pixel_aabb = aabb.floor_to_i32();
 
-            for (tile, x, y) in map.get_tiles_in_bb_in_layer(
+            for (tile, x, y) in map.get_tiles_in_bb(
                 pixel_aabb,
                 *map.tile_layer_map.get("Foreground").unwrap(),
                 CoordSpace::Pixel,

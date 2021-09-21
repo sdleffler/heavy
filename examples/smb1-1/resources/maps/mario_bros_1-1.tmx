@@ -10,13 +10,7 @@
     <property name="fire_flower" type="int" value="1"/>
    </properties>
    <objectgroup draworder="index" id="2">
-    <object id="1" x="6.78775" y="7.84834" width="6" height="6"/>
-    <object id="2" x="4.125" y="9.375">
-     <point/>
-    </object>
-    <object id="3" x="13.5" y="2.75" width="4" height="4">
-     <ellipse/>
-    </object>
+    <object id="4" x="0" y="0" width="16" height="16"/>
    </objectgroup>
    <animation>
     <frame tileid="0" duration="400"/>
@@ -422,7 +416,7 @@
   </chunk>
   </data>
  </layer>
- <layer id="14" name="ItemsInBlocks" width="227" height="18" visible="0">
+ <layer id="14" name="ItemsInBlocks" width="227" height="18">
   <data encoding="base64" compression="zlib">
    <chunk x="16" y="-16" width="16" height="16">
    eJxjYBgFwxEwDrQD6AQS8YhhkxsFqAAAX8cBJQ==

@@ -119,7 +119,7 @@ bitfield::bitfield! {
 }
 
 impl TileMetaData {
-    fn new(tileset_id: u32, flipx: bool, flipy: bool, diagonal_flip: bool) -> TileMetaData {
+    pub fn new(tileset_id: u32, flipx: bool, flipy: bool, diagonal_flip: bool) -> TileMetaData {
         assert_eq!(tileset_id >> 29, 0);
         TileMetaData(
             (flipx as u32) << 31 | (flipy as u32) << 30 | (diagonal_flip as u32) << 29 | tileset_id,
@@ -209,6 +209,19 @@ impl Chunk {
     }
 }
 
+fn to_chunk_indices_and_subindices(x: i32, y: i32) -> (i32, i32, u32, u32) {
+    let y = -y;
+    let (chunk_x, tile_x) = (
+        x.div_euclid(CHUNK_SIZE as i32),
+        x.rem_euclid(CHUNK_SIZE as i32) as u32,
+    );
+    let (chunk_y, tile_y) = (
+        y.div_euclid(CHUNK_SIZE as i32),
+        y.rem_euclid(CHUNK_SIZE as i32) as u32,
+    );
+    (chunk_x, chunk_y, tile_x, tile_y)
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct Chunks(HashMap<(i32, i32), Chunk>);
 
@@ -218,14 +231,7 @@ impl Chunks {
     }
 
     pub fn set_tile(&mut self, x: i32, y: i32, tile: TileId) -> Option<TileId> {
-        let (chunk_x, tile_x) = (
-            x.div_euclid(CHUNK_SIZE as i32),
-            x.rem_euclid(CHUNK_SIZE as i32) as u32,
-        );
-        let (chunk_y, tile_y) = (
-            y.div_euclid(CHUNK_SIZE as i32),
-            y.rem_euclid(CHUNK_SIZE as i32) as u32,
-        );
+        let (chunk_x, chunk_y, tile_x, tile_y) = to_chunk_indices_and_subindices(x, y);
         let chunk = self
             .0
             .entry((chunk_x, chunk_y))
@@ -240,17 +246,24 @@ impl Chunks {
         }
     }
 
-    pub fn get_tile(&self, x: i32, y: i32) -> Option<TileId> {
-        let y = -y;
-        let (chunk_x, tile_x) = (
-            x.div_euclid(CHUNK_SIZE as i32),
-            x.rem_euclid(CHUNK_SIZE as i32) as u32,
-        );
-        let (chunk_y, tile_y) = (
-            y.div_euclid(CHUNK_SIZE as i32),
-            y.rem_euclid(CHUNK_SIZE as i32) as u32,
-        );
+    pub fn remove_tile(&mut self, x: i32, y: i32) -> Option<TileId> {
+        let (chunk_x, chunk_y, tile_x, tile_y) = to_chunk_indices_and_subindices(x, y);
+        if let Some(chunk) = self.0.get_mut(&(chunk_x, chunk_y)) {
+            let index = (tile_y * CHUNK_SIZE + tile_x) as usize;
+            let tile_id = chunk.data[index];
+            chunk.data[index] = EMPTY_TILE;
+            if tile_id != EMPTY_TILE {
+                Some(tile_id)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
 
+    pub fn get_tile(&self, x: i32, y: i32) -> Option<TileId> {
+        let (chunk_x, chunk_y, tile_x, tile_y) = to_chunk_indices_and_subindices(x, y);
         self.0.get(&(chunk_x, chunk_y)).and_then(|chunk| {
             match chunk.data[((CHUNK_SIZE * tile_y) + tile_x) as usize] {
                 EMPTY_TILE => None,
@@ -376,19 +389,48 @@ pub struct Map {
 }
 
 #[derive(Debug, Clone)]
+pub struct MapRemoval {
+    id: TileId,
+    layer_id: TileLayerId,
+    x: i32,
+    y: i32,
+}
+
+impl MapRemoval {
+    pub fn get_contents(&self) -> (&TileId, &TileLayerId, &i32, &i32) {
+        (&self.id, &self.layer_id, &self.x, &self.y)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct MapAddition {
+    changed_id: Option<TileId>,
+    new_id: TileId,
+    layer_id: TileLayerId,
+    x: i32,
+    y: i32,
+}
+
+impl MapAddition {
+    pub fn get_contents(&self) -> (&Option<TileId>, &TileLayerId, &i32, &i32) {
+        (&self.changed_id, &self.layer_id, &self.x, &self.y)
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum CoordSpace {
     Pixel,
     Tile,
 }
 
 impl Map {
-    pub fn get_tile_at(
-        &self,
+    pub fn remove_tile(
+        &mut self,
         x: i32,
         y: i32,
         coordinate_space: CoordSpace,
-    ) -> Vec<(TileId, TileLayerId)> {
-        let mut tile_layer_buff = Vec::new();
+        layer_id: TileLayerId,
+    ) -> Option<MapRemoval> {
         let (x, y) = match coordinate_space {
             CoordSpace::Pixel => (
                 x / (self.meta_data.tilewidth) as i32,
@@ -397,25 +439,54 @@ impl Map {
             CoordSpace::Tile => (x, y),
         };
 
-        for layer in self.tile_layers.iter() {
-            // We subtract top from y * self.meta_data.width since tiled stores it's tiles top left
-            // to bottom right, and we want to index bottom left to top right
-
-            if let Some(tile_id) = layer.data.get_tile(x, y) {
-                // TODO: there should be a better way to ID a layer than this
-                if tile_id.to_index().is_some() {
-                    tile_layer_buff.push((tile_id, layer.id));
-                }
-            }
+        if let Some(tile_id) = self.tile_layers[layer_id.llid as usize]
+            .data
+            .remove_tile(x, y)
+        {
+            assert!(tile_id.to_index().is_some());
+            Some(MapRemoval {
+                id: tile_id,
+                layer_id,
+                x,
+                y,
+            })
+        } else {
+            None
         }
-        tile_layer_buff
     }
 
-    pub fn get_tile_in_layer(
+    pub fn set_tile(
+        &mut self,
+        x: i32,
+        y: i32,
+        layer_id: TileLayerId,
+        tile: TileId,
+        coordinate_space: CoordSpace,
+    ) -> MapAddition {
+        let (x, y) = match coordinate_space {
+            CoordSpace::Pixel => (
+                x / (self.meta_data.tilewidth as i32),
+                y / (self.meta_data.tileheight as i32),
+            ),
+            CoordSpace::Tile => (x, y),
+        };
+
+        let layer = &mut self.tile_layers[layer_id.llid as usize];
+        let changed_id = layer.data.set_tile(x, y, tile);
+        MapAddition {
+            new_id: tile,
+            changed_id,
+            layer_id,
+            x,
+            y,
+        }
+    }
+
+    pub fn get_tile(
         &self,
         x: i32,
         y: i32,
-        layer: TileLayerId,
+        layer_id: TileLayerId,
         coordinate_space: CoordSpace,
     ) -> Option<TileId> {
         let (x, y) = match coordinate_space {
@@ -426,7 +497,7 @@ impl Map {
             CoordSpace::Tile => (x, y),
         };
 
-        let layer = &self.tile_layers[layer.llid as usize];
+        let layer = &self.tile_layers[layer_id.llid as usize];
 
         match layer.data.get_tile(x, y) {
             Some(t_id) if t_id.to_index().is_some() => Some(t_id),
@@ -435,32 +506,6 @@ impl Map {
     }
 
     pub fn get_tiles_in_bb(
-        &self,
-        bb: Box2<i32>,
-        coordinate_space: CoordSpace,
-    ) -> impl Iterator<Item = (Vec<(TileId, TileLayerId)>, i32, i32)> + '_ {
-        assert!(bb.is_valid());
-        let box_in_tiles = match coordinate_space {
-            CoordSpace::Pixel => (
-                (
-                    (bb.mins.x as f32 / (self.meta_data.tilewidth as f32)).floor() as i32,
-                    (bb.mins.y as f32 / (self.meta_data.tileheight as f32)).floor() as i32,
-                ),
-                (
-                    (bb.maxs.x as f32 / (self.meta_data.tilewidth as f32)).ceil() as i32,
-                    (bb.maxs.y as f32 / (self.meta_data.tileheight as f32)).ceil() as i32,
-                ),
-            ),
-
-            CoordSpace::Tile => ((bb.mins.x, bb.mins.y), (bb.maxs.x, bb.maxs.y)),
-        };
-        ((box_in_tiles.0 .1)..=(box_in_tiles.1 .1)).flat_map(move |y| {
-            ((box_in_tiles.0 .0)..=(box_in_tiles.1 .0))
-                .map(move |x| (self.get_tile_at(x, y, CoordSpace::Tile), x, y))
-        })
-    }
-
-    pub fn get_tiles_in_bb_in_layer(
         &self,
         bb: Box2<i32>,
         layer_id: TileLayerId,
@@ -483,7 +528,7 @@ impl Map {
         };
         ((box_in_tiles.0 .1)..=(box_in_tiles.1 .1)).flat_map(move |y| {
             ((box_in_tiles.0 .0)..=(box_in_tiles.1 .0)).filter_map(move |x| {
-                self.get_tile_in_layer(x, y, layer_id, CoordSpace::Tile)
+                self.get_tile(x, y, layer_id, CoordSpace::Tile)
                     .map(|t| (t, x, y))
             })
         })
@@ -560,6 +605,77 @@ impl TileLayerBatches {
     pub fn get_tile_batch_layers(&mut self) -> impl Iterator<Item = &mut TileLayerBatch> + '_ {
         self.0.iter_mut()
     }
+
+    pub fn set_tile(
+        &mut self,
+        addition: &MapAddition,
+        ts_render_data: &TilesetRenderData,
+    ) -> Option<SpriteId> {
+        // Remove the existing sprite id and any animated metadata associatd with it
+        let ret_val = if self.0[addition.layer_id.llid as usize]
+            .sprite_id_map
+            .contains_key(&(addition.x, addition.y))
+        {
+            self.remove_tile(&MapRemoval {
+                id: addition.changed_id.unwrap(),
+                layer_id: addition.layer_id,
+                x: addition.x,
+                y: addition.y,
+            })
+        } else {
+            None
+        };
+
+        // Insert the new tile into the sprite sheet
+        let index = addition.new_id.to_index().unwrap();
+        let tile_batch = &mut self.0[addition.layer_id.llid as usize];
+        let sprite_id = tile_batch.sprite_batches[addition.new_id.1.tileset_id() as usize].insert(
+            Instance::new()
+                .src(ts_render_data.uvs[index])
+                .color(Color::new(1.0, 1.0, 1.0, tile_batch.opacity as f32))
+                .translate2(Vector2::new(
+                    (addition.x * ts_render_data.tile_width as i32) as f32,
+                    (addition.y * ts_render_data.tile_height as i32) as f32,
+                )),
+        );
+
+        // If it's an animated tile, add it to the sprite sheet state hashmap so that it'll get updated correctly
+        if let Some(t) = ts_render_data.tile_to_tag_map.get(&addition.new_id) {
+            let anim_state = ts_render_data.textures_and_spritesheets
+                [addition.new_id.1.tileset_id() as usize]
+                .1
+                .at_tag(*t, true);
+            tile_batch.sprite_sheet_info[addition.new_id.1.tileset_id() as usize].insert(
+                sprite_id,
+                SpriteSheetState {
+                    anim_state,
+                    sprite_tag: *t,
+                },
+            );
+        }
+
+        // Insert the new sprite id, we unwrap() here to trigger a panic in the event
+        // that we somehow inserted a tile that already existed
+        let res = tile_batch
+            .sprite_id_map
+            .insert((addition.x, addition.y), sprite_id);
+        assert!(res.is_none(),
+                 "There is a bug in the hv_tiled remove_tile function, remove_tile should've removed the tile, but instead we got {:?}", res.unwrap());
+
+        ret_val
+    }
+
+    pub fn remove_tile(&mut self, removal: &MapRemoval) -> Option<SpriteId> {
+        let tile_batch = &mut self.0[removal.layer_id.llid as usize];
+        if let Some(old_sprite_id) = tile_batch.sprite_id_map.remove(&(removal.x, removal.y)) {
+            // Attempt to remove the sprite sheet info if it exists since we don't want to update animation info for a sprite that doesn't exist
+            tile_batch.sprite_sheet_info[removal.id.1.tileset_id() as usize].remove(&old_sprite_id);
+            tile_batch.sprite_batches[removal.id.1.tileset_id() as usize].remove(old_sprite_id);
+            Some(old_sprite_id)
+        } else {
+            None
+        }
+    }
 }
 
 impl DrawableMut for TileLayerBatches {
@@ -578,7 +694,6 @@ impl DrawableMut for TileLayerBatches {
 }
 
 pub struct TileLayerBatch {
-    _id: TileLayerId,
     sprite_sheet_info: Vec<HashMap<SpriteId, SpriteSheetState>>,
     pub sprite_id_map: HashMap<(i32, i32), SpriteId>,
     sprite_batches: Vec<SpriteBatch<CachedTexture>>,
@@ -692,7 +807,6 @@ impl TileLayerBatch {
             opacity: layer.opacity,
             offx: (layer.x * map_meta_data.tilewidth) as f32,
             offy: (layer.y * map_meta_data.tileheight) as f32,
-            _id: layer.id,
             sprite_batches,
             sprite_id_map,
         }
@@ -710,80 +824,6 @@ impl TileLayerBatch {
             }
         }
     }
-
-    // pub fn set_tile(
-    //     &mut self,
-    //     x: u32,
-    //     y: u32,
-    //     tile: TileId,
-    //     ts_render_data: &TilesetRenderData,
-    //     map: &mut Map,
-    // ) -> Option<(SpriteId, TileId)> {
-    //     // Insert the new tile into the sprite sheet
-    //     let index = tile.to_index().unwrap();
-    //     let sprite_id = self.sprite_batches[tile.1.tileset_id() as usize].insert(
-    //         Instance::new()
-    //             .src(ts_render_data.uvs[index])
-    //             .color(Color::new(1.0, 1.0, 1.0, self.opacity as f32))
-    //             .translate2(Vector2::new(
-    //                 (x * map.meta_data.tilewidth) as f32,
-    //                 // Need to offset by 1 here since tiled renders maps top right to bottom left, but we do bottom left to top right
-    //                 (y * map.meta_data.tileheight) as f32,
-    //             )),
-    //     );
-
-    //     // If it's an animated tile, add it to the sprite sheet state hashmap so that it'll get updated correctly
-    //     if let Some(t) = ts_render_data.tile_to_tag_map.get(&tile) {
-    //         let anim_state = ts_render_data.textures_and_spritesheets[tile.1.tileset_id() as usize]
-    //             .1
-    //             .at_tag(*t, true);
-    //         self.sprite_sheet_info[tile.1.tileset_id() as usize].insert(
-    //             sprite_id,
-    //             SpriteSheetState {
-    //                 anim_state,
-    //                 sprite_tag: *t,
-    //             },
-    //         );
-    //     }
-
-    //     // We first remove the tile, as if we insert first, remove will fail due to insert updating
-    //     // values in place
-    //     let ret_val = self.remove_tile(x, y, map);
-
-    //     // Update the layer with the new tile id
-    //     let layer = &mut map.tile_layers[self.id.llid as usize];
-
-    //     let top = (layer.height * map.meta_data.width - 1) - map.meta_data.height;
-
-    //     layer.data[(top - (y * layer.width + x)) as usize] = tile;
-
-    //     // Insert the new sprite id, we unwrap() here to trigger a panic in the event
-    //     let res = self.sprite_id_map.insert((x, y), sprite_id);
-    //     assert!(res.is_none(),
-    //             "There is a bug in the hv_tiled remove_tile function, remove_tile should've removed the tile, but instead we got {:?}", res.unwrap());
-
-    //     ret_val
-    // }
-
-    // pub fn remove_tile(&mut self, x: u32, y: u32, map: &mut Map) -> Option<(SpriteId, TileId)> {
-    //     let layer = &mut map.tile_layers[self.id.llid as usize];
-
-    //     let top = (layer.width * layer.height) - layer.width;
-
-    //     let tile_ref = &mut layer.data[(top - (y * layer.width) + x) as usize];
-    //     let old_tile = *tile_ref;
-
-    //     if let Some(old_sprite_id) = self.sprite_id_map.remove(&(x, y)) {
-    //         // Attempt to remove the sprite sheet info if it exists since we don't want to update animation info for a sprite that doesn't exist
-    //         self.sprite_sheet_info[old_tile.1.tileset_id() as usize].remove(&old_sprite_id);
-    //         self.sprite_batches[tile_ref.1.tileset_id() as usize].remove(old_sprite_id);
-
-    //         *tile_ref = EMPTY_TILE;
-    //         Some((old_sprite_id, old_tile))
-    //     } else {
-    //         None
-    //     }
-    // }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -991,8 +1031,8 @@ impl Tilesets {
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum TileRenderType {
+#[derive(Debug, Clone, Copy)]
+pub enum TileRenderData {
     Static(Box2<f32>),
     Animated(TagId),
 }
@@ -1004,10 +1044,17 @@ pub struct TilesetRenderData {
     textures_and_spritesheets: Vec<(CachedTexture, SpriteSheet)>,
     // Relates a TileId to a TagId, which is used to get the relevant sprite sheet info
     tile_to_tag_map: HashMap<TileId, TagId>,
+    tile_width: u32,
+    tile_height: u32,
 }
 
 impl TilesetRenderData {
-    pub fn new(tilesets: &Tilesets, engine: &Engine) -> Result<Self, Error> {
+    pub fn new(
+        tile_width: u32,
+        tile_height: u32,
+        tilesets: &Tilesets,
+        engine: &Engine,
+    ) -> Result<Self, Error> {
         let mut textures_and_spritesheets = Vec::with_capacity(tilesets.0.len());
         let mut uvs = Vec::new();
         let mut tile_to_tag_map = HashMap::new();
@@ -1081,10 +1128,25 @@ impl TilesetRenderData {
         }
 
         Ok(TilesetRenderData {
+            tile_height,
+            tile_width,
             uvs,
             textures_and_spritesheets,
             tile_to_tag_map,
         })
+    }
+
+    pub fn get_render_data_for_tile(
+        &self,
+        tile: TileId,
+    ) -> (TileRenderData, &SpriteSheet, &CachedTexture) {
+        let render_data = if let Some(tag) = self.tile_to_tag_map.get(&tile) {
+            TileRenderData::Animated(*tag)
+        } else {
+            TileRenderData::Static(self.uvs[tile.0 as usize])
+        };
+        let (ss, ct) = &self.textures_and_spritesheets[tile.1.tileset_id() as usize];
+        (render_data, ct, ss)
     }
 }
 

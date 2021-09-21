@@ -1,8 +1,3 @@
-use hv_friends::graphics::Color;
-use hv_friends::graphics::DrawMode;
-use hv_friends::graphics::Mesh;
-use hv_friends::{graphics::MeshBuilder, math::Box2};
-use hv_tiled::BoxExt;
 use std::path::Path;
 
 use hv_core::{
@@ -27,43 +22,36 @@ struct MarioBros {
     map: hv_tiled::Map,
     timer: TimeContext,
     ts_render_data: TilesetRenderData,
-    mb: Mesh,
 }
 
 impl MarioBros {
     pub fn new(engine: &Engine) -> Result<Self, Error> {
         // let space = engine.get::<Spaces>().borrow_mut().create_space();
-        let map = hv_tiled::lua_parser::parse_map("/mario_bros_1-1.lua", engine, None)?;
+        let mut map = hv_tiled::lua_parser::parse_map("/mario_bros_1-1.lua", engine, None)?;
 
-        let ts_render_data = hv_tiled::TilesetRenderData::new(&map.tilesets, engine)?;
+        let ts_render_data = hv_tiled::TilesetRenderData::new(
+            map.meta_data.tilewidth,
+            map.meta_data.tileheight,
+            &map.tilesets,
+            engine,
+        )?;
 
-        let tile_layer_batches =
+        let mut tile_layer_batches =
             hv_tiled::TileLayerBatches::new(&map.tile_layers, &ts_render_data, &map, engine);
+
+        let map_change = map
+            .remove_tile(
+                0,
+                0,
+                hv_tiled::CoordSpace::Tile,
+                *map.tile_layer_map.get("Foreground").unwrap(),
+            )
+            .unwrap();
+
+        tile_layer_batches.remove_tile(&map_change);
 
         let mut simple_handler = SimpleHandler::new("main");
         simple_handler.init(engine)?;
-
-        let bb = Box2::new(
-            0.,
-            0.,
-            2. * map.meta_data.tilewidth as f32,
-            2. * map.meta_data.tileheight as f32,
-        );
-
-        let graphics_lock = engine.get::<GraphicsLock>();
-        let mut gfx = graphics_lock.lock();
-
-        let mb = MeshBuilder::new(gfx.state.null_texture.clone())
-            .rectangle(DrawMode::stroke(2.), bb, Color::WHITE)
-            .build(&mut gfx);
-
-        for (tile, x, y) in map.get_tiles_in_bb_in_layer(
-            bb.floor_to_i32(),
-            *map.tile_layer_map.get("Foreground").unwrap(),
-            hv_tiled::CoordSpace::Pixel,
-        ) {
-            println!("x {}, y {}, tile {:?}", x, y, tile);
-        }
 
         Ok(MarioBros {
             tile_layer_batches,
@@ -71,7 +59,6 @@ impl MarioBros {
             timer: TimeContext::new(),
             map,
             ts_render_data,
-            mb,
         })
     }
 }
@@ -113,8 +100,6 @@ impl EventHandler for MarioBros {
         for tile_layer_batch in self.tile_layer_batches.get_tile_batch_layers() {
             tile_layer_batch.draw_mut(&mut gfx, Instance::new());
         }
-
-        self.mb.draw_mut(&mut gfx, Instance::new());
 
         gfx.modelview_mut().pop();
 
