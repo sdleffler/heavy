@@ -781,7 +781,9 @@ impl TileLayerBatch {
                                 .rotate2(rotation),
                         );
 
-                        sprite_id_map.insert((tile_x_global, tile_y_global), sprite_id);
+                        // Todo: I think the reason why be add 1 here is due to the render data
+                        // being offset by 1 from the actual map data, but this needs to be checked
+                        sprite_id_map.insert((tile_x_global, tile_y_global + 1), sprite_id);
 
                         if let Some(t) = ts_render_data.tile_to_tag_map.get(&tile) {
                             let anim_state = ts_render_data.textures_and_spritesheets

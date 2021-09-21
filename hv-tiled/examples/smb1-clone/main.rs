@@ -27,7 +27,7 @@ struct MarioBros {
 impl MarioBros {
     pub fn new(engine: &Engine) -> Result<Self, Error> {
         // let space = engine.get::<Spaces>().borrow_mut().create_space();
-        let mut map = hv_tiled::lua_parser::parse_map("/mario_bros_1-1.lua", engine, None)?;
+        let map = hv_tiled::lua_parser::parse_map("/mario_bros_1-1.lua", engine, None)?;
 
         let ts_render_data = hv_tiled::TilesetRenderData::new(
             map.meta_data.tilewidth,
@@ -36,19 +36,8 @@ impl MarioBros {
             engine,
         )?;
 
-        let mut tile_layer_batches =
+        let tile_layer_batches =
             hv_tiled::TileLayerBatches::new(&map.tile_layers, &ts_render_data, &map, engine);
-
-        let map_change = map
-            .remove_tile(
-                0,
-                0,
-                hv_tiled::CoordSpace::Tile,
-                *map.tile_layer_map.get("Foreground").unwrap(),
-            )
-            .unwrap();
-
-        tile_layer_batches.remove_tile(&map_change);
 
         let mut simple_handler = SimpleHandler::new("main");
         simple_handler.init(engine)?;
