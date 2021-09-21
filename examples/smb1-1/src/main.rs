@@ -334,6 +334,72 @@ impl SmbOneOne {
             let mut aabb = collider.compute_aabb(pos);
             let pixel_aabb = aabb.floor_to_i32();
 
+            // This is a specialized variant of the collision checks from before where we only look
+            // for Y collisions happening "above" the player. This is our "block headbutt" check,
+            // and it tries to find the collision candidate above the player which is closest to the
+            // player's coordinate; this is so that there's no mysterious behavior where the player
+            // can't headbutt a block because they're just barely touching an adjacent block or
+            // something. "Distance" used for picking these candidates is just X axis distance; no
+            // need to consider Y.
+            //
+            // The biggest difference is that this loop does not change the player's velocity or
+            // position. Its only job is to check for headbutts. Resolution is taken care of for all
+            // collider + position objects after this if block.
+            if maybe_player.is_some() {
+                let mut closest = None;
+
+                // This is most likely overkill - we only really need to check the tiles above the
+                // player. But that would depend on the player's hitbox, which will change when
+                // transforming from big to small or vice versa, and this is general enough to cover
+                // all the possibilities.
+                for (tile, x, y) in map.get_tiles_in_bb(
+                    pixel_aabb,
+                    *map.tile_layer_map.get("Foreground").unwrap(),
+                    CoordSpace::Pixel,
+                ) {
+                    let mut tile_bb = Box2::<f32>::invalid();
+                    if let Some(object_group) = map.get_obj_grp_from_tile_id(&tile) {
+                        for object in map.get_objs_from_obj_group(object_group) {
+                            tile_bb.merge(&Box2::new(
+                                object.x + (x * map.meta_data.tilewidth as i32) as f32,
+                                object.y + (y * map.meta_data.tileheight as i32) as f32,
+                                object.width,
+                                object.height,
+                            ));
+                        }
+                    }
+
+                    if aabb.intersects(&tile_bb) {
+                        let overlap = aabb.overlap(&tile_bb);
+                        let intersection = aabb.intersection(&tile_bb);
+
+                        // If we're colliding, our velocity is positive, we're colliding from the
+                        // bottom, and we're the player (in this loop), then register a headbutt
+                        // candidate.
+                        if intersection.extents().x > 0.
+                            && intersection.extents().y > 0.
+                            && vel.linear.y.signum() > 0.
+                            && overlap.y.signum() > 0.
+                        {
+                            let distance = (pos.center().x
+                                - (x as f32 + 0.5) * (map.meta_data.tilewidth as f32))
+                                .abs();
+
+                            match closest {
+                                Some((_, _, _, cdistance)) if cdistance <= distance => {}
+                                _ => closest = Some((x, y, tile, distance)),
+                            }
+                        }
+                    }
+                }
+
+                // If we were headbutting a block, then `closest` now contains the closest headbutt
+                // candidate.
+                if let Some((x, y, tile, _)) = closest {
+                    to_headbutt.push((player_object, (x, y, tile)));
+                }
+            }
+
             for (tile, x, y) in map.get_tiles_in_bb(
                 pixel_aabb,
                 *map.tile_layer_map.get("Foreground").unwrap(),
@@ -365,8 +431,6 @@ impl SmbOneOne {
                             // TODO: Collision state (touching up/down)
                             if overlap.y.signum() < 0. {
                                 is_grounded = true;
-                            } else if overlap.y.signum() > 0. && maybe_player.is_some() {
-                                to_headbutt.push((player_object, (x, y, tile)));
                             }
                         }
                     }
@@ -378,10 +442,12 @@ impl SmbOneOne {
                 .set("is_grounded", is_grounded)?;
         }
 
+        drop(map);
+
         // Dispatch any headbutt events gathered from the previous query.
-        for (player_object, (x, y, _tile)) in to_headbutt.drain(..) {
+        for (player_object, (x, y, tile)) in to_headbutt.drain(..) {
             LuaTable::from_lua(player_object.to_lua(lua)?, lua)?
-                .call_method("on_headbutt_block", (x, y))?;
+                .call_method("on_headbutt_block", (x, y, tile.to_index()))?;
         }
 
         Ok(())
@@ -700,6 +766,36 @@ impl LuaUserData for SmbOneOne {
         methods.add_method("update_object_sprite_batches", move |lua, this, ()| {
             this.update_object_sprite_batches(&get_engine(lua)?.upgrade(), lua)
                 .to_lua_err()?;
+            Ok(())
+        });
+
+        methods.add_method(
+            "set_tile",
+            move |_lua, this, (x, y, tile_id, tileset_id): (i32, i32, u32, u32)| {
+                let tile_id = TileId::new(tile_id, tileset_id, false, false, false);
+                let layer_id = *this.map.borrow().tile_layer_map.get("Foreground").unwrap();
+                let map_set =
+                    this.map
+                        .borrow_mut()
+                        .set_tile(x, y, layer_id, tile_id, CoordSpace::Tile);
+                this.tile_layer_batches
+                    .borrow_mut()
+                    .set_tile(&map_set, &this.ts_render_data);
+
+                Ok(())
+            },
+        );
+
+        methods.add_method("remove_tile", move |_lua, this, (x, y): (i32, i32)| {
+            let layer_id = *this.map.borrow().tile_layer_map.get("Foreground").unwrap();
+            if let Some(map_set) =
+                this.map
+                    .borrow_mut()
+                    .remove_tile(x, y, CoordSpace::Tile, layer_id)
+            {
+                this.tile_layer_batches.borrow_mut().remove_tile(&map_set);
+            }
+
             Ok(())
         });
     }
