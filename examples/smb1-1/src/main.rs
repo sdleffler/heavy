@@ -735,12 +735,12 @@ impl SmbOneOne {
         self.koopa_batch
             .borrow_mut()
             .draw_mut(&mut gfx, Instance::new());
-        self.mario_batch
-            .borrow_mut()
-            .draw_mut(&mut gfx, Instance::new());
         tile_layer_batches
             .get_layer_mut(fg_layer)
             .draw_mut(&mut gfx, tiled_instance);
+        self.mario_batch
+            .borrow_mut()
+            .draw_mut(&mut gfx, Instance::new());
 
         gfx.modelview_mut().pop();
 
