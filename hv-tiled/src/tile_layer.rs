@@ -15,15 +15,11 @@ const FLIPPED_DIAGONALLY_FLAG: u32 = 0x20000000;
 const UNSET_FLAGS: u32 = 0x1FFFFFFF;
 
 #[derive(Debug, Clone)]
-pub struct Chunk {
-    pub data: Vec<TileId>,
-}
+pub struct Chunk(pub Vec<TileId>);
 
 impl Chunk {
     fn new() -> Self {
-        Chunk {
-            data: vec![EMPTY_TILE; (CHUNK_SIZE * CHUNK_SIZE) as usize],
-        }
+        Chunk(vec![EMPTY_TILE; (CHUNK_SIZE * CHUNK_SIZE) as usize])
     }
 }
 
@@ -52,8 +48,8 @@ impl Chunks {
         let (chunk_x, chunk_y, tile_x, tile_y) = to_chunk_indices_and_subindices(x, y);
         let chunk = self.0.entry((chunk_x, chunk_y)).or_insert_with(Chunk::new);
         let index = (tile_y * CHUNK_SIZE + tile_x) as usize;
-        let tile_id = chunk.data[index];
-        chunk.data[index] = tile;
+        let tile_id = chunk.0[index];
+        chunk.0[index] = tile;
         if tile_id != EMPTY_TILE {
             Some(tile_id)
         } else {
@@ -65,8 +61,8 @@ impl Chunks {
         let (chunk_x, chunk_y, tile_x, tile_y) = to_chunk_indices_and_subindices(x, y);
         if let Some(chunk) = self.0.get_mut(&(chunk_x, chunk_y)) {
             let index = (tile_y * CHUNK_SIZE + tile_x) as usize;
-            let tile_id = chunk.data[index];
-            chunk.data[index] = EMPTY_TILE;
+            let tile_id = chunk.0[index];
+            chunk.0[index] = EMPTY_TILE;
             if tile_id != EMPTY_TILE {
                 Some(tile_id)
             } else {
@@ -80,7 +76,7 @@ impl Chunks {
     pub fn get_tile(&self, x: i32, y: i32) -> Option<TileId> {
         let (chunk_x, chunk_y, tile_x, tile_y) = to_chunk_indices_and_subindices(x, y);
         self.0.get(&(chunk_x, chunk_y)).and_then(|chunk| {
-            match chunk.data[((CHUNK_SIZE * tile_y) + tile_x) as usize] {
+            match chunk.0[((CHUNK_SIZE * tile_y) + tile_x) as usize] {
                 EMPTY_TILE => None,
                 t => Some(t),
             }
