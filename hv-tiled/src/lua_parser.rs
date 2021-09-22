@@ -132,9 +132,16 @@ fn parse_chunk(
         height
     );
 
-    Ok((Chunk {
-        data: TileLayer::parse_tile_data(encoding, compression, t, tile_buffer)?,
-    }, t.get("x")?, t.get("y")?))
+    Ok((
+        Chunk(TileLayer::parse_tile_data(
+            encoding,
+            compression,
+            t,
+            tile_buffer,
+        )?),
+        t.get("x")?,
+        t.get("y")?,
+    ))
 }
 
 fn parse_tile_layer(t: &LuaTable, llid: u32, tile_buffer: &[TileId]) -> Result<TileLayer, Error> {
@@ -167,7 +174,8 @@ fn parse_tile_layer(t: &LuaTable, llid: u32, tile_buffer: &[TileId]) -> Result<T
             .get::<_, LuaTable>("chunks")?
             .sequence_values::<LuaTable>()
         {
-            let (chunk, tile_x, tile_y) = parse_chunk(&chunk?, &encoding, &compression, tile_buffer)?;
+            let (chunk, tile_x, tile_y) =
+                parse_chunk(&chunk?, &encoding, &compression, tile_buffer)?;
             let chunk_x = tile_x / CHUNK_SIZE as i32;
             let chunk_y = tile_y / CHUNK_SIZE as i32;
             chunks.insert((chunk_x, chunk_y), chunk);

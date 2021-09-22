@@ -313,7 +313,7 @@ impl TileLayerBatch {
         for ((chunk_x, chunk_y), chunk) in layer.data.0.iter() {
             for tile_y in 0..CHUNK_SIZE {
                 for tile_x in 0..CHUNK_SIZE {
-                    let tile = chunk.data[(tile_y * CHUNK_SIZE + tile_x) as usize];
+                    let tile = chunk.0[(tile_y * CHUNK_SIZE + tile_x) as usize];
                     // Tile indices start at 1, 0 represents no tile, so we offset the tile by 1
                     // first, and skip making the instance param if the tile is 0
                     if let Some(index) = tile.to_index() {
