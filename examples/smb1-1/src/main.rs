@@ -92,6 +92,8 @@ struct SmbOneOne {
     space: Shared<Space>,
     tile_layer_batches: AtomicRefCell<hv_tiled::TileLayerBatches>,
     x_scroll: AtomicRefCell<f32>,
+
+    map_initial_state: hv_tiled::Map,
     map: AtomicRefCell<hv_tiled::Map>,
     ts_render_data: TilesetRenderData,
     to_update: AtomicRefCell<Vec<Object>>,
@@ -178,6 +180,7 @@ impl SmbOneOne {
             space,
             tile_layer_batches,
             x_scroll: AtomicRefCell::new(0.),
+            map_initial_state: map.clone(),
             map: AtomicRefCell::new(map),
             ts_render_data,
             to_update: AtomicRefCell::new(Vec::new()),
@@ -810,6 +813,19 @@ impl LuaUserData for SmbOneOne {
             {
                 this.tile_layer_batches.borrow_mut().remove_tile(&map_set);
             }
+
+            Ok(())
+        });
+
+        methods.add_method("reset_map", move |lua, this, ()| {
+            this.map.borrow_mut().clone_from(&this.map_initial_state);
+            let engine = lua.get_resource::<EngineRef>()?;
+            *this.tile_layer_batches.borrow_mut() = hv_tiled::TileLayerBatches::new(
+                &this.map.borrow().tile_layers,
+                &this.ts_render_data,
+                &this.map.borrow(),
+                &engine.borrow().upgrade(),
+            );
 
             Ok(())
         });

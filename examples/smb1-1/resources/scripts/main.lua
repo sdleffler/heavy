@@ -19,6 +19,10 @@ do
             object:spawn(space)
         end
 
+        -- TODO: handle loading a map from the Lua side rather than the Rust side, such that we
+        -- don't hard-code the map into the Rust side.
+        game:reset_map()
+
         agent:push("wipe_in")
     end
 
