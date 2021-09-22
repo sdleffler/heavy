@@ -257,7 +257,6 @@ impl<T: AsCached<Texture>> SpriteBatch<T> {
     /// Set the texture of this spritebatch directly. There should not often be a need for this.
     #[inline]
     pub fn set_texture(&mut self, texture: T) {
-        self.dirty = true;
         self.texture = texture;
     }
 

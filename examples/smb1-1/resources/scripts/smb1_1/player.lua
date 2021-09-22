@@ -3,6 +3,7 @@ local std_agent = require("std.agent")
 local Agent, State = std_agent.Agent, std_agent.State
 local gfx = hf.graphics
 local GameObject = require("smb1_1.game_object").GameObject
+local item = require("smb1_1.item")
 local Velocity = hf.components.Velocity
 local Collider = hf.components.Collider
 local SpriteAnimation = hf.components.SpriteAnimation
@@ -271,6 +272,14 @@ do
 
         if hittable then
             game:set_tile(x, y, hittable, 0)
+            local player_x, _ = self:position_get_coords()
+            local direction
+            if player_x <= (x + 0.5) * 16 then
+                direction = max_walk_velocity
+            else
+                direction = -max_walk_velocity
+            end
+            item.Mushroom:new(game.space, (x + 0.5) * 16, (y + 0.5) * 16, direction)
         elseif tile_id == 241 then
             game:remove_tile(x, y)
         end

@@ -81,6 +81,9 @@ struct KoopaMarker;
 struct PlayerMarker;
 
 #[derive(Debug, Clone, Copy)]
+struct ItemMarker(u32);
+
+#[derive(Debug, Clone, Copy)]
 struct Unloaded;
 
 #[allow(clippy::type_complexity)]
@@ -104,6 +107,7 @@ struct SmbOneOne {
     goomba_batch: AtomicRefCell<SpriteBatch<CachedTexture>>,
     koopa_batch: AtomicRefCell<SpriteBatch<CachedTexture>>,
     mario_batch: AtomicRefCell<SpriteBatch<CachedTexture>>,
+    item_batch: AtomicRefCell<SpriteBatch<CachedTexture>>,
 
     goomba_sheet: CachedSpriteSheet,
     koopa_sheet: CachedSpriteSheet,
@@ -170,6 +174,13 @@ impl SmbOneOne {
         let goomba_batch = AtomicRefCell::new(SpriteBatch::new(&mut gfx, goomba_texture));
         let koopa_batch = AtomicRefCell::new(SpriteBatch::new(&mut gfx, koopa_texture));
         let mario_batch = AtomicRefCell::new(SpriteBatch::new(&mut gfx, mario_texture));
+        let item_batch = AtomicRefCell::new(SpriteBatch::new(
+            &mut gfx,
+            ts_render_data
+                .get_tileset_texture_and_spritesheet(0)
+                .1
+                .clone(),
+        ));
         drop(gfx);
 
         Ok(Shared::new(SmbOneOne {
@@ -191,6 +202,7 @@ impl SmbOneOne {
             goomba_batch,
             koopa_batch,
             mario_batch,
+            item_batch,
 
             goomba_sheet,
             koopa_sheet,
@@ -625,6 +637,31 @@ impl SmbOneOne {
             }
         }
 
+        {
+            let mut item_batch = self.item_batch.borrow_mut();
+            item_batch.clear();
+            for (_object, (Position(pos), ItemMarker(id))) in
+                self.space
+                    .borrow_mut()
+                    .query_mut::<(&Position, &ItemMarker)>()
+            {
+                let (trd, _, _) = self
+                    .ts_render_data
+                    .get_render_data_for_tile(TileId::new(*id, 0, false, false, false));
+
+                let uvs = match trd {
+                    hv_tiled::TileRenderData::Static(uvs) => uvs,
+                    _ => panic!("oh no"),
+                };
+
+                item_batch.insert(
+                    Instance::new()
+                        .translate2(pos.center().coords - Vector2::new(8., 8.))
+                        .src(uvs),
+                );
+            }
+        }
+
         Ok(())
     }
 
@@ -677,9 +714,21 @@ impl SmbOneOne {
         gfx.modelview_mut().push(None);
         gfx.modelview_mut().scale2(Vector2::new(4.0, 4.0));
 
-        self.tile_layer_batches
+        let tiled_instance = Instance::new().translate2(Vector2::new(0., 16.));
+        let sky_layer = self.map.borrow().tile_layer_map["Sky"];
+        let bg_layer = self.map.borrow().tile_layer_map["Background"];
+        let fg_layer = self.map.borrow().tile_layer_map["Foreground"];
+        let mut tile_layer_batches = self.tile_layer_batches.borrow_mut();
+
+        tile_layer_batches
+            .get_layer_mut(sky_layer)
+            .draw_mut(&mut gfx, tiled_instance);
+        tile_layer_batches
+            .get_layer_mut(bg_layer)
+            .draw_mut(&mut gfx, tiled_instance);
+        self.item_batch
             .borrow_mut()
-            .draw_mut(&mut gfx, Instance::new().translate2(Vector2::new(0., 16.)));
+            .draw_mut(&mut gfx, Instance::new());
         self.goomba_batch
             .borrow_mut()
             .draw_mut(&mut gfx, Instance::new());
@@ -689,6 +738,9 @@ impl SmbOneOne {
         self.mario_batch
             .borrow_mut()
             .draw_mut(&mut gfx, Instance::new());
+        tile_layer_batches
+            .get_layer_mut(fg_layer)
+            .draw_mut(&mut gfx, tiled_instance);
 
         gfx.modelview_mut().pop();
 
@@ -717,6 +769,9 @@ impl LuaUserData for SmbOneOne {
         });
         fields.add_field_method_get("PlayerMarker", |_, _| {
             Ok(DynamicComponentConstructor::copy(PlayerMarker))
+        });
+        fields.add_field_method_get("ItemMarker", |lua, _| {
+            lua.create_function(|_, id| Ok(DynamicComponentConstructor::copy(ItemMarker(id))))
         });
         fields.add_field_method_get("Unloaded", |_, _| {
             Ok(DynamicComponentConstructor::copy(Unloaded))
