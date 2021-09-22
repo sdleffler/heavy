@@ -275,9 +275,9 @@ do
             local player_x, _ = self:position_get_coords()
             local direction
             if player_x <= (x + 0.5) * 16 then
-                direction = max_walk_velocity
+                direction = 64
             else
-                direction = -max_walk_velocity
+                direction = -64
             end
             item.Mushroom:new(game.space, (x + 0.5) * 16, (y + 0.5) * 16, direction)
         elseif tile_id == 241 then
