@@ -126,6 +126,11 @@ impl TilesetRenderData {
         let (ss, ct) = &self.textures_and_spritesheets[tile.1.tileset_id() as usize];
         (render_data, ct, ss)
     }
+
+    pub fn get_tileset_texture_and_spritesheet(&self, tileset_id: u32) -> (&SpriteSheet, &CachedTexture) {
+        let (ss, ct) = &self.textures_and_spritesheets[tileset_id as usize];
+        (ct, ss)
+    }
 }
 
 impl Drawable for TilesetRenderData {
