@@ -96,7 +96,7 @@ struct SmbOneOne {
     ts_render_data: TilesetRenderData,
     to_update: AtomicRefCell<Vec<Object>>,
     to_collide: AtomicRefCell<Vec<(Object, Object)>>,
-    to_headbutt: AtomicRefCell<Vec<(Object, (i32, i32, TileId))>>,
+    to_headbutt: AtomicRefCell<Vec<(Object, (i32, i32, TileId, Option<u32>))>>,
     to_load: AtomicRefCell<Vec<Object>>,
 
     goomba_batch: AtomicRefCell<SpriteBatch<CachedTexture>>,
@@ -381,13 +381,27 @@ impl SmbOneOne {
                             && vel.linear.y.signum() > 0.
                             && overlap.y.signum() > 0.
                         {
+                            // Woo that's a long string to get out an `Option<u32>` containing
+                            // `Some` if the tileset has a tile this tile should turn into when it
+                            // gets hit!
+                            let hittable = map
+                                .tilesets
+                                .get_tile(&tile)
+                                .unwrap()
+                                .properties
+                                .get_property("hittable")
+                                .map(hv_tiled::Property::as_int)
+                                .transpose()?
+                                .copied()
+                                .map(|x| x as u32);
+
                             let distance = (pos.center().x
                                 - (x as f32 + 0.5) * (map.meta_data.tilewidth as f32))
                                 .abs();
 
                             match closest {
-                                Some((_, _, _, cdistance)) if cdistance <= distance => {}
-                                _ => closest = Some((x, y, tile, distance)),
+                                Some((_, _, _, _, cdistance)) if cdistance <= distance => {}
+                                _ => closest = Some((x, y, tile, hittable, distance)),
                             }
                         }
                     }
@@ -395,8 +409,8 @@ impl SmbOneOne {
 
                 // If we were headbutting a block, then `closest` now contains the closest headbutt
                 // candidate.
-                if let Some((x, y, tile, _)) = closest {
-                    to_headbutt.push((player_object, (x, y, tile)));
+                if let Some((x, y, tile, hittable, _)) = closest {
+                    to_headbutt.push((player_object, (x, y, tile, hittable)));
                 }
             }
 
@@ -442,12 +456,13 @@ impl SmbOneOne {
                 .set("is_grounded", is_grounded)?;
         }
 
+        // Release the map borrow so that Lua can modify it.
         drop(map);
 
         // Dispatch any headbutt events gathered from the previous query.
-        for (player_object, (x, y, tile)) in to_headbutt.drain(..) {
+        for (player_object, (x, y, tile, hittable)) in to_headbutt.drain(..) {
             LuaTable::from_lua(player_object.to_lua(lua)?, lua)?
-                .call_method("on_headbutt_block", (x, y, tile.to_index()))?;
+                .call_method("on_headbutt_block", (x, y, tile.to_index(), hittable))?;
         }
 
         Ok(())
