@@ -1,6 +1,14 @@
 use crate::*;
 use hv_core::prelude::*;
 
+// For some reason, in the lua encoding, text is stored under shape
+// Why????? In any case I made this type to store both a text and an
+// actual shape object
+enum LuaShapeResolution {
+    Text(Text),
+    ObjectShape(ObjectShape),
+}
+
 pub trait ColorExt {
     fn from_tiled_hex(hex: &str) -> Result<Color, Error>;
     fn from_tiled_lua_table(c_t: &LuaTable) -> Result<Color, Error>;
@@ -109,7 +117,7 @@ fn parse_chunk(
     encoding: &Encoding,
     compression: &Option<Compression>,
     tile_buffer: &[TileId],
-) -> Result<Chunk, Error> {
+) -> Result<(Chunk, i32, i32), Error> {
     let width: u32 = t.get("width")?;
     let height: u32 = t.get("height")?;
 
@@ -124,11 +132,9 @@ fn parse_chunk(
         height
     );
 
-    Ok(Chunk {
-        tile_x: t.get("x")?,
-        tile_y: t.get("y")?,
+    Ok((Chunk {
         data: TileLayer::parse_tile_data(encoding, compression, t, tile_buffer)?,
-    })
+    }, t.get("x")?, t.get("y")?))
 }
 
 fn parse_tile_layer(t: &LuaTable, llid: u32, tile_buffer: &[TileId]) -> Result<TileLayer, Error> {
@@ -161,21 +167,9 @@ fn parse_tile_layer(t: &LuaTable, llid: u32, tile_buffer: &[TileId]) -> Result<T
             .get::<_, LuaTable>("chunks")?
             .sequence_values::<LuaTable>()
         {
-            let chunk = parse_chunk(&chunk?, &encoding, &compression, tile_buffer)?;
-            let chunk_x = chunk.tile_x / CHUNK_SIZE as i32;
-            let chunk_y = chunk.tile_y / CHUNK_SIZE as i32;
-            assert_eq!(
-                chunk.tile_x % CHUNK_SIZE as i32,
-                0,
-                "Chunk coordinates should always be in multiples of 16! Got {} for x",
-                chunk.tile_x
-            );
-            assert_eq!(
-                chunk.tile_y % CHUNK_SIZE as i32,
-                0,
-                "Chunk coordinates should always be in multiples of 16! Got {} for y",
-                chunk.tile_y
-            );
+            let (chunk, tile_x, tile_y) = parse_chunk(&chunk?, &encoding, &compression, tile_buffer)?;
+            let chunk_x = tile_x / CHUNK_SIZE as i32;
+            let chunk_y = tile_y / CHUNK_SIZE as i32;
             chunks.insert((chunk_x, chunk_y), chunk);
         }
         Chunks(chunks)
@@ -307,7 +301,7 @@ fn parse_object_group(
     for object in objg_table.get::<_, LuaTable>("objects")?.sequence_values() {
         let object = parse_object(&object?, from_obj_layer)?;
 
-        obj_ids_and_refs.push((object.id.clone(), ObjectRef(slab.insert(object))));
+        obj_ids_and_refs.push((object.id, ObjectRef(slab.insert(object))));
     }
 
     let color = match objg_table.get::<_, LuaString>("color") {
@@ -474,7 +468,7 @@ pub fn parse_map(map_path: &str, engine: &Engine, path_prefix: Option<&str>) -> 
                 let (obj_group, obj_ids_and_refs) =
                     parse_object_group(&layer, obj_llid, true, &mut obj_slab)?;
                 for (obj_id, obj_ref) in obj_ids_and_refs.iter() {
-                    obj_id_to_ref_map.insert(obj_id.clone(), *obj_ref);
+                    obj_id_to_ref_map.insert(*obj_id, *obj_ref);
                 }
                 object_layer_map.insert(obj_group.name.clone(), obj_group.id);
                 object_layers.push(obj_group);
