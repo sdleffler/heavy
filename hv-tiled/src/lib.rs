@@ -41,8 +41,35 @@ pub enum Property {
     Int(i64),
     String(String),
     Obj(ObjectId),
-    Color(u32),
+    Color(String),
     File(String),
+}
+
+macro_rules! as_rust_type {
+    ( $fun_name:ident, $return_type:ty, $error_name: literal, $enum_var:ident ) => {
+        pub fn $fun_name(&self) -> Result<$return_type> {
+            match self {
+                Property::$enum_var(e) => Ok(e),
+                p => Err(anyhow!("Attempted to get a {} from a {:?}", $error_name, p)),
+            }
+        }
+    };
+}
+
+impl Property {
+    as_rust_type!(as_bool, &bool, "bool", Bool);
+    as_rust_type!(as_float, &f64, "float", Float);
+    as_rust_type!(as_int, &i64, "int", Int);
+    as_rust_type!(as_str, &str, "string", String);
+    as_rust_type!(as_obj_id, &ObjectId, "object", Obj);
+    as_rust_type!(as_file, &str, "file", File);
+
+    pub fn as_color(&self) -> Result<Color> {
+        match self {
+            Property::Color(c) => Ok(Color::from_tiled_hex(c)?),
+            p => Err(anyhow!("Attempted to get a color from a {:?}", p)),
+        }
+    }
 }
 
 pub trait BoxExt {
@@ -82,6 +109,12 @@ impl BoxExt for Box2<i32> {
 
 #[derive(Debug, Clone)]
 pub struct Properties(HashMap<String, Property>);
+
+impl Properties {
+    pub fn get_property(&self, key: &str) -> Option<&Property> {
+        self.0.get(key)
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum Encoding {
@@ -890,7 +923,7 @@ pub struct Text {
     valign: Valign,
 }
 
-#[derive(Debug, Eq, PartialEq, Hash, Clone)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Copy)]
 pub struct ObjectId {
     id: u32,
     from_obj_layer: bool,
