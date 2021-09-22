@@ -262,19 +262,17 @@ do
         self:sprite_animation_goto_tag(self.animation)
     end
 
-    function Player:on_headbutt_block(x, y, tile_id)
+    function Player:on_headbutt_block(x, y, tile_id, hittable)
         -- Big ol' TODO.
         print(
             "BLOCK HEADBUTT! x: " .. tostring(x) .. ", y: " .. tostring(y) .. ", tile ID: " ..
                 tostring(tile_id)
         )
 
-        if tile_id == 241 then
-            -- Breakable brick
+        if hittable then
+            game:set_tile(x, y, hittable, 0)
+        elseif tile_id == 241 then
             game:remove_tile(x, y)
-        elseif tile_id == 144 then
-            -- Item block => deactivated item block (148)
-            game:set_tile(x, y, 148, 0)
         end
     end
 
