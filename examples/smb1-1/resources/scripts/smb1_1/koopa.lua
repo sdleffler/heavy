@@ -98,12 +98,6 @@ do
     function ShellStop:on_mario_collide(agent, koopa, player)
         agent:switch("shell_drift", koopa, player)
     end
-
-    function ShellStop:on_enemy_collide(agent, koopa, enemy)
-        vx, vy = koopa:velocity_get_linear()
-        vx = -vx
-        koopa:velocity_set_linear(vx, vy)
-    end
 end
 
 local ShellDrift = State:extend("smb1_1.koopa.ShellDrift", { name = "shell_drift" })

@@ -30,8 +30,7 @@ do
 
     function AliveState:on_collide_with_object(agent, goomba, object)
         vx, vy = goomba:velocity_get_linear()
-        vx = -vx
-        goomba:velocity_set_linear(vx, vy)
+        goomba:velocity_set_linear(-vx, vy)
     end
 end
 
