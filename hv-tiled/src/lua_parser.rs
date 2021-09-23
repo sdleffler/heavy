@@ -488,14 +488,14 @@ pub fn parse_map(map_path: &str, engine: &Engine, path_prefix: Option<&str>) -> 
     drop(tiled_lua_table);
     drop(lua);
 
-    Ok(Map {
+    Ok(Map::new(
         meta_data,
         tile_layers,
-        tilesets: Tilesets(tilesets),
         object_layers,
+        Tilesets(tilesets),
         tile_layer_map,
         object_layer_map,
         obj_slab,
         obj_id_to_ref_map,
-    })
+    ))
 }

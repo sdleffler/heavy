@@ -992,6 +992,7 @@ dependencies = [
  "hv-core",
  "hv-friends",
  "log",
+ "shrev",
  "simple_logger",
  "slab",
 ]
@@ -2039,6 +2040,7 @@ dependencies = [
  "hv-tiled",
  "log",
  "mlua",
+ "shrev",
  "simple_logger",
 ]
 

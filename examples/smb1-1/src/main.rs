@@ -112,6 +112,8 @@ struct SmbOneOne {
     goomba_sheet: CachedSpriteSheet,
     koopa_sheet: CachedSpriteSheet,
     mario_sheet: CachedSpriteSheet,
+
+    render_reader: AtomicRefCell<shrev::ReaderId<hv_tiled::TileChange>>,
 }
 
 impl SmbOneOne {
@@ -152,8 +154,10 @@ impl SmbOneOne {
             sprite_sheets_table = lua.create_registry_value(sprite_sheets.clone())?;
         }
 
-        let map =
+        let mut map =
             hv_tiled::lua_parser::parse_map("/maps/mario_bros_1-1.lua", engine, Some("maps/"))?;
+
+        let render_reader = map.chunk_changes.register_reader();
 
         let ts_render_data = hv_tiled::TilesetRenderData::new(
             map.meta_data.tilewidth,
@@ -198,6 +202,7 @@ impl SmbOneOne {
             to_collide: AtomicRefCell::new(Vec::new()),
             to_headbutt: AtomicRefCell::new(Vec::new()),
             to_load: AtomicRefCell::new(Vec::new()),
+            render_reader: AtomicRefCell::new(render_reader),
 
             goomba_batch,
             koopa_batch,
@@ -718,7 +723,14 @@ impl SmbOneOne {
         let sky_layer = self.map.borrow().tile_layer_map["Sky"];
         let bg_layer = self.map.borrow().tile_layer_map["Background"];
         let fg_layer = self.map.borrow().tile_layer_map["Foreground"];
+
         let mut tile_layer_batches = self.tile_layer_batches.borrow_mut();
+        let mut render_reader = self.render_reader.borrow_mut();
+
+        tile_layer_batches.resolve_deltas(
+            self.map.borrow_mut().chunk_changes.read(&mut render_reader),
+            &self.ts_render_data,
+        );
 
         tile_layer_batches
             .get_layer_mut(sky_layer)
@@ -847,13 +859,9 @@ impl LuaUserData for SmbOneOne {
             move |_lua, this, (x, y, tile_id, tileset_id): (i32, i32, u32, u32)| {
                 let tile_id = TileId::new(tile_id, tileset_id, false, false, false);
                 let layer_id = *this.map.borrow().tile_layer_map.get("Foreground").unwrap();
-                let map_set =
-                    this.map
-                        .borrow_mut()
-                        .set_tile(x, y, layer_id, tile_id, CoordSpace::Tile);
-                this.tile_layer_batches
+                this.map
                     .borrow_mut()
-                    .set_tile(&map_set, &this.ts_render_data);
+                    .set_tile(x, y, layer_id, tile_id, CoordSpace::Tile);
 
                 Ok(())
             },
@@ -861,19 +869,17 @@ impl LuaUserData for SmbOneOne {
 
         methods.add_method("remove_tile", move |_lua, this, (x, y): (i32, i32)| {
             let layer_id = *this.map.borrow().tile_layer_map.get("Foreground").unwrap();
-            if let Some(map_set) =
-                this.map
-                    .borrow_mut()
-                    .remove_tile(x, y, CoordSpace::Tile, layer_id)
-            {
-                this.tile_layer_batches.borrow_mut().remove_tile(&map_set);
-            }
+            this.map
+                .borrow_mut()
+                .remove_tile(x, y, CoordSpace::Tile, layer_id);
 
             Ok(())
         });
 
         methods.add_method("reset_map", move |lua, this, ()| {
             this.map.borrow_mut().clone_from(&this.map_initial_state);
+            let mut render_reader = this.render_reader.borrow_mut();
+            *render_reader = this.map.borrow_mut().chunk_changes.register_reader();
             let engine = lua.get_resource::<EngineRef>()?;
             *this.tile_layer_batches.borrow_mut() = hv_tiled::TileLayerBatches::new(
                 &this.map.borrow().tile_layers,

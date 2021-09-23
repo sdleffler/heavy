@@ -127,7 +127,10 @@ impl TilesetRenderData {
         (render_data, ct, ss)
     }
 
-    pub fn get_tileset_texture_and_spritesheet(&self, tileset_id: u32) -> (&SpriteSheet, &CachedTexture) {
+    pub fn get_tileset_texture_and_spritesheet(
+        &self,
+        tileset_id: u32,
+    ) -> (&SpriteSheet, &CachedTexture) {
         let (ss, ct) = &self.textures_and_spritesheets[tileset_id as usize];
         (ct, ss)
     }
@@ -188,9 +191,9 @@ impl TileLayerBatches {
         self.0.iter_mut()
     }
 
-    pub fn set_tile(
+    fn set_tile(
         &mut self,
-        addition: &MapAddition,
+        addition: &TileAddition,
         ts_render_data: &TilesetRenderData,
     ) -> Option<SpriteId> {
         // Remove the existing sprite id and any animated metadata associatd with it
@@ -198,7 +201,7 @@ impl TileLayerBatches {
             .sprite_id_map
             .contains_key(&(addition.x, addition.y))
         {
-            self.remove_tile(&MapRemoval {
+            self.remove_tile(&TileRemoval {
                 id: addition.changed_id.unwrap(),
                 layer_id: addition.layer_id,
                 x: addition.x,
@@ -249,7 +252,7 @@ impl TileLayerBatches {
         ret_val
     }
 
-    pub fn remove_tile(&mut self, removal: &MapRemoval) -> Option<SpriteId> {
+    fn remove_tile(&mut self, removal: &TileRemoval) -> Option<SpriteId> {
         let tile_batch = &mut self.0[removal.layer_id.llid as usize];
         if let Some(old_sprite_id) = tile_batch.sprite_id_map.remove(&(removal.x, removal.y)) {
             // Attempt to remove the sprite sheet info if it exists since we don't want to update animation info for a sprite that doesn't exist
@@ -259,6 +262,27 @@ impl TileLayerBatches {
         } else {
             None
         }
+    }
+
+    pub fn resolve_delta(
+        &mut self,
+        change: &TileChange,
+        ts_render_data: &TilesetRenderData,
+    ) -> Option<SpriteId> {
+        match change {
+            TileChange::TileAddition(a) => self.set_tile(a, ts_render_data),
+            TileChange::TileRemoval(r) => self.remove_tile(r),
+        }
+    }
+
+    pub fn resolve_deltas<'a>(
+        &mut self,
+        change_iter: impl Iterator<Item = &'a TileChange>,
+        ts_render_data: &TilesetRenderData,
+    ) -> Vec<Option<SpriteId>> {
+        change_iter
+            .map(|change| self.resolve_delta(change, ts_render_data))
+            .collect()
     }
 }
 

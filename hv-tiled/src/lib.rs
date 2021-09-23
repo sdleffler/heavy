@@ -195,6 +195,41 @@ pub struct MapMetaData {
 }
 
 #[derive(Debug, Clone)]
+pub struct TileRemoval {
+    id: TileId,
+    layer_id: TileLayerId,
+    x: i32,
+    y: i32,
+}
+
+#[derive(Debug, Clone)]
+pub struct TileAddition {
+    changed_id: Option<TileId>,
+    new_id: TileId,
+    layer_id: TileLayerId,
+    x: i32,
+    y: i32,
+}
+
+#[derive(Debug, Clone)]
+pub struct ObjectRemoval;
+
+#[derive(Debug, Clone)]
+pub struct ObjectAddition;
+
+#[derive(Debug, Clone)]
+pub enum TileChange {
+    TileRemoval(TileRemoval),
+    TileAddition(TileAddition),
+}
+
+#[derive(Debug, Clone)]
+pub enum ObjectChange {
+    ObjectRemoval(ObjectRemoval),
+    ObjectAddition(ObjectAddition),
+}
+
+#[derive(Debug)]
 pub struct Map {
     pub meta_data: MapMetaData,
     pub tile_layers: Vec<TileLayer>,
@@ -204,34 +239,24 @@ pub struct Map {
     pub object_layer_map: HashMap<String, ObjectLayerId>,
     obj_slab: slab::Slab<Object>,
     obj_id_to_ref_map: HashMap<ObjectId, ObjectRef>,
+    pub chunk_changes: shrev::EventChannel<TileChange>,
+    pub object_changes: shrev::EventChannel<ObjectChange>,
 }
 
-#[derive(Debug, Clone)]
-pub struct MapRemoval {
-    id: TileId,
-    layer_id: TileLayerId,
-    x: i32,
-    y: i32,
-}
-
-impl MapRemoval {
-    pub fn get_contents(&self) -> (&TileId, &TileLayerId, &i32, &i32) {
-        (&self.id, &self.layer_id, &self.x, &self.y)
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct MapAddition {
-    changed_id: Option<TileId>,
-    new_id: TileId,
-    layer_id: TileLayerId,
-    x: i32,
-    y: i32,
-}
-
-impl MapAddition {
-    pub fn get_contents(&self) -> (&Option<TileId>, &TileLayerId, &i32, &i32) {
-        (&self.changed_id, &self.layer_id, &self.x, &self.y)
+impl Clone for Map {
+    fn clone(&self) -> Self {
+        Map {
+            meta_data: self.meta_data.clone(),
+            tile_layers: self.tile_layers.clone(),
+            object_layers: self.object_layers.clone(),
+            tilesets: self.tilesets.clone(),
+            tile_layer_map: self.tile_layer_map.clone(),
+            object_layer_map: self.object_layer_map.clone(),
+            obj_slab: self.obj_slab.clone(),
+            obj_id_to_ref_map: self.obj_id_to_ref_map.clone(),
+            chunk_changes: shrev::EventChannel::new(),
+            object_changes: shrev::EventChannel::new(),
+        }
     }
 }
 
@@ -242,13 +267,38 @@ pub enum CoordSpace {
 }
 
 impl Map {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        meta_data: MapMetaData,
+        tile_layers: Vec<TileLayer>,
+        object_layers: Vec<ObjectLayer>,
+        tilesets: Tilesets,
+        tile_layer_map: HashMap<String, TileLayerId>,
+        object_layer_map: HashMap<String, ObjectLayerId>,
+        obj_slab: slab::Slab<Object>,
+        obj_id_to_ref_map: HashMap<ObjectId, ObjectRef>,
+    ) -> Self {
+        Map {
+            meta_data,
+            tile_layers,
+            object_layers,
+            tilesets,
+            tile_layer_map,
+            object_layer_map,
+            obj_slab,
+            obj_id_to_ref_map,
+            chunk_changes: shrev::EventChannel::new(),
+            object_changes: shrev::EventChannel::new(),
+        }
+    }
+
     pub fn remove_tile(
         &mut self,
         x: i32,
         y: i32,
         coordinate_space: CoordSpace,
         layer_id: TileLayerId,
-    ) -> Option<MapRemoval> {
+    ) {
         let (x, y) = match coordinate_space {
             CoordSpace::Pixel => (
                 x / (self.meta_data.tilewidth) as i32,
@@ -262,14 +312,13 @@ impl Map {
             .remove_tile(x, y)
         {
             assert!(tile_id.to_index().is_some());
-            Some(MapRemoval {
-                id: tile_id,
-                layer_id,
-                x,
-                y,
-            })
-        } else {
-            None
+            self.chunk_changes
+                .single_write(TileChange::TileRemoval(TileRemoval {
+                    id: tile_id,
+                    layer_id,
+                    x,
+                    y,
+                }))
         }
     }
 
@@ -280,7 +329,7 @@ impl Map {
         layer_id: TileLayerId,
         tile: TileId,
         coordinate_space: CoordSpace,
-    ) -> MapAddition {
+    ) {
         let (x, y) = match coordinate_space {
             CoordSpace::Pixel => (
                 x / (self.meta_data.tilewidth as i32),
@@ -291,13 +340,14 @@ impl Map {
 
         let layer = &mut self.tile_layers[layer_id.llid as usize];
         let changed_id = layer.data.set_tile(x, y, tile);
-        MapAddition {
-            new_id: tile,
-            changed_id,
-            layer_id,
-            x,
-            y,
-        }
+        self.chunk_changes
+            .single_write(TileChange::TileAddition(TileAddition {
+                new_id: tile,
+                changed_id,
+                layer_id,
+                x,
+                y,
+            }));
     }
 
     pub fn get_tile(
