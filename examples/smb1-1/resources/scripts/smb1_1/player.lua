@@ -192,7 +192,14 @@ do
 
         player:velocity_set_linear(vx, math.max(vy, -maximum_falling_velocity))
 
-        if player.is_grounded then agent:pop() end
+        px, py = player:position_get_coords()
+
+        if py <= -8 then
+            agent:switch("dead", player)
+        elseif player.is_grounded then
+            agent:pop()
+        end
+
     end
 end
 
@@ -200,9 +207,9 @@ local Dead = State:extend("smb1_1.player.Dead", { name = "dead" })
 do
     function Dead:init(agent, player)
         player.animation = tag_dead
-        player:collider_remove()
         player:velocity_set_linear(0, 0)
         smb.controller:switch("player_died")
+        player:collider_remove()
     end
 
     function Dead:update(agent, player)

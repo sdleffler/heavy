@@ -527,24 +527,24 @@ impl SmbOneOne {
             .query::<(&Position, &Collider)>()
             .with::<PlayerMarker>();
 
-        let (object1, (Position(pos1), collider1)) = mario_query.iter().next().unwrap();
-
-        for (object2, (Position(pos2), collider2)) in self
-            .space
-            .borrow()
-            .query::<(&Position, &Collider)>()
-            .without::<Unloaded>()
-            .iter()
-            .filter(|&(object2, _)| object1 != object2)
-        {
-            if parry2d::query::intersection_test(
-                &(pos1.to_isometry() * collider1.local_tx),
-                collider1.shape.as_ref(),
-                &(pos2.to_isometry() * collider2.local_tx),
-                collider2.shape.as_ref(),
-            )? {
-                to_collide.push((object1, object2));
-                break;
+        if let Some((object1, (Position(pos1), collider1))) = mario_query.iter().next() {
+            for (object2, (Position(pos2), collider2)) in self
+                .space
+                .borrow()
+                .query::<(&Position, &Collider)>()
+                .without::<Unloaded>()
+                .iter()
+                .filter(|&(object2, _)| object1 != object2)
+            {
+                if parry2d::query::intersection_test(
+                    &(pos1.to_isometry() * collider1.local_tx),
+                    collider1.shape.as_ref(),
+                    &(pos2.to_isometry() * collider2.local_tx),
+                    collider2.shape.as_ref(),
+                )? {
+                    to_collide.push((object1, object2));
+                    break;
+                }
             }
         }
 
