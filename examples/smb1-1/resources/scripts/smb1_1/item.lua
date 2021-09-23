@@ -65,6 +65,17 @@ do
         self.to_despawn = false
     end
 
+    function Mushroom:on_mario_collide(player, player_tag_table)
+        if not (player.powerup_status == "big" or player.powerup_status == "fireflower") then
+            player.powerup_status = "big"
+            if not player.is_grounded then
+                player:sprite_animation_goto_tag_by_str("tall_jump")
+            end
+        end
+
+        self.to_despawn = true
+    end
+
     function Mushroom:update(dt)
         self.controller:update(self, dt)
         if self.to_despawn then game.space:despawn(self) end

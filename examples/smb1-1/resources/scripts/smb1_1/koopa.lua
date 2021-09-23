@@ -123,7 +123,9 @@ do
         if get_sign(vx_k) == get_sign(px_p - px_k) then player:hurt(koopa) end
     end
 
-    function ShellDrift:on_enemy_collide(agent, koopa, enemy) enemy:on_squish() end
+    function ShellDrift:on_enemy_collide(agent, koopa, enemy)
+        if enemy.on_squish then enemy:on_squish() end
+    end
 end
 
 local KoopaController = Agent:extend("KoopaController")

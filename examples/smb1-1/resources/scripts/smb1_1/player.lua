@@ -36,15 +36,22 @@ local midair_high_acceleration = mpf_to_pps(0, 0, 14, 4)
 local midair_high_deceleration = mpf_to_pps(0, 0, 13, 0)
 
 local tag_dead = assert(game.sprite_sheets.mario:get_tag("dead"))
-local tag_idle_smol = assert(game.sprite_sheets.mario:get_tag("idle"))
-local tag_walk_smol = assert(game.sprite_sheets.mario:get_tag("walk"))
-local tag_skid_smol = assert(game.sprite_sheets.mario:get_tag("skid"))
-local tag_jump_smol = assert(game.sprite_sheets.mario:get_tag("jump"))
-local tag_idle_beeg = assert(game.sprite_sheets.mario:get_tag("tall_idle"))
-local tag_walk_beeg = assert(game.sprite_sheets.mario:get_tag("tall_walk"))
-local tag_skid_beeg = assert(game.sprite_sheets.mario:get_tag("tall_skid"))
-local tag_jump_beeg = assert(game.sprite_sheets.mario:get_tag("tall_jump"))
 local tag_HENSHIN = assert(game.sprite_sheets.mario:get_tag("transform"))
+
+local tag_table = {
+    small = {
+        idle = assert(game.sprite_sheets.mario:get_tag("idle")),
+        walk = assert(game.sprite_sheets.mario:get_tag("walk")),
+        skid = assert(game.sprite_sheets.mario:get_tag("skid")),
+        jump = assert(game.sprite_sheets.mario:get_tag("jump")),
+    },
+    big = {
+        idle = assert(game.sprite_sheets.mario:get_tag("tall_idle")),
+        walk = assert(game.sprite_sheets.mario:get_tag("tall_walk")),
+        skid = assert(game.sprite_sheets.mario:get_tag("tall_skid")),
+        jump = assert(game.sprite_sheets.mario:get_tag("tall_jump")),
+    },
+}
 
 local hurt_invincibility_len = 4 * 60
 
@@ -55,7 +62,7 @@ do
             player:velocity_add_linear(0, jump_impulse)
 
             -- TODO: beegsmol
-            player.animation = tag_jump_smol
+            player.animation = tag_table[player.powerup_status].jump
             agent:push("air")
         elseif not player.is_grounded then
             agent:push("air")
@@ -94,7 +101,7 @@ do
                 end
 
                 -- TODO: beegsmol
-                player.animation = tag_idle_smol
+                player.animation = tag_table[player.powerup_status].idle
             elseif move_dir == -sign_vx then
                 -- Case 2 and 4. (skidding)
                 if abs_vx > skid_turnaround_velocity + skidding_deceleration then
@@ -104,7 +111,7 @@ do
                 end
 
                 -- TODO: beegsmol
-                player.animation = tag_skid_smol
+                player.animation = tag_table[player.powerup_status].skid
             else
                 assert(move_dir == sign_vx or sign_vx == 0)
                 -- Case 1. (accelerating)
@@ -130,9 +137,9 @@ do
 
                 -- TODO: beegsmol
                 if move_dir ~= 0 and sign_vx ~= 0 then
-                    player.animation = tag_walk_smol
+                    player.animation = tag_table[player.powerup_status].walk
                 else
-                    player.animation = tag_idle_smol
+                    player.animation = tag_table[player.powerup_status].idle
                 end
             end
 
@@ -239,11 +246,11 @@ do
             SpriteAnimation(gfx.SpriteAnimation.new(game.sprite_sheets.mario)), game.PlayerMarker,
             game.RequiresLuaUpdate
         )
-        self.is_big = false
+        self.powerup_status = "small"
         self.run_frames = 0
         self.invincible_timer = 0
         self.facing_direction = 1
-        self.animation = game.sprite_sheets.mario:get_tag("idle")
+        self.animation = tag_table[self.powerup_status].idle
         self.prev_animation = self.animation
         self.controller = PlayerController:new()
 
@@ -288,7 +295,8 @@ do
             end
             item.Mushroom:new(game.space, (x + 0.5) * 16, (y + 0.5) * 16, direction)
         elseif tile_id == 241 then
-            game:remove_tile(x, y)
+            print(self.powerup_status)
+            if self.powerup_status ~= "small" then game:remove_tile(x, y) end
         end
     end
 
@@ -306,7 +314,7 @@ do
         if y < 0 then
             if object.on_squish then object:on_squish(self) end
         elseif object.on_mario_collide then
-            object:on_mario_collide(self)
+            object:on_mario_collide(self, tag_table)
         else
             self:hurt(object)
         end
@@ -315,8 +323,12 @@ do
 
     function Player:hurt(enemy)
         if self.invincible_timer == 0 then
-            if not self.is_big then self.controller:switch("dead", self) end
-            self.invincible_timer = hurt_invincibility_len
+            if self.powerup_status == "small" then
+                self.controller:switch("dead", self)
+            else
+                self.powerup_status = "small"
+                self.invincible_timer = hurt_invincibility_len
+            end
         end
     end
 
