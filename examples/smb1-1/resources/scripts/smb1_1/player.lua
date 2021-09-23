@@ -37,6 +37,7 @@ local midair_high_deceleration = mpf_to_pps(0, 0, 13, 0)
 
 local tag_dead = assert(game.sprite_sheets.mario:get_tag("dead"))
 local tag_HENSHIN = assert(game.sprite_sheets.mario:get_tag("transform"))
+local tag_crouching = assert(game.sprite_sheets.mario:get_tag("tall_crouch"))
 
 local tag_table = {
     small = {
@@ -61,8 +62,12 @@ do
         if input:get_button_pressed(button.A) then
             player:velocity_add_linear(0, jump_impulse)
 
-            -- TODO: beegsmol
-            player.animation = tag_table[player.powerup_status].jump
+            if player.powerup_status ~= "small" and input:get_button_down(button.Down) then
+                player.animation = tag_crouching
+            else
+                player.animation = tag_table[player.powerup_status].jump
+            end
+
             agent:push("air")
         elseif not player.is_grounded then
             agent:push("air")
@@ -100,8 +105,12 @@ do
                     vx = 0
                 end
 
-                -- TODO: beegsmol
-                player.animation = tag_table[player.powerup_status].idle
+                if player.powerup_status ~= "small" and input:get_button_down(button.Down) then
+                    player.animation = tag_crouching
+                else
+                    player.animation = tag_table[player.powerup_status].idle
+                end
+
             elseif move_dir == -sign_vx then
                 -- Case 2 and 4. (skidding)
                 if abs_vx > skid_turnaround_velocity + skidding_deceleration then
@@ -110,7 +119,6 @@ do
                     vx = 0
                 end
 
-                -- TODO: beegsmol
                 player.animation = tag_table[player.powerup_status].skid
             else
                 assert(move_dir == sign_vx or sign_vx == 0)
@@ -135,11 +143,14 @@ do
                     vx = move_dir * max_velocity
                 end
 
-                -- TODO: beegsmol
                 if move_dir ~= 0 and sign_vx ~= 0 then
                     player.animation = tag_table[player.powerup_status].walk
                 else
-                    player.animation = tag_table[player.powerup_status].idle
+                    if input:get_button_pressed(button.Down) and player.powerup_status ~= "small" then
+                        player.animation = tag_crouching
+                    else
+                        player.animation = tag_table[player.powerup_status].idle
+                    end
                 end
             end
 
@@ -195,6 +206,14 @@ do
             vx = max_velocity
         elseif vx < -max_velocity then
             vx = -max_velocity
+        end
+
+        -- If the player was already crouching, is still holding down, and isn't small, they should
+        -- remain crouch jumping. This negation checks for the opposite of that and updates him to
+        -- the jump animation if he lets go
+        if not (player.powerup_status ~= "small" and input:get_button_down(button.Down) and
+            player.animation == tag_crouching) then
+            player.animation = tag_table[player.powerup_status].jump
         end
 
         player:velocity_set_linear(vx, math.max(vy, -maximum_falling_velocity))
@@ -318,7 +337,7 @@ do
         else
             self:hurt(object)
         end
-        -- TODO: add case for coins?
+        -- TODO: add case items?
     end
 
     function Player:hurt(enemy)

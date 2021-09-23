@@ -58,7 +58,7 @@ do
     binser.registerClass(Mushroom)
 
     function Mushroom:init(space, x, y, direction)
-        Mushroom.super.init(self, space, x, y, game.RequiresLuaUpdate, game.ItemMarker(3))
+        Mushroom.super.init(self, space, x, y, game.RequiresLuaUpdate, game.ItemMarker(4))
         self.direction = direction
         self.controller = MushroomController:new()
         self.controller:push("emerging", self, "mushroom")

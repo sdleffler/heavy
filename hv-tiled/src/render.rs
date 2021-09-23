@@ -118,6 +118,7 @@ impl TilesetRenderData {
         &self,
         tile: TileId,
     ) -> (TileRenderData, &SpriteSheet, &CachedTexture) {
+        let tile = TileId(tile.0 - 1, tile.1);
         let render_data = if let Some(tag) = self.tile_to_tag_map.get(&tile) {
             TileRenderData::Animated(*tag)
         } else {
