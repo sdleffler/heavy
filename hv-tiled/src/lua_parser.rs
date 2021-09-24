@@ -116,7 +116,7 @@ fn parse_chunk(
     t: &LuaTable,
     encoding: &Encoding,
     compression: &Option<Compression>,
-    tile_buffer: &[TileId],
+    tile_buffer: &[u32],
 ) -> Result<(Chunk, i32, i32), Error> {
     let width: u32 = t.get("width")?;
     let height: u32 = t.get("height")?;
@@ -144,7 +144,7 @@ fn parse_chunk(
     ))
 }
 
-fn parse_tile_layer(t: &LuaTable, llid: u32, tile_buffer: &[TileId]) -> Result<TileLayer, Error> {
+fn parse_tile_layer(t: &LuaTable, llid: u32, tile_buffer: &[u32]) -> Result<TileLayer, Error> {
     let layer_type = match t.get::<_, LuaString>("type")?.to_str()? {
         "tilelayer" => LayerType::Tile,
         s => return Err(anyhow!("Got an unsupported tilelayer type: {}", s)),
@@ -264,7 +264,11 @@ fn parse_text(t_table: &LuaTable) -> Result<Text, Error> {
     })
 }
 
-fn parse_object(obj_table: &LuaTable, from_obj_layer: bool) -> Result<Object, Error> {
+fn parse_object(
+    obj_table: &LuaTable,
+    from_obj_layer: bool,
+    tileset_ids: Option<&[u32]>,
+) -> Result<Object, Error> {
     let lua_shape_res = match obj_table.get::<_, LuaString>("shape")?.to_str()? {
         "text" => LuaShapeResolution::Text(parse_text(obj_table)?),
         s => LuaShapeResolution::ObjectShape(ObjectShape::from_string(s)?),
@@ -274,6 +278,14 @@ fn parse_object(obj_table: &LuaTable, from_obj_layer: bool) -> Result<Object, Er
         LuaShapeResolution::ObjectShape(s) => (Some(s), None),
         LuaShapeResolution::Text(t) => (None, Some(t)),
     };
+
+    let tile_id = obj_table.get("gid").ok().map(|gid| {
+        TileId::from_gid(
+            gid,
+            tileset_ids.expect("B-BAKANA!!!! GOT A TILE OBJECT WITHIN A TILESET!"),
+        )
+    });
+
     Ok(Object {
         id: ObjectId::new(obj_table.get("id")?, from_obj_layer),
         name: obj_table.get::<_, LuaString>("name")?.to_str()?.to_owned(),
@@ -285,7 +297,7 @@ fn parse_object(obj_table: &LuaTable, from_obj_layer: bool) -> Result<Object, Er
         properties: parse_properties(obj_table)?,
         rotation: obj_table.get("rotation")?,
         visible: obj_table.get("visible")?,
-        gid: obj_table.get("gid").ok(),
+        tile_id,
         shape,
         text,
     })
@@ -303,11 +315,12 @@ fn parse_object_group(
     llid: u32,
     from_obj_layer: bool,
     slab: &mut slab::Slab<Object>,
+    tileset_ids: Option<&[u32]>,
 ) -> Result<(ObjectGroup, Vec<(ObjectId, ObjectRef)>), Error> {
     let mut obj_ids_and_refs = Vec::new();
 
     for object in objg_table.get::<_, LuaTable>("objects")?.sequence_values() {
-        let object = parse_object(&object?, from_obj_layer)?;
+        let object = parse_object(&object?, from_obj_layer, tileset_ids)?;
 
         obj_ids_and_refs.push((object.id, ObjectRef(slab.insert(object))));
     }
@@ -361,7 +374,7 @@ fn parse_tile(
     slab: &mut slab::Slab<Object>,
 ) -> Result<Tile, Error> {
     let objectgroup = match tile_table.get::<_, LuaTable>("objectGroup") {
-        Ok(t) => Some(parse_object_group(&t, u32::MAX, false, slab)?.0),
+        Ok(t) => Some(parse_object_group(&t, u32::MAX, false, slab, None)?.0),
         Err(_) => None,
     };
 
@@ -429,7 +442,7 @@ pub fn parse_map(map_path: &str, engine: &Engine, path_prefix: Option<&str>) -> 
     let mut tilesets = Vec::new();
     // We initialize the tile_buffer with 1 0'd out TileId to account for the fact
     // that layer indexing starts at 1 instead of 0
-    let mut tile_buffer = vec![TileId(0, TileMetaData(0))];
+    let mut tile_buffer = vec![0];
     let mut obj_slab = slab::Slab::new();
 
     for (tileset, i) in tiled_lua_table
@@ -439,11 +452,8 @@ pub fn parse_map(map_path: &str, engine: &Engine, path_prefix: Option<&str>) -> 
     {
         let tileset = parse_tileset(&tileset?, path_prefix, i, &mut obj_slab)?;
         tile_buffer.reserve(tileset.tilecount as usize);
-        for tile_id_num in tileset.first_gid..tileset.tilecount {
-            tile_buffer.push(TileId(
-                tile_id_num,
-                TileMetaData::new(i, false, false, false),
-            ));
+        for _ in tileset.first_gid..tileset.tilecount {
+            tile_buffer.push(i);
         }
         tilesets.push(tileset);
     }
@@ -474,7 +484,7 @@ pub fn parse_map(map_path: &str, engine: &Engine, path_prefix: Option<&str>) -> 
             }
             LayerType::Object => {
                 let (obj_group, obj_ids_and_refs) =
-                    parse_object_group(&layer, obj_llid, true, &mut obj_slab)?;
+                    parse_object_group(&layer, obj_llid, true, &mut obj_slab, Some(&tile_buffer))?;
                 for (obj_id, obj_ref) in obj_ids_and_refs.iter() {
                     obj_id_to_ref_map.insert(*obj_id, *obj_ref);
                 }

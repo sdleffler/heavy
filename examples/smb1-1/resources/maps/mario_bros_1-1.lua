@@ -9,7 +9,7 @@ return {
   tilewidth = 16,
   tileheight = 16,
   nextlayerid = 22,
-  nextobjectid = 83,
+  nextobjectid = 88,
   properties = {},
   tilesets = {
     {
@@ -57,40 +57,14 @@ return {
             properties = {},
             objects = {
               {
-                id = 1,
+                id = 4,
                 name = "",
                 type = "",
                 shape = "rectangle",
-                x = 6.78775,
-                y = 7.84834,
-                width = 6,
-                height = 6,
-                rotation = 0,
-                visible = true,
-                properties = {}
-              },
-              {
-                id = 2,
-                name = "",
-                type = "",
-                shape = "point",
-                x = 4.125,
-                y = 9.375,
-                width = 0,
-                height = 0,
-                rotation = 0,
-                visible = true,
-                properties = {}
-              },
-              {
-                id = 3,
-                name = "",
-                type = "",
-                shape = "ellipse",
-                x = 13.5,
-                y = 2.75,
-                width = 4,
-                height = 4,
+                x = 0,
+                y = 0,
+                width = 16,
+                height = 16,
                 rotation = 0,
                 visible = true,
                 properties = {}
@@ -144,34 +118,6 @@ return {
           id = 53,
           properties = {
             ["touch_to_win"] = true
-          },
-          objectGroup = {
-            type = "objectgroup",
-            draworder = "index",
-            id = 2,
-            name = "",
-            visible = true,
-            opacity = 1,
-            offsetx = 0,
-            offsety = 0,
-            parallaxx = 1,
-            parallaxy = 1,
-            properties = {},
-            objects = {
-              {
-                id = 1,
-                name = "",
-                type = "",
-                shape = "ellipse",
-                x = 3.5,
-                y = 7.5,
-                width = 9,
-                height = 9,
-                rotation = 0,
-                visible = true,
-                properties = {}
-              }
-            }
           }
         },
         {
@@ -233,34 +179,6 @@ return {
           id = 101,
           properties = {
             ["touch_to_win"] = true
-          },
-          objectGroup = {
-            type = "objectgroup",
-            draworder = "index",
-            id = 2,
-            name = "",
-            visible = true,
-            opacity = 1,
-            offsetx = 0,
-            offsety = 0,
-            parallaxx = 1,
-            parallaxy = 1,
-            properties = {},
-            objects = {
-              {
-                id = 1,
-                name = "",
-                type = "",
-                shape = "rectangle",
-                x = 7,
-                y = 0,
-                width = 2,
-                height = 16,
-                rotation = 0,
-                visible = true,
-                properties = {}
-              }
-            }
           }
         },
         {
@@ -667,37 +585,6 @@ return {
           properties = {
             ["breakable"] = true
           },
-          objectGroup = {
-            type = "objectgroup",
-            draworder = "index",
-            id = 2,
-            name = "",
-            visible = true,
-            opacity = 1,
-            offsetx = 0,
-            offsety = 0,
-            parallaxx = 1,
-            parallaxy = 1,
-            properties = {},
-            objects = {
-              {
-                id = 1,
-                name = "",
-                type = "",
-                shape = "rectangle",
-                x = 0,
-                y = 0,
-                width = 16,
-                height = 16,
-                rotation = 0,
-                visible = true,
-                properties = {}
-              }
-            }
-          }
-        },
-        {
-          id = 242,
           objectGroup = {
             type = "objectgroup",
             draworder = "index",
@@ -1174,7 +1061,7 @@ return {
         },
         {
           x = 192, y = -16, width = 16, height = 16,
-          data = "eJxjYBgFhIAZhfrTaKh/2qj+Ya8fn5pARsowALqrDjM="
+          data = "eJxjYBj+wIxC/WmDWP+0Uf3DXj8+NYGMlGEA6+IOmQ=="
         },
         {
           x = 208, y = -16, width = 16, height = 16,
@@ -1254,7 +1141,7 @@ return {
       height = 18,
       id = 14,
       name = "ItemsInBlocks",
-      visible = false,
+      visible = true,
       opacity = 1,
       offsetx = 0,
       offsety = 0,
@@ -1475,15 +1362,28 @@ return {
       objects = {
         {
           id = 46,
-          name = "Flag Pole",
+          name = "Flag",
           type = "",
           shape = "rectangle",
-          x = 3208,
-          y = -160,
+          x = 3207,
+          y = -176,
           width = 16,
           height = 16,
+          rotation = 25,
+          gid = 3221225577,
+          visible = true,
+          properties = {}
+        },
+        {
+          id = 85,
+          name = "Win Collision Box",
+          type = "",
+          shape = "rectangle",
+          x = 3222.88,
+          y = -288,
+          width = 16,
+          height = 260,
           rotation = 0,
-          gid = 105,
           visible = true,
           properties = {}
         }

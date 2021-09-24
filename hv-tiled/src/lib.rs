@@ -25,6 +25,11 @@ use std::{collections::HashMap, io::Read, path::Path};
 const EMPTY_TILE: TileId = TileId(0, TileMetaData(0));
 const CHUNK_SIZE: u32 = 16;
 
+const FLIPPED_HORIZONTALLY_FLAG: u32 = 0x80000000;
+const FLIPPED_VERTICALLY_FLAG: u32 = 0x40000000;
+const FLIPPED_DIAGONALLY_FLAG: u32 = 0x20000000;
+const UNSET_FLAGS: u32 = 0x1FFFFFFF;
+
 #[derive(Debug, Clone)]
 pub enum LayerType {
     Tile,
@@ -175,6 +180,32 @@ impl TileId {
             tile_id + 1,
             TileMetaData::new(tileset_id, flipx, flipy, diagonal_flip),
         )
+    }
+
+    fn from_gid(mut gid: u32, tile_buffer: &[u32]) -> TileId {
+        // For each tile, we check the flip flags and set the metadata with them.
+        // We then unset the flip flags in the tile ID
+        let flipx = (gid & FLIPPED_HORIZONTALLY_FLAG) != 0;
+        let flipy = (gid & FLIPPED_VERTICALLY_FLAG) != 0;
+        let diag_flip = (gid & FLIPPED_DIAGONALLY_FLAG) != 0;
+
+        gid &= UNSET_FLAGS;
+
+        let tileset_id = tile_buffer[gid as usize];
+
+        TileId(gid, TileMetaData::new(tileset_id, flipx, flipy, diag_flip))
+    }
+
+    fn from_gid_with_tileset_id(mut gid: u32, tileset_id: u32) -> TileId {
+        // For each tile, we check the flip flags and set the metadata with them.
+        // We then unset the flip flags in the tile ID
+        let flipx = (gid & FLIPPED_HORIZONTALLY_FLAG) != 0;
+        let flipy = (gid & FLIPPED_VERTICALLY_FLAG) != 0;
+        let diag_flip = (gid & FLIPPED_DIAGONALLY_FLAG) != 0;
+
+        gid &= UNSET_FLAGS;
+
+        TileId(gid, TileMetaData::new(tileset_id, flipx, flipy, diag_flip))
     }
 }
 

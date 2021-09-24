@@ -91,7 +91,7 @@ pub struct Object {
     pub width: f32,
     pub height: f32,
     pub rotation: f32,
-    pub gid: Option<u32>,
+    pub tile_id: Option<TileId>,
     pub visible: bool,
     pub properties: Properties,
     pub shape: Option<ObjectShape>,

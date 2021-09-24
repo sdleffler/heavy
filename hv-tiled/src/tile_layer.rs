@@ -9,11 +9,6 @@ pub struct TileLayerId {
     pub llid: u32,
 }
 
-const FLIPPED_HORIZONTALLY_FLAG: u32 = 0x80000000;
-const FLIPPED_VERTICALLY_FLAG: u32 = 0x40000000;
-const FLIPPED_DIAGONALLY_FLAG: u32 = 0x20000000;
-const UNSET_FLAGS: u32 = 0x1FFFFFFF;
-
 #[derive(Debug, Clone)]
 pub struct Chunk(pub Vec<TileId>);
 
@@ -128,7 +123,7 @@ impl TileLayer {
         encoding: &Encoding,
         compression: &Option<Compression>,
         t: &LuaTable,
-        tile_buffer: &[TileId],
+        tile_buffer: &[u32],
     ) -> Result<Vec<TileId>, Error> {
         // TODO: Vector capacity can be pre-calculated here, optimize this
         let mut tile_data = Vec::new();
@@ -176,23 +171,6 @@ impl TileLayer {
             }
         }
 
-        let mut tile_ids = Vec::with_capacity(tile_data.len());
-
-        for mut tile in tile_data.into_iter() {
-            // For each tile, we check the flip flags and set the metadata with them.
-            // We then unset the flip flags in the tile ID
-            let flipx = (tile & FLIPPED_HORIZONTALLY_FLAG) != 0;
-            let flipy = (tile & FLIPPED_VERTICALLY_FLAG) != 0;
-            let diag_flip = (tile & FLIPPED_DIAGONALLY_FLAG) != 0;
-
-            tile &= UNSET_FLAGS;
-
-            let mut tile_id = tile_buffer[tile as usize];
-
-            tile_id.1 = TileMetaData::new(tile_id.1.tileset_id(), flipx, flipy, diag_flip);
-            tile_ids.push(tile_id);
-        }
-
-        Ok(tile_ids)
+        Ok(tile_data.into_iter().map(|tile| TileId::from_gid(tile, tile_buffer)).collect())
     }
 }
