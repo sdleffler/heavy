@@ -1,7 +1,7 @@
 { "frames": [
    {
     "filename": "mario_ss 0.ase",
-    "frame": { "x": 65, "y": 121, "w": 12, "h": 16 },
+    "frame": { "x": 29, "y": 112, "w": 12, "h": 16 },
     "rotated": false,
     "trimmed": true,
     "spriteSourceSize": { "x": 2, "y": 16, "w": 12, "h": 16 },
@@ -10,7 +10,7 @@
    },
    {
     "filename": "mario_ss 1.ase",
-    "frame": { "x": 60, "y": 90, "w": 15, "h": 16 },
+    "frame": { "x": 65, "y": 94, "w": 15, "h": 16 },
     "rotated": false,
     "trimmed": true,
     "spriteSourceSize": { "x": 0, "y": 16, "w": 15, "h": 16 },
@@ -19,7 +19,7 @@
    },
    {
     "filename": "mario_ss 2.ase",
-    "frame": { "x": 12, "y": 122, "w": 11, "h": 16 },
+    "frame": { "x": 76, "y": 126, "w": 11, "h": 16 },
     "rotated": false,
     "trimmed": true,
     "spriteSourceSize": { "x": 2, "y": 16, "w": 11, "h": 16 },
@@ -28,7 +28,7 @@
    },
    {
     "filename": "mario_ss 3.ase",
-    "frame": { "x": 58, "y": 106, "w": 13, "h": 15 },
+    "frame": { "x": 15, "y": 110, "w": 13, "h": 15 },
     "rotated": false,
     "trimmed": true,
     "spriteSourceSize": { "x": 1, "y": 17, "w": 13, "h": 15 },
@@ -37,7 +37,7 @@
    },
    {
     "filename": "mario_ss 4.ase",
-    "frame": { "x": 44, "y": 106, "w": 14, "h": 14 },
+    "frame": { "x": 15, "y": 95, "w": 14, "h": 14 },
     "rotated": false,
     "trimmed": true,
     "spriteSourceSize": { "x": 1, "y": 16, "w": 14, "h": 14 },
@@ -46,7 +46,7 @@
    },
    {
     "filename": "mario_ss 5.ase",
-    "frame": { "x": 14, "y": 91, "w": 13, "h": 16 },
+    "frame": { "x": 82, "y": 63, "w": 13, "h": 16 },
     "rotated": false,
     "trimmed": true,
     "spriteSourceSize": { "x": 1, "y": 16, "w": 13, "h": 16 },
@@ -55,7 +55,7 @@
    },
    {
     "filename": "mario_ss 6.ase",
-    "frame": { "x": 44, "y": 90, "w": 16, "h": 16 },
+    "frame": { "x": 48, "y": 94, "w": 16, "h": 16 },
     "rotated": false,
     "trimmed": true,
     "spriteSourceSize": { "x": 0, "y": 16, "w": 16, "h": 16 },
@@ -64,7 +64,7 @@
    },
    {
     "filename": "mario_ss 7.ase",
-    "frame": { "x": 13, "y": 107, "w": 13, "h": 15 },
+    "frame": { "x": 81, "y": 110, "w": 13, "h": 15 },
     "rotated": false,
     "trimmed": true,
     "spriteSourceSize": { "x": 1, "y": 17, "w": 13, "h": 15 },
@@ -73,7 +73,7 @@
    },
    {
     "filename": "mario_ss 8.ase",
-    "frame": { "x": 26, "y": 107, "w": 13, "h": 15 },
+    "frame": { "x": 48, "y": 111, "w": 13, "h": 15 },
     "rotated": false,
     "trimmed": true,
     "spriteSourceSize": { "x": 1, "y": 17, "w": 13, "h": 15 },
@@ -82,7 +82,7 @@
    },
    {
     "filename": "mario_ss 9.ase",
-    "frame": { "x": 39, "y": 120, "w": 13, "h": 15 },
+    "frame": { "x": 62, "y": 111, "w": 13, "h": 15 },
     "rotated": false,
     "trimmed": true,
     "spriteSourceSize": { "x": 1, "y": 17, "w": 13, "h": 15 },
@@ -91,7 +91,7 @@
    },
    {
     "filename": "mario_ss 10.ase",
-    "frame": { "x": 52, "y": 121, "w": 13, "h": 15 },
+    "frame": { "x": 1, "y": 112, "w": 13, "h": 15 },
     "rotated": false,
     "trimmed": true,
     "spriteSourceSize": { "x": 1, "y": 17, "w": 13, "h": 15 },
@@ -100,7 +100,7 @@
    },
    {
     "filename": "mario_ss 11.ase",
-    "frame": { "x": 0, "y": 91, "w": 14, "h": 15 },
+    "frame": { "x": 81, "y": 94, "w": 14, "h": 15 },
     "rotated": false,
     "trimmed": true,
     "spriteSourceSize": { "x": 1, "y": 17, "w": 14, "h": 15 },
@@ -109,7 +109,7 @@
    },
    {
     "filename": "mario_ss 12.ase",
-    "frame": { "x": 0, "y": 122, "w": 12, "h": 15 },
+    "frame": { "x": 15, "y": 126, "w": 12, "h": 15 },
     "rotated": false,
     "trimmed": true,
     "spriteSourceSize": { "x": 2, "y": 17, "w": 12, "h": 15 },
@@ -118,7 +118,7 @@
    },
    {
     "filename": "mario_ss 13.ase",
-    "frame": { "x": 0, "y": 106, "w": 13, "h": 16 },
+    "frame": { "x": 1, "y": 95, "w": 13, "h": 16 },
     "rotated": false,
     "trimmed": true,
     "spriteSourceSize": { "x": 1, "y": 16, "w": 13, "h": 16 },
@@ -127,7 +127,7 @@
    },
    {
     "filename": "mario_ss 14.ase",
-    "frame": { "x": 0, "y": 0, "w": 16, "h": 32 },
+    "frame": { "x": 1, "y": 1, "w": 16, "h": 32 },
     "rotated": false,
     "trimmed": false,
     "spriteSourceSize": { "x": 0, "y": 0, "w": 16, "h": 32 },
@@ -136,7 +136,7 @@
    },
    {
     "filename": "mario_ss 15.ase",
-    "frame": { "x": 28, "y": 85, "w": 16, "h": 22 },
+    "frame": { "x": 31, "y": 89, "w": 16, "h": 22 },
     "rotated": false,
     "trimmed": true,
     "spriteSourceSize": { "x": 0, "y": 10, "w": 16, "h": 22 },
@@ -145,7 +145,7 @@
    },
    {
     "filename": "mario_ss 16.ase",
-    "frame": { "x": 64, "y": 0, "w": 16, "h": 30 },
+    "frame": { "x": 69, "y": 1, "w": 16, "h": 30 },
     "rotated": false,
     "trimmed": true,
     "spriteSourceSize": { "x": 0, "y": 2, "w": 16, "h": 30 },
@@ -154,7 +154,7 @@
    },
    {
     "filename": "mario_ss 17.ase",
-    "frame": { "x": 48, "y": 32, "w": 14, "h": 31 },
+    "frame": { "x": 52, "y": 34, "w": 14, "h": 31 },
     "rotated": false,
     "trimmed": true,
     "spriteSourceSize": { "x": 1, "y": 1, "w": 14, "h": 31 },
@@ -163,7 +163,7 @@
    },
    {
     "filename": "mario_ss 18.ase",
-    "frame": { "x": 16, "y": 0, "w": 16, "h": 32 },
+    "frame": { "x": 18, "y": 1, "w": 16, "h": 32 },
     "rotated": false,
     "trimmed": false,
     "spriteSourceSize": { "x": 0, "y": 0, "w": 16, "h": 32 },
@@ -172,7 +172,7 @@
    },
    {
     "filename": "mario_ss 19.ase",
-    "frame": { "x": 32, "y": 0, "w": 16, "h": 32 },
+    "frame": { "x": 35, "y": 1, "w": 16, "h": 32 },
     "rotated": false,
     "trimmed": false,
     "spriteSourceSize": { "x": 0, "y": 0, "w": 16, "h": 32 },
@@ -181,7 +181,7 @@
    },
    {
     "filename": "mario_ss 20.ase",
-    "frame": { "x": 48, "y": 0, "w": 16, "h": 32 },
+    "frame": { "x": 52, "y": 1, "w": 16, "h": 32 },
     "rotated": false,
     "trimmed": false,
     "spriteSourceSize": { "x": 0, "y": 0, "w": 16, "h": 32 },
@@ -190,7 +190,7 @@
    },
    {
     "filename": "mario_ss 21.ase",
-    "frame": { "x": 0, "y": 32, "w": 16, "h": 29 },
+    "frame": { "x": 1, "y": 34, "w": 16, "h": 29 },
     "rotated": false,
     "trimmed": true,
     "spriteSourceSize": { "x": 0, "y": 2, "w": 16, "h": 29 },
@@ -199,7 +199,7 @@
    },
    {
     "filename": "mario_ss 22.ase",
-    "frame": { "x": 62, "y": 60, "w": 14, "h": 30 },
+    "frame": { "x": 67, "y": 63, "w": 14, "h": 30 },
     "rotated": false,
     "trimmed": true,
     "spriteSourceSize": { "x": 1, "y": 2, "w": 14, "h": 30 },
@@ -208,7 +208,7 @@
    },
    {
     "filename": "mario_ss 23.ase",
-    "frame": { "x": 16, "y": 32, "w": 16, "h": 29 },
+    "frame": { "x": 18, "y": 34, "w": 16, "h": 29 },
     "rotated": false,
     "trimmed": true,
     "spriteSourceSize": { "x": 0, "y": 2, "w": 16, "h": 29 },
@@ -217,7 +217,7 @@
    },
    {
     "filename": "mario_ss 24.ase",
-    "frame": { "x": 0, "y": 61, "w": 14, "h": 30 },
+    "frame": { "x": 1, "y": 64, "w": 14, "h": 30 },
     "rotated": false,
     "trimmed": true,
     "spriteSourceSize": { "x": 1, "y": 2, "w": 14, "h": 30 },
@@ -226,7 +226,7 @@
    },
    {
     "filename": "mario_ss 25.ase",
-    "frame": { "x": 32, "y": 32, "w": 16, "h": 29 },
+    "frame": { "x": 35, "y": 34, "w": 16, "h": 29 },
     "rotated": false,
     "trimmed": true,
     "spriteSourceSize": { "x": 0, "y": 2, "w": 16, "h": 29 },
@@ -235,7 +235,7 @@
    },
    {
     "filename": "mario_ss 26.ase",
-    "frame": { "x": 64, "y": 30, "w": 16, "h": 30 },
+    "frame": { "x": 69, "y": 32, "w": 16, "h": 30 },
     "rotated": false,
     "trimmed": true,
     "spriteSourceSize": { "x": 0, "y": 2, "w": 16, "h": 30 },
@@ -244,7 +244,7 @@
    },
    {
     "filename": "mario_ss 27.ase",
-    "frame": { "x": 44, "y": 63, "w": 14, "h": 27 },
+    "frame": { "x": 48, "y": 66, "w": 14, "h": 27 },
     "rotated": false,
     "trimmed": true,
     "spriteSourceSize": { "x": 1, "y": 2, "w": 14, "h": 27 },
@@ -253,7 +253,7 @@
    },
    {
     "filename": "mario_ss 28.ase",
-    "frame": { "x": 14, "y": 61, "w": 14, "h": 30 },
+    "frame": { "x": 16, "y": 64, "w": 14, "h": 30 },
     "rotated": false,
     "trimmed": true,
     "spriteSourceSize": { "x": 1, "y": 2, "w": 14, "h": 30 },
@@ -262,7 +262,7 @@
    },
    {
     "filename": "mario_ss 29.ase",
-    "frame": { "x": 28, "y": 61, "w": 16, "h": 24 },
+    "frame": { "x": 31, "y": 64, "w": 16, "h": 24 },
     "rotated": false,
     "trimmed": true,
     "spriteSourceSize": { "x": 0, "y": 8, "w": 16, "h": 24 },
@@ -275,7 +275,7 @@
   "version": "1.x-dev",
   "image": "mario_ss.png",
   "format": "RGBA8888",
-  "size": { "w": 80, "h": 138 },
+  "size": { "w": 95, "h": 142 },
   "scale": "1",
   "frameTags": [
    { "name": "idle", "from": 0, "to": 0, "direction": "forward" },
