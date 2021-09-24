@@ -37,6 +37,7 @@ local midair_high_deceleration = mpf_to_pps(0, 0, 13, 0)
 
 local tag_dead = assert(game.sprite_sheets.mario:get_tag("dead"))
 local tag_HENSHIN = assert(game.sprite_sheets.mario:get_tag("transform"))
+local tag_crouching = assert(game.sprite_sheets.mario:get_tag("tall_crouch"))
 
 local small_collider = hf.collision.Collider.cuboid(7.9, 8.0)
 local large_collider = hf.collision.Collider.cuboid(7.9, 16.0, 0.0, 8.0)
@@ -65,10 +66,7 @@ local tag_and_collider_table = {
             tag = assert(game.sprite_sheets.mario:get_tag("tall_jump")),
             collider = large_collider,
         },
-        crouch = {
-            tag = assert(game.sprite_sheets.mario:get_tag("tall_crouch")),
-            collider = small_collider,
-        },
+        crouch = { tag = tag_crouching, collider = small_collider },
     },
 }
 
@@ -229,8 +227,12 @@ do
         -- If the player was already crouching, is still holding down, and isn't small, they should
         -- remain crouch jumping. This negation checks for the opposite of that and updates him to
         -- the jump animation if he lets go
-        if not (player.powerup_status ~= "small" and input:get_button_down(button.Down) and
-            player.animation == tag_crouching) then player:swap_collider_and_tag("jump") end
+        if player.powerup_status ~= "small" and input:get_button_down(button.Down) and
+            player.animation == tag_crouching then
+            player:swap_collider_and_tag("crouch")
+        elseif player.animation == tag_crouching and not input:get_button_down(button.Down) then
+            player:swap_collider_and_tag("jump")
+        end
 
         player:velocity_set_linear(vx, math.max(vy, -maximum_falling_velocity))
 
@@ -330,7 +332,6 @@ do
             end
             item.Mushroom:new(game.space, (x + 0.5) * 16, (y + 0.5) * 16, direction)
         elseif tile_id == 241 then
-            print(self.powerup_status)
             if self.powerup_status ~= "small" then game:remove_tile(x, y) end
         end
     end
