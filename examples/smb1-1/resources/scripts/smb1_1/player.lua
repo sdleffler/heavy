@@ -37,20 +37,38 @@ local midair_high_deceleration = mpf_to_pps(0, 0, 13, 0)
 
 local tag_dead = assert(game.sprite_sheets.mario:get_tag("dead"))
 local tag_HENSHIN = assert(game.sprite_sheets.mario:get_tag("transform"))
-local tag_crouching = assert(game.sprite_sheets.mario:get_tag("tall_crouch"))
 
-local tag_table = {
+local small_collider = hf.collision.Collider.cuboid(7.9, 8.0)
+local large_collider = hf.collision.Collider.cuboid(7.9, 16.0, 0.0, 8.0)
+
+local tag_and_collider_table = {
     small = {
-        idle = assert(game.sprite_sheets.mario:get_tag("idle")),
-        walk = assert(game.sprite_sheets.mario:get_tag("walk")),
-        skid = assert(game.sprite_sheets.mario:get_tag("skid")),
-        jump = assert(game.sprite_sheets.mario:get_tag("jump")),
+        idle = { tag = assert(game.sprite_sheets.mario:get_tag("idle")), collider = small_collider },
+        walk = { tag = assert(game.sprite_sheets.mario:get_tag("walk")), collider = small_collider },
+        skid = { tag = assert(game.sprite_sheets.mario:get_tag("skid")), collider = small_collider },
+        jump = { tag = assert(game.sprite_sheets.mario:get_tag("jump")), collider = small_collider },
     },
     big = {
-        idle = assert(game.sprite_sheets.mario:get_tag("tall_idle")),
-        walk = assert(game.sprite_sheets.mario:get_tag("tall_walk")),
-        skid = assert(game.sprite_sheets.mario:get_tag("tall_skid")),
-        jump = assert(game.sprite_sheets.mario:get_tag("tall_jump")),
+        idle = {
+            tag = assert(game.sprite_sheets.mario:get_tag("tall_idle")),
+            collider = large_collider,
+        },
+        walk = {
+            tag = assert(game.sprite_sheets.mario:get_tag("tall_walk")),
+            collider = large_collider,
+        },
+        skid = {
+            tag = assert(game.sprite_sheets.mario:get_tag("tall_skid")),
+            collider = large_collider,
+        },
+        jump = {
+            tag = assert(game.sprite_sheets.mario:get_tag("tall_jump")),
+            collider = large_collider,
+        },
+        crouch = {
+            tag = assert(game.sprite_sheets.mario:get_tag("tall_crouch")),
+            collider = small_collider,
+        },
     },
 }
 
@@ -63,9 +81,9 @@ do
             player:velocity_add_linear(0, jump_impulse)
 
             if player.powerup_status ~= "small" and input:get_button_down(button.Down) then
-                player.animation = tag_crouching
+                player:swap_collider_and_tag("crouch")
             else
-                player.animation = tag_table[player.powerup_status].jump
+                player:swap_collider_and_tag("jump")
             end
 
             agent:push("air")
@@ -106,9 +124,9 @@ do
                 end
 
                 if player.powerup_status ~= "small" and input:get_button_down(button.Down) then
-                    player.animation = tag_crouching
+                    player:swap_collider_and_tag("crouch")
                 else
-                    player.animation = tag_table[player.powerup_status].idle
+                    player:swap_collider_and_tag("idle")
                 end
 
             elseif move_dir == -sign_vx then
@@ -119,7 +137,7 @@ do
                     vx = 0
                 end
 
-                player.animation = tag_table[player.powerup_status].skid
+                player:swap_collider_and_tag("skid")
             else
                 assert(move_dir == sign_vx or sign_vx == 0)
                 -- Case 1. (accelerating)
@@ -144,12 +162,12 @@ do
                 end
 
                 if move_dir ~= 0 and sign_vx ~= 0 then
-                    player.animation = tag_table[player.powerup_status].walk
+                    player:swap_collider_and_tag("walk")
                 else
                     if input:get_button_pressed(button.Down) and player.powerup_status ~= "small" then
-                        player.animation = tag_crouching
+                        player:swap_collider_and_tag("crouch")
                     else
-                        player.animation = tag_table[player.powerup_status].idle
+                        player:swap_collider_and_tag("idle")
                     end
                 end
             end
@@ -212,9 +230,7 @@ do
         -- remain crouch jumping. This negation checks for the opposite of that and updates him to
         -- the jump animation if he lets go
         if not (player.powerup_status ~= "small" and input:get_button_down(button.Down) and
-            player.animation == tag_crouching) then
-            player.animation = tag_table[player.powerup_status].jump
-        end
+            player.animation == tag_crouching) then player:swap_collider_and_tag("jump") end
 
         player:velocity_set_linear(vx, math.max(vy, -maximum_falling_velocity))
 
@@ -261,7 +277,7 @@ do
 
     function Player:init(space, x, y)
         Player.super.init(
-            self, space, x, y, Velocity(), Collider(hf.collision.Collider.cuboid(7.9, 8)),
+            self, space, x, y, Velocity(), Collider(small_collider),
             SpriteAnimation(gfx.SpriteAnimation.new(game.sprite_sheets.mario)), game.PlayerMarker,
             game.RequiresLuaUpdate
         )
@@ -269,7 +285,7 @@ do
         self.run_frames = 0
         self.invincible_timer = 0
         self.facing_direction = 1
-        self.animation = tag_table[self.powerup_status].idle
+        self.animation = tag_and_collider_table[self.powerup_status].idle.tag
         self.prev_animation = self.animation
         self.controller = PlayerController:new()
 
@@ -349,6 +365,13 @@ do
                 self.invincible_timer = hurt_invincibility_len
             end
         end
+    end
+
+    function Player:swap_collider_and_tag(player_action)
+        self.animation = tag_and_collider_table[self.powerup_status][player_action].tag
+        game.space:insert(
+            self, Collider(tag_and_collider_table[self.powerup_status][player_action].collider)
+        )
     end
 
     function Player:update()

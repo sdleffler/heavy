@@ -162,7 +162,7 @@ impl Collider {
     }
 
     pub fn compute_aabb(&self, position: &Isometry2<f32>) -> Box2<f32> {
-        self.shape.compute_aabb(position).into()
+        self.shape.compute_aabb(&(position * self.local_tx)).into()
     }
 
     pub fn compute_swept_aabb(
