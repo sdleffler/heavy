@@ -38,22 +38,21 @@ local midair_high_deceleration = mpf_to_pps(0, 0, 13, 0)
 local tag_dead = assert(game.sprite_sheets.mario:get_tag("dead"))
 local tag_HENSHIN = assert(game.sprite_sheets.mario:get_tag("transform"))
 local tag_crouching = assert(game.sprite_sheets.mario:get_tag("tall_crouch"))
+local tag_small_idle = assert(game.sprite_sheets.mario:get_tag("idle"))
+local tag_tall_idle = assert(game.sprite_sheets.mario:get_tag("tall_idle"))
 
 local small_collider = hf.collision.Collider.cuboid(7.9, 8.0)
 local large_collider = hf.collision.Collider.cuboid(7.9, 16.0, 0.0, 8.0)
 
 local tag_and_collider_table = {
     small = {
-        idle = { tag = assert(game.sprite_sheets.mario:get_tag("idle")), collider = small_collider },
+        idle = { tag = tag_small_idle, collider = small_collider },
         walk = { tag = assert(game.sprite_sheets.mario:get_tag("walk")), collider = small_collider },
         skid = { tag = assert(game.sprite_sheets.mario:get_tag("skid")), collider = small_collider },
         jump = { tag = assert(game.sprite_sheets.mario:get_tag("jump")), collider = small_collider },
     },
     big = {
-        idle = {
-            tag = assert(game.sprite_sheets.mario:get_tag("tall_idle")),
-            collider = large_collider,
-        },
+        idle = { tag = tag_tall_idle, collider = large_collider },
         walk = {
             tag = assert(game.sprite_sheets.mario:get_tag("tall_walk")),
             collider = large_collider,
@@ -264,9 +263,47 @@ do
     end
 end
 
+local PoweringUp = State:extend("smb1_1.player.PoweringUp", { name = "powering_up" })
+do
+    function PoweringUp:init(agent, player)
+        self.vx, self.vy = player:velocity_get_linear()
+        player:velocity_set_linear(0, 0)
+        self.powerup_func = coroutine.create(player.transform)
+        smb.controller:push("mario_pause")
+    end
+
+    function PoweringUp:update(agent, player)
+        coroutine.resume(self.powerup_func, tag_tall_idle)
+        if coroutine.status(self.powerup_func) == "dead" then
+            player:velocity_set_linear(self.vx, self.vy)
+            agent:pop()
+            smb.controller:pop()
+        end
+    end
+end
+
+local PoweringDown = State:extend("smb1_1.player.PoweringDown", { name = "powering_down" })
+do
+    function PoweringDown:init(agent, player)
+        self.vx, self.vy = player:velocity_get_linear()
+        player:velocity_set_linear(0, 0)
+        self.powerup_func = coroutine.create(player.transform)
+        smb.controller:push("mario_pause")
+    end
+
+    function PoweringDown:update(agent, player)
+        coroutine.resume(self.powerup_func, tag_small_idle)
+        if coroutine.status(self.powerup_func) == "dead" then
+            player:velocity_set_linear(self.vx, self.vy)
+            agent:pop()
+            smb.controller:pop()
+        end
+    end
+end
+
 local PlayerController = Agent:extend("PlayerController")
 do
-    PlayerController:add_states{ GroundState, AirState, Dead }
+    PlayerController:add_states{ GroundState, PoweringUp, PoweringDown, AirState, Dead }
 
     PlayerController:bind{ "update" }
 end
@@ -309,6 +346,18 @@ do
                 end
             end
                                )
+
+        self.transform = function(end_tag)
+            trans_period = 0.05 * 60
+            animation_cycles = 3 -- change this to 3 when done debugging
+            for i = 0, animation_cycles, 1 do
+                for i = 0, trans_period, 1 do coroutine.yield() end
+                self.animation = tag_HENSHIN
+                for i = 0, trans_period, 1 do coroutine.yield() end
+                self.animation = end_tag
+                for i = 0, trans_period, 1 do coroutine.yield() end
+            end
+        end
 
         self.controller:push("ground")
         self:sprite_animation_goto_tag(self.animation)
@@ -364,6 +413,7 @@ do
             else
                 self.powerup_status = "small"
                 self.invincible_timer = hurt_invincibility_len
+                self.controller:push("powering_down", self)
             end
         end
     end

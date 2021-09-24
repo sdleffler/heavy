@@ -683,7 +683,7 @@ impl SmbOneOne {
         Ok(())
     }
 
-    fn update_player_died(&self, _engine: &Engine, lua: &Lua, dt: f32) -> Result<()> {
+    fn update_player_script(&self, _engine: &Engine, lua: &Lua, dt: f32) -> Result<()> {
         self.tile_layer_batches
             .borrow_mut()
             .update_all_batches(dt, &self.ts_render_data);
@@ -801,8 +801,8 @@ impl LuaUserData for SmbOneOne {
             Ok(())
         });
 
-        methods.add_method("update_player_died", move |lua, this, dt| {
-            this.update_player_died(&get_engine(lua)?.upgrade(), lua, dt)
+        methods.add_method("update_player_script", move |lua, this, dt| {
+            this.update_player_script(&get_engine(lua)?.upgrade(), lua, dt)
                 .to_lua_err()?;
             Ok(())
         });

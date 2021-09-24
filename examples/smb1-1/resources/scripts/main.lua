@@ -38,7 +38,7 @@ local PlayerDied = State:extend("main.PlayerDied", { name = "player_died" })
 do
     function PlayerDied:update(agent, dt)
         game:integrate_objects_without_colliders(dt)
-        game:update_player_died(dt)
+        game:update_player_script(dt)
     end
     function PlayerDied:draw() game:draw() end
 end
@@ -110,9 +110,15 @@ do
     end
 end
 
+local MarioPause = State:extend("main.MarioPause", { name = "mario_pause" })
+do
+    function MarioPause:update(agent, dt) game:update_player_script(dt) end
+    function MarioPause:draw() game:draw() end
+end
+
 local GameController = Agent:extend("GameController")
 do
-    GameController:add_states{ Normal, PlayerDied, WipeIn, WipeOut }
+    GameController:add_states{ Normal, PlayerDied, WipeIn, WipeOut, MarioPause }
 
     GameController:bind{ "update", "draw" }
 end
