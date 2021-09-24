@@ -195,18 +195,6 @@ impl TileId {
 
         TileId(gid, TileMetaData::new(tileset_id, flipx, flipy, diag_flip))
     }
-
-    fn from_gid_with_tileset_id(mut gid: u32, tileset_id: u32) -> TileId {
-        // For each tile, we check the flip flags and set the metadata with them.
-        // We then unset the flip flags in the tile ID
-        let flipx = (gid & FLIPPED_HORIZONTALLY_FLAG) != 0;
-        let flipy = (gid & FLIPPED_VERTICALLY_FLAG) != 0;
-        let diag_flip = (gid & FLIPPED_DIAGONALLY_FLAG) != 0;
-
-        gid &= UNSET_FLAGS;
-
-        TileId(gid, TileMetaData::new(tileset_id, flipx, flipy, diag_flip))
-    }
 }
 
 #[derive(Debug, Clone)]
