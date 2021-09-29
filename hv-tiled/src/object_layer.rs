@@ -120,6 +120,8 @@ pub struct ObjectGroup {
     pub visible: bool,
     pub draworder: DrawOrder,
     pub object_refs: Vec<ObjectRef>,
+    // TODO: maybe change this to Vec<(String, ObjectId)>?
+    pub object_name_map: HashMap<String, Vec<ObjectId>>,
     pub color: Color,
     pub id: ObjectLayerId,
     pub obj_group_type: ObjGroupType,

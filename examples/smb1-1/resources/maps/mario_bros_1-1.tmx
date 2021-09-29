@@ -19,10 +19,48 @@
     <frame tileid="3" duration="132"/>
    </animation>
   </tile>
+  <tile id="1">
+   <objectgroup draworder="index" id="2">
+    <object id="1" x="0" y="0" width="16" height="16"/>
+   </objectgroup>
+  </tile>
+  <tile id="2">
+   <objectgroup draworder="index" id="2">
+    <object id="1" x="0" y="0" width="16" height="16"/>
+   </objectgroup>
+  </tile>
+  <tile id="3">
+   <objectgroup draworder="index" id="2">
+    <object id="1" x="0" y="0" width="16" height="16"/>
+   </objectgroup>
+  </tile>
+  <tile id="16">
+   <objectgroup draworder="index" id="2">
+    <object id="1" x="0" y="0" width="16" height="16"/>
+   </objectgroup>
+  </tile>
+  <tile id="17">
+   <objectgroup draworder="index" id="2">
+    <object id="1" x="0" y="0" width="16" height="16"/>
+   </objectgroup>
+  </tile>
+  <tile id="18">
+   <objectgroup draworder="index" id="2">
+    <object id="1" x="0" y="0" width="16" height="16"/>
+   </objectgroup>
+  </tile>
+  <tile id="19">
+   <objectgroup draworder="index" id="2">
+    <object id="1" x="0" y="0" width="16" height="16"/>
+   </objectgroup>
+  </tile>
   <tile id="48">
    <properties>
     <property name="star" type="int" value="1"/>
    </properties>
+   <objectgroup draworder="index" id="2">
+    <object id="1" x="1" y="0" width="14" height="16"/>
+   </objectgroup>
    <animation>
     <frame tileid="48" duration="50"/>
     <frame tileid="49" duration="50"/>
@@ -30,10 +68,45 @@
     <frame tileid="51" duration="50"/>
    </animation>
   </tile>
+  <tile id="49">
+   <objectgroup draworder="index" id="2">
+    <object id="1" x="1" y="0" width="14" height="16"/>
+   </objectgroup>
+  </tile>
+  <tile id="50">
+   <objectgroup draworder="index" id="2">
+    <object id="1" x="1" y="0" width="14" height="16"/>
+   </objectgroup>
+  </tile>
+  <tile id="51">
+   <objectgroup draworder="index" id="2">
+    <object id="1" x="1" y="0" width="14" height="16"/>
+   </objectgroup>
+  </tile>
   <tile id="53">
    <properties>
     <property name="touch_to_win" type="bool" value="true"/>
    </properties>
+  </tile>
+  <tile id="64">
+   <objectgroup draworder="index" id="2">
+    <object id="1" x="1" y="0" width="14" height="16"/>
+   </objectgroup>
+  </tile>
+  <tile id="65">
+   <objectgroup draworder="index" id="2">
+    <object id="1" x="1" y="0" width="14" height="16"/>
+   </objectgroup>
+  </tile>
+  <tile id="66">
+   <objectgroup draworder="index" id="2">
+    <object id="1" x="1" y="0" width="14" height="16"/>
+   </objectgroup>
+  </tile>
+  <tile id="67">
+   <objectgroup draworder="index" id="2">
+    <object id="1" x="1" y="0" width="14" height="16"/>
+   </objectgroup>
   </tile>
   <tile id="69">
    <objectgroup draworder="index" id="2">
@@ -46,12 +119,30 @@
    <properties>
     <property name="coin" type="int" value="1"/>
    </properties>
+   <objectgroup draworder="index" id="2">
+    <object id="1" x="3" y="2" width="10" height="14"/>
+   </objectgroup>
    <animation>
     <frame tileid="96" duration="400"/>
     <frame tileid="97" duration="132"/>
     <frame tileid="98" duration="132"/>
     <frame tileid="99" duration="132"/>
    </animation>
+  </tile>
+  <tile id="97">
+   <objectgroup draworder="index" id="2">
+    <object id="1" x="3" y="2" width="10" height="14"/>
+   </objectgroup>
+  </tile>
+  <tile id="98">
+   <objectgroup draworder="index" id="2">
+    <object id="1" x="3" y="2" width="10" height="14"/>
+   </objectgroup>
+  </tile>
+  <tile id="99">
+   <objectgroup draworder="index" id="2">
+    <object id="1" x="3" y="2" width="10" height="14"/>
+   </objectgroup>
   </tile>
   <tile id="101">
    <properties>
@@ -68,9 +159,45 @@
     <object id="1" x="0" y="0" width="16" height="16"/>
    </objectgroup>
   </tile>
+  <tile id="112">
+   <objectgroup draworder="index" id="2">
+    <object id="1" x="3" y="2" width="10" height="14"/>
+   </objectgroup>
+   <animation>
+    <frame tileid="112" duration="400"/>
+    <frame tileid="113" duration="132"/>
+    <frame tileid="114" duration="132"/>
+    <frame tileid="115" duration="132"/>
+   </animation>
+  </tile>
+  <tile id="113">
+   <objectgroup draworder="index" id="2">
+    <object id="1" x="3" y="2" width="10" height="14"/>
+   </objectgroup>
+  </tile>
+  <tile id="114">
+   <objectgroup draworder="index" id="2">
+    <object id="1" x="3" y="2" width="10" height="14"/>
+   </objectgroup>
+  </tile>
+  <tile id="115">
+   <objectgroup draworder="index" id="2">
+    <object id="1" x="3" y="2" width="10" height="14"/>
+   </objectgroup>
+  </tile>
   <tile id="117">
    <objectgroup draworder="index" id="2">
     <object id="1" x="7" y="0" width="2" height="16"/>
+   </objectgroup>
+  </tile>
+  <tile id="118">
+   <objectgroup draworder="index" id="2">
+    <object id="1" x="0" y="0" width="16" height="16"/>
+   </objectgroup>
+  </tile>
+  <tile id="119">
+   <objectgroup draworder="index" id="2">
+    <object id="1" x="0" y="0" width="16" height="16"/>
    </objectgroup>
   </tile>
   <tile id="144">
@@ -122,12 +249,42 @@
     <object id="1" x="0" y="0" width="16" height="16"/>
    </objectgroup>
   </tile>
+  <tile id="166">
+   <objectgroup draworder="index" id="2">
+    <object id="1" x="0" y="0" width="16.0625" height="16"/>
+   </objectgroup>
+  </tile>
+  <tile id="167">
+   <objectgroup draworder="index" id="2">
+    <object id="1" x="0" y="0" width="16" height="16"/>
+   </objectgroup>
+  </tile>
   <tile id="192">
    <properties>
     <property name="touch_to_win" type="bool" value="true"/>
    </properties>
   </tile>
   <tile id="199">
+   <objectgroup draworder="index" id="2">
+    <object id="1" x="0" y="0" width="16" height="16"/>
+   </objectgroup>
+  </tile>
+  <tile id="212">
+   <objectgroup draworder="index" id="2">
+    <object id="1" x="0" y="0" width="16" height="16"/>
+   </objectgroup>
+  </tile>
+  <tile id="213">
+   <objectgroup draworder="index" id="2">
+    <object id="1" x="0" y="0" width="16" height="16"/>
+   </objectgroup>
+  </tile>
+  <tile id="214">
+   <objectgroup draworder="index" id="2">
+    <object id="1" x="0" y="0" width="16" height="16"/>
+   </objectgroup>
+  </tile>
+  <tile id="215">
    <objectgroup draworder="index" id="2">
     <object id="1" x="0" y="0" width="16" height="16"/>
    </objectgroup>
@@ -146,6 +303,26 @@
    </objectgroup>
   </tile>
   <tile id="258">
+   <objectgroup draworder="index" id="2">
+    <object id="1" x="0" y="0" width="16" height="16"/>
+   </objectgroup>
+  </tile>
+  <tile id="260">
+   <objectgroup draworder="index" id="2">
+    <object id="1" x="0" y="0" width="16" height="16"/>
+   </objectgroup>
+  </tile>
+  <tile id="261">
+   <objectgroup draworder="index" id="2">
+    <object id="1" x="0" y="0" width="16" height="16"/>
+   </objectgroup>
+  </tile>
+  <tile id="262">
+   <objectgroup draworder="index" id="2">
+    <object id="1" x="0" y="0" width="16" height="16"/>
+   </objectgroup>
+  </tile>
+  <tile id="263">
    <objectgroup draworder="index" id="2">
     <object id="1" x="0" y="0" width="16" height="16"/>
    </objectgroup>
@@ -208,7 +385,7 @@
    eJxjYKAMZI/iUTyKhywGAO2kZFE=
   </chunk>
    <chunk x="208" y="-16" width="16" height="16">
-   eJxjYKAMZCPhMEbS8aj+Uf2j+gdOPwCXrVUV
+   eJxjYKAMZCPhMEbSMTX1M5BhxmBy/6j+Uf301g8AgPNUvg==
   </chunk>
    <chunk x="224" y="-16" width="16" height="16">
    eJxjYKAMhDEi8Kj+Uf2j+oeWfgBeaQ9M
@@ -302,10 +479,7 @@
    eJxjYBgFo2DoAVVGCCYXhAL1fsYhN5sIu9WhGB2cAuJfQHwGj/7PUKyGpv8nVO9vIP4DxH8J6A+jwP8wAAAndA5o
   </chunk>
    <chunk x="208" y="-16" width="16" height="16">
-   eJxjYBgFo2DggCojZfrDKdSvzkiZGz5DMcX6gW74iSb3lwJziQUAJKcGkA==
-  </chunk>
-   <chunk x="224" y="-16" width="16" height="16">
-   eJxjYBgFo2AUDBT4D8UMjANjPwD/ewIA
+   eJxjYBgFo2DggCojZfrDKdSvzkiZGz5DMcX6KfQHuQAAUPAEmg==
   </chunk>
   </data>
  </layer>
@@ -351,10 +525,10 @@
    eJxjYBj+wIxC/WmDWP+0Uf3DXj8+NYGMlGEA6+IOmQ==
   </chunk>
    <chunk x="208" y="-16" width="16" height="16">
-   eJxjYBg+gJkRk48LE6OfUvtH9Q9t/ZSmH3roD2RE4EQyMACpFwaR
+   eJxjYKAeYGZkYFjOwOCwAohhfFwYl/5yoN4KCvSj8ynRTyoY1T+89A90+iNGfyAjAieSgQEYCgoP
   </chunk>
    <chunk x="224" y="-16" width="16" height="16">
-   eJxjYBgeYPqo/lH9A6D/KBAfA+LjZOr/CsTfgPg7mfoTGRGYHAAAvPYMQQ==
+   eJxjYKAOWD6qf1T/CNR/FYivAfF1MvWzMjIwsAExOyN5+hMZEZgcAACEgguS
   </chunk>
    <chunk x="0" y="0" width="16" height="16">
    eJwLZGRgCKQAj4JRMAqGLgAA600FIQ==
@@ -428,7 +602,7 @@
  <layer id="19" name="Items" width="227" height="18">
   <data encoding="base64" compression="zlib">
    <chunk x="208" y="-16" width="16" height="16">
-   eJxjYBgFwxkkYsEDaTc93TDQ9g8FAAAc7Qc0
+   eJxjYBgFwxkUYsEDaTc93TDQ9g8FAADxfAhk
   </chunk>
   </data>
  </layer>
@@ -484,7 +658,7 @@
   </object>
  </objectgroup>
  <objectgroup id="20" name="Flag">
-  <object id="46" name="Flag" gid="3221225577" x="3207" y="-176" width="16" height="16" rotation="25"/>
+  <object id="46" name="Flag" gid="105" x="3207" y="-176" width="16" height="16"/>
   <object id="85" name="Win Collision Box" x="3222.88" y="-288" width="16" height="260"/>
  </objectgroup>
  <objectgroup id="21" name="Characters">

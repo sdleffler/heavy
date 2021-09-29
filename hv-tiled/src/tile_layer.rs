@@ -106,14 +106,14 @@ pub struct TileLayer {
     pub layer_type: LayerType,
     pub id: TileLayerId,
     pub name: String,
-    pub x: u32,
-    pub y: u32,
+    pub x: i32,
+    pub y: i32,
     pub width: u32,
     pub height: u32,
     pub visible: bool,
     pub opacity: f64,
-    pub offset_x: u32,
-    pub offset_y: u32,
+    pub offset_x: i32,
+    pub offset_y: i32,
     pub properties: Properties,
     pub data: Chunks,
 }
@@ -171,6 +171,9 @@ impl TileLayer {
             }
         }
 
-        Ok(tile_data.into_iter().map(|tile| TileId::from_gid(tile, tile_buffer)).collect())
+        Ok(tile_data
+            .into_iter()
+            .map(|tile| TileId::from_gid(tile, tile_buffer))
+            .collect())
     }
 }

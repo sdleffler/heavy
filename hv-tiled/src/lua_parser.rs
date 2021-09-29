@@ -82,6 +82,7 @@ fn parse_map_meta_data(map_table: &LuaTable) -> Result<MapMetaData, Error> {
 
     let orientation = match map_table.get::<_, LuaString>("orientation")?.to_str()? {
         "orthogonal" => Orientation::Orthogonal,
+        "isometric" => Orientation::Isometric,
         o => return Err(anyhow!("Got an unsupported orientation: {}", o)),
     };
 
@@ -318,9 +319,13 @@ fn parse_object_group(
     tileset_ids: Option<&[u32]>,
 ) -> Result<(ObjectGroup, Vec<(ObjectId, ObjectRef)>), Error> {
     let mut obj_ids_and_refs = Vec::new();
+    let mut object_name_map = HashMap::new();
 
     for object in objg_table.get::<_, LuaTable>("objects")?.sequence_values() {
         let object = parse_object(&object?, from_obj_layer, tileset_ids)?;
+
+        let val = object_name_map.entry(object.name.clone()).or_insert_with(Vec::new);
+        val.push(object.id);
 
         obj_ids_and_refs.push((object.id, ObjectRef(slab.insert(object))));
     }
@@ -348,6 +353,7 @@ fn parse_object_group(
             off_y: objg_table.get("offsety").unwrap_or(0),
             object_refs: obj_ids_and_refs.iter().map(|i| i.1).collect(),
             color,
+            object_name_map,
         },
         obj_ids_and_refs,
     ))

@@ -279,6 +279,8 @@ impl Clone for Map {
     }
 }
 
+impl LuaUserData for Map {}
+
 #[derive(Debug, Clone)]
 pub enum CoordSpace {
     Pixel,
@@ -421,7 +423,7 @@ impl Map {
         })
     }
 
-    pub fn get_obj(&self, obj_ref: &ObjectRef) -> &Object {
+    pub fn get_obj_from_ref(&self, obj_ref: &ObjectRef) -> &Object {
         &self.obj_slab[obj_ref.0]
     }
 
@@ -440,6 +442,22 @@ impl Map {
 
     pub fn get_obj_grp_from_layer_id(&self, obj_layer_id: &ObjectLayerId) -> &ObjectGroup {
         &self.object_layers[obj_layer_id.llid as usize]
+    }
+
+    pub fn get_object_ids_in_object_group_by_name(
+        &self,
+        obj_layer_id: &ObjectLayerId,
+        name: &str,
+    ) -> &[ObjectId] {
+        self.object_layers[obj_layer_id.llid as usize]
+            .object_name_map
+            .get(name).map_or(&[], |vec| vec.as_slice())
+    }
+
+    pub fn get_object_from_id(&self, obj_id: &ObjectId) -> Option<&Object> {
+        self.obj_id_to_ref_map
+            .get(obj_id)
+            .map(|obj_ref| self.get_obj_from_ref(obj_ref))
     }
 }
 

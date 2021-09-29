@@ -153,7 +153,10 @@ impl DrawableMut for TilesetRenderData {
     }
 }
 
-pub struct TileLayerBatches(Vec<TileLayerBatch>);
+pub struct TileLayerBatches {
+    batches: Vec<TileLayerBatch>,
+    _render_orientation: Orientation,
+}
 
 impl TileLayerBatches {
     pub fn new(
@@ -171,25 +174,29 @@ impl TileLayerBatches {
                 &map.meta_data,
             ));
         }
-        TileLayerBatches(batches)
+
+        TileLayerBatches {
+            batches,
+            _render_orientation: map.meta_data.orientation.clone(),
+        }
     }
 
     pub fn update_all_batches(&mut self, dt: f32, ts_render_data: &TilesetRenderData) {
-        for tile_layer_batch in self.0.iter_mut() {
+        for tile_layer_batch in self.batches.iter_mut() {
             tile_layer_batch.update_batches(dt, ts_render_data);
         }
     }
 
     pub fn get_layer(&self, layer_id: TileLayerId) -> &TileLayerBatch {
-        &self.0[layer_id.llid as usize]
+        &self.batches[layer_id.llid as usize]
     }
 
     pub fn get_layer_mut(&mut self, layer_id: TileLayerId) -> &mut TileLayerBatch {
-        &mut self.0[layer_id.llid as usize]
+        &mut self.batches[layer_id.llid as usize]
     }
 
     pub fn get_tile_batch_layers(&mut self) -> impl Iterator<Item = &mut TileLayerBatch> + '_ {
-        self.0.iter_mut()
+        self.batches.iter_mut()
     }
 
     fn set_tile(
@@ -198,7 +205,7 @@ impl TileLayerBatches {
         ts_render_data: &TilesetRenderData,
     ) -> Option<SpriteId> {
         // Remove the existing sprite id and any animated metadata associatd with it
-        let ret_val = if self.0[addition.layer_id.llid as usize]
+        let ret_val = if self.batches[addition.layer_id.llid as usize]
             .sprite_id_map
             .contains_key(&(addition.x, addition.y))
         {
@@ -214,7 +221,7 @@ impl TileLayerBatches {
 
         // Insert the new tile into the sprite sheet
         let index = addition.new_id.to_index().unwrap();
-        let tile_batch = &mut self.0[addition.layer_id.llid as usize];
+        let tile_batch = &mut self.batches[addition.layer_id.llid as usize];
         let sprite_id = tile_batch.sprite_batches[addition.new_id.1.tileset_id() as usize].insert(
             Instance::new()
                 .src(ts_render_data.uvs[index])
@@ -254,7 +261,7 @@ impl TileLayerBatches {
     }
 
     fn remove_tile(&mut self, removal: &TileRemoval) -> Option<SpriteId> {
-        let tile_batch = &mut self.0[removal.layer_id.llid as usize];
+        let tile_batch = &mut self.batches[removal.layer_id.llid as usize];
         if let Some(old_sprite_id) = tile_batch.sprite_id_map.remove(&(removal.x, removal.y)) {
             // Attempt to remove the sprite sheet info if it exists since we don't want to update animation info for a sprite that doesn't exist
             tile_batch.sprite_sheet_info[removal.id.1.tileset_id() as usize].remove(&old_sprite_id);
@@ -289,12 +296,13 @@ impl TileLayerBatches {
 
 impl DrawableMut for TileLayerBatches {
     fn draw_mut(&mut self, ctx: &mut Graphics, instance: Instance) {
-        for tile_layer in self.0.iter_mut() {
+        for tile_layer in self.batches.iter_mut() {
             if tile_layer.visible {
                 for batch in tile_layer.sprite_batches.iter_mut() {
                     batch.draw_mut(
                         ctx,
-                        instance.translate2(Vector2::new(tile_layer.offx, tile_layer.offy)),
+                        instance
+                            .translate2(Vector2::new(tile_layer.offset_x, -tile_layer.offset_y)),
                     );
                 }
             }
@@ -308,8 +316,10 @@ pub struct TileLayerBatch {
     sprite_batches: Vec<SpriteBatch<CachedTexture>>,
     pub visible: bool,
     pub opacity: f64,
-    pub offx: f32,
-    pub offy: f32,
+    _x: f32,
+    _y: f32,
+    pub offset_x: f32,
+    pub offset_y: f32,
 }
 
 impl DrawableMut for TileLayerBatch {
@@ -375,14 +385,27 @@ impl TileLayerBatch {
                             + (CHUNK_SIZE - tile_y) as i32
                             - 1;
 
+                        let (pixel_x, pixel_y) = match map_meta_data.orientation {
+                            Orientation::Orthogonal => (
+                                (tile_x_global * map_meta_data.tilewidth as i32) as f32,
+                                (tile_y_global * map_meta_data.tileheight as i32) as f32,
+                            ),
+                            Orientation::Isometric => (
+                                ((tile_x_global + tile_y_global) * map_meta_data.tilewidth as i32)
+                                    as f32
+                                    / 2.0,
+                                (((tile_x_global + (-tile_y_global))
+                                    * map_meta_data.tileheight as i32)
+                                    as f32
+                                    / -2.0),
+                            ),
+                        };
+
                         let sprite_id = sprite_batches[tile.1.tileset_id() as usize].insert(
                             Instance::new()
                                 .src(ts_render_data.uvs[index])
                                 .color(Color::new(1.0, 1.0, 1.0, layer.opacity as f32))
-                                .translate2(Vector2::new(
-                                    (tile_x_global * map_meta_data.tilewidth as i32) as f32,
-                                    (tile_y_global * map_meta_data.tileheight as i32) as f32,
-                                ))
+                                .translate2(Vector2::new(pixel_x, pixel_y))
                                 .scale2(Vector2::new(scale_x, scale_y))
                                 .translate2(Vector2::new(trans_fix_x, trans_fix_y))
                                 .scale2(Vector2::new(1.0, y_scale))
@@ -416,8 +439,10 @@ impl TileLayerBatch {
             sprite_sheet_info: ss_state,
             visible: layer.visible,
             opacity: layer.opacity,
-            offx: (layer.x * map_meta_data.tilewidth) as f32,
-            offy: (layer.y * map_meta_data.tileheight) as f32,
+            _x: (layer.x * (map_meta_data.tilewidth as i32)) as f32,
+            _y: (layer.y * (map_meta_data.tileheight as i32)) as f32,
+            offset_x: layer.offset_x as f32,
+            offset_y: layer.offset_y as f32,
             sprite_batches,
             sprite_id_map,
         }

@@ -131,7 +131,7 @@ end
 local KoopaController = Agent:extend("KoopaController")
 do
     KoopaController:add_states{ Walking, ShellStop, ShellDrift }
-    KoopaController:bind{
+    KoopaController:bind {
         "update", "on_squish", "on_mario_collide", "on_collide_with_object", "on_mario_collide",
         "on_enemy_collide",
     }
