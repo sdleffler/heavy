@@ -4,7 +4,7 @@
 //! It is built on the [`hecs`] ECS, but adds space IDs to [`Object`]s so that they cannot be used
 //! with the wrong `Space`.
 
-use std::{cell::RefCell, fmt};
+use std::{cell::RefCell, fmt, sync::RwLock};
 
 use crate::{
     engine::{LuaExt, LuaResource},
@@ -12,6 +12,7 @@ use crate::{
     mlua::prelude::*,
     plugins::{ModuleWrapper, Plugin},
     shared::Shared,
+    spaces::command::CommandBuffer,
 };
 
 use {
@@ -25,6 +26,7 @@ use serde::{Deserialize, Serialize};
 
 mod lua;
 
+pub mod command;
 pub mod object_table;
 pub mod serialize;
 
@@ -61,6 +63,12 @@ impl From<hecs::ComponentError> for ComponentError {
             hecs::ComponentError::NoSuchEntity => Self::NoSuchObject,
             hecs::ComponentError::MissingComponent(specifics) => Self::MissingComponent(specifics),
         }
+    }
+}
+
+impl From<hecs::NoSuchEntity> for ComponentError {
+    fn from(_: hecs::NoSuchEntity) -> Self {
+        ComponentError::NoSuchObject
     }
 }
 
@@ -442,6 +450,7 @@ impl<'q, Q: Query> IntoIterator for QueryMut<'q, Q> {
 ///
 pub struct Space {
     id: SpaceId,
+    command_buffer: RwLock<CommandBuffer>,
 
     #[doc(hidden)]
     pub ecs: hecs::World,
@@ -451,6 +460,7 @@ impl Space {
     fn new() -> Self {
         Self {
             id: SpaceId::invalid(),
+            command_buffer: RwLock::new(CommandBuffer::new()),
             ecs: hecs::World::new(),
         }
     }
@@ -767,6 +777,43 @@ impl Space {
     pub fn is_empty(&self) -> bool {
         self.ecs.is_empty()
     }
+
+    /// Queue a [`Space::spawn`] in the internal command buffer. This is thread-safe, and can be
+    /// called during a [`Space::query`].
+    pub fn queue_spawn(&self, bundle: impl DynamicBundle) -> Object {
+        let object = self.reserve_object();
+        self.queue_insert(object, bundle);
+        object
+    }
+
+    /// Queue a [`Space::despawn`] in the internal command buffer. This is thread-safe, and can be
+    /// called during a [`Space::query`].
+    pub fn queue_despawn(&self, object: Object) {
+        self.command_buffer.write().unwrap().despawn(object);
+    }
+
+    /// Queue a [`Space::insert`] in the internal command buffer. This is thread-safe, and can be
+    /// called during a [`Space::query`].
+    pub fn queue_insert(&self, object: Object, bundle: impl DynamicBundle) {
+        self.command_buffer.write().unwrap().insert(object, bundle);
+    }
+
+    /// Queue a [`Space::remove`] in the internal command buffer. This is thread-safe, and can be
+    /// called during a [`Space::query`].
+    pub fn queue_remove<T: Bundle + 'static>(&self, object: Object) {
+        self.command_buffer.write().unwrap().remove::<T>(object);
+    }
+
+    /// Drain the internal command buffer, running all queued commands.
+    ///
+    /// All commands will be drained and run even if an error occurs. Errors will be gathered and
+    /// returned *after* all commands are run, if any occur.
+    pub fn run_queued(&mut self) -> Result<()> {
+        self.command_buffer
+            .get_mut()
+            .unwrap()
+            .run_internal(self.id, &mut self.ecs)
+    }
 }
 
 impl LuaUserData for Space {
@@ -779,6 +826,9 @@ impl LuaUserData for Space {
         methods.add_method_mut("spawn", spaces_spawn());
         methods.add_method_mut("insert", spaces_insert());
         methods.add_method_mut("despawn", spaces_despawn());
+        methods.add_method("queue_spawn", spaces_queue_spawn());
+        methods.add_method("queue_insert", spaces_queue_insert());
+        methods.add_method("queue_despawn", spaces_queue_despawn());
         methods.add_method_mut("clear", spaces_clear());
         methods.add_method("id", |_, this, ()| Ok(this.id));
 

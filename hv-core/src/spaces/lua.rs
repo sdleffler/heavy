@@ -60,6 +60,50 @@ pub fn spaces_despawn() -> lua_fn!(FnMut<'lua>(&mut Space, Object) -> ()) {
     }
 }
 
+pub fn spaces_queue_spawn() -> lua_fn!(Fn<'lua>(&Space, LuaVariadic<LuaAnyUserData<'lua>>) -> Object)
+{
+    move |lua, space, components| {
+        let mut command_buffer = space.command_buffer.write().unwrap();
+        let mut builder = command_buffer.get_builder();
+        let object = space.reserve_object();
+
+        for component in components {
+            let dynamic_component = component.borrow::<DynamicComponentConstructor>()?;
+            dynamic_component
+                .add_to_object_builder(lua, object, &mut builder)
+                .to_lua_err()?;
+        }
+
+        command_buffer.insert_builder(object, builder);
+        Ok(object)
+    }
+}
+
+pub fn spaces_queue_insert(
+) -> lua_fn!(Fn<'lua>(&Space, (Object, LuaVariadic<LuaAnyUserData<'lua>>)) -> Object) {
+    move |lua, space, (object, components)| {
+        let mut command_buffer = space.command_buffer.write().unwrap();
+        let mut builder = command_buffer.get_builder();
+
+        for component in components {
+            let dynamic_component = component.borrow::<DynamicComponentConstructor>()?;
+            dynamic_component
+                .add_to_object_builder(lua, object, &mut builder)
+                .to_lua_err()?;
+        }
+
+        command_buffer.insert_builder(object, builder);
+        Ok(object)
+    }
+}
+
+pub fn spaces_queue_despawn() -> lua_fn!(Fn<'lua>(&Space, Object) -> ()) {
+    |_, space, object| {
+        space.queue_despawn(object);
+        Ok(())
+    }
+}
+
 pub fn spaces_clear() -> lua_fn!(FnMut<'lua>(&mut Space, ()) -> ()) {
     |_, space, ()| {
         space.clear();
