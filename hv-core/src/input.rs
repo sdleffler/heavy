@@ -789,7 +789,7 @@ where
     pub fn update_effect(&mut self, effect: InputEffect<Axes, Buttons>, started: bool) {
         match effect {
             InputEffect::Axis(axis, position) => {
-                let f = || AxisState::default();
+                let f = AxisState::default;
                 let axis_status = self.axes.entry(axis).or_insert_with(f);
                 if started {
                     axis_status.direction = position;

@@ -142,19 +142,10 @@ impl Default for Parameters {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 struct Frame {
     params: Parameters,
     shot_type: Option<ShotTypeIndex>,
-}
-
-impl Default for Frame {
-    fn default() -> Self {
-        Self {
-            params: Default::default(),
-            shot_type: None,
-        }
-    }
 }
 
 pub struct Barrage {

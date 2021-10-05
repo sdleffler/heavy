@@ -6,7 +6,6 @@ use crate::*;
 #[derive(Debug, Clone)]
 pub struct SpriteSheetState {
     anim_state: AnimationState,
-    sprite_tag: TagId,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -240,13 +239,8 @@ impl TileLayerBatches {
                 [addition.new_id.1.tileset_id() as usize]
                 .1
                 .at_tag(*t, true);
-            tile_batch.sprite_sheet_info[addition.new_id.1.tileset_id() as usize].insert(
-                sprite_id,
-                SpriteSheetState {
-                    anim_state,
-                    sprite_tag: *t,
-                },
-            );
+            tile_batch.sprite_sheet_info[addition.new_id.1.tileset_id() as usize]
+                .insert(sprite_id, SpriteSheetState { anim_state });
         }
 
         // Insert the new sprite id, we unwrap() here to trigger a panic in the event
@@ -422,13 +416,8 @@ impl TileLayerBatch {
                                 [tile.1.tileset_id() as usize]
                                 .1
                                 .at_tag(*t, true);
-                            ss_state[tile.1.tileset_id() as usize].insert(
-                                sprite_id,
-                                SpriteSheetState {
-                                    anim_state,
-                                    sprite_tag: *t,
-                                },
-                            );
+                            ss_state[tile.1.tileset_id() as usize]
+                                .insert(sprite_id, SpriteSheetState { anim_state });
                         }
                     }
                 }

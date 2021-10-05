@@ -43,7 +43,7 @@ struct CharInfo {
     horizontal_offset: f32,
     advance_width: f32,
     uvs: Box2<f32>,
-    scale: Vector2<f32>,
+    _scale: Vector2<f32>,
     width: f32,
     height: f32,
 }
@@ -207,7 +207,7 @@ impl FontAtlas {
                         ),
                         advance_width: h_metrics.advance_width,
                         horizontal_offset: h_metrics.left_side_bearing,
-                        scale: Vector2::repeat(1. / height_px),
+                        _scale: Vector2::repeat(1. / height_px),
                         width: bb.width() as f32,
                         height: bb.height() as f32,
                     },
